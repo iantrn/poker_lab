@@ -1,8 +1,8 @@
 
 /* =========================================================
    POKERLAB - SERVICE WORKER
-   Version : 1.0
-   Description : Gestion du cache et fonctionnement hors ligne
+   Version : 2.0
+   Description : Cache local et fonctionnement hors ligne
    ========================================================= */
 
 "use strict";
@@ -14,27 +14,65 @@
 
 const SW_CONFIG = {
 
-    cacheVersion: "v1",
+    cacheVersion: "v2",
 
     cachePrefix: "pokerlab-",
 
-    cacheName: "pokerlab-v1",
+    cacheName: "pokerlab-v2",
 
-    tailwindURL: "https://cdn.tailwindcss.com",
-
+    // Ressources nécessaires au fonctionnement de PokerLab.
     localResources: [
+
+        // Application principale
         "./",
         "./index.html",
         "./manifest.json",
+
+        // Feuilles de style
+        "./css/utilities.css",
         "./css/style.css",
-        "./js/app.js"
+
+        // JavaScript principal
+        "./js/app.js",
+
+        // Moteur de poker
+        "./js/core/deck.js",
+        "./js/core/evaluator.js",
+        "./js/core/game-engine.js",
+        "./js/core/poker-rules.js",
+
+        // Intelligence artificielle
+        "./js/bots/bot-engine.js",
+        "./js/bots/bot-profiles.js",
+
+        // Modules
+        "./js/modules/training.js",
+        "./js/modules/puzzles.js",
+        "./js/modules/lessons.js",
+        "./js/modules/game-review.js",
+
+        // Composants
+        "./js/components/table.js",
+        "./js/components/cards.js",
+        "./js/components/navigation.js",
+        "./js/components/range-matrix.js",
+
+        // Utilitaires
+        "./js/utils/storage.js",
+        "./js/utils/helpers.js",
+
+        // Données locales
+        "./data/ranges/ranges.json",
+        "./data/puzzles/puzzles.json",
+        "./data/lessons/lessons.json"
+
     ]
 
 };
 
 
 /* =========================================================
-   2. INSTALLATION DU SERVICE WORKER
+   2. INSTALLATION
    ========================================================= */
 
 self.addEventListener("install", (event) => {
@@ -49,58 +87,21 @@ self.addEventListener("install", (event) => {
                     SW_CONFIG.cacheName
                 );
 
-                // Mise en cache des ressources locales.
-
+                // Préchargement de toutes les ressources locales.
                 await cache.addAll(
                     SW_CONFIG.localResources
                 );
 
-                // Tentative de mise en cache de Tailwind CDN.
+                console.info(
+                    "[PokerLab SW] Toutes les ressources locales sont en cache."
+                );
 
-                try {
-
-                    const tailwindRequest = new Request(
-                        SW_CONFIG.tailwindURL,
-                        {
-                            mode: "no-cors"
-                        }
-                    );
-
-                    const tailwindResponse = await fetch(
-                        tailwindRequest
-                    );
-
-                    if (
-                        tailwindResponse &&
-                        (
-                            tailwindResponse.type === "opaque" ||
-                            tailwindResponse.ok
-                        )
-                    ) {
-
-                        await cache.put(
-                            tailwindRequest,
-                            tailwindResponse
-                        );
-
-                    }
-
-                } catch (error) {
-
-                    console.warn(
-                        "[PokerLab SW] Impossible de mettre Tailwind en cache :",
-                        error
-                    );
-
-                }
+                // Activation immédiate.
+                await self.skipWaiting();
 
                 console.info(
                     "[PokerLab SW] Installation terminée."
                 );
-
-                // Activation immédiate du nouveau service worker.
-
-                await self.skipWaiting();
 
             } catch (error) {
 
@@ -121,7 +122,7 @@ self.addEventListener("install", (event) => {
 
 
 /* =========================================================
-   3. ACTIVATION DU SERVICE WORKER
+   3. ACTIVATION
    ========================================================= */
 
 self.addEventListener("activate", (event) => {
@@ -134,6 +135,7 @@ self.addEventListener("activate", (event) => {
 
                 const cacheNames = await caches.keys();
 
+                // Identifier les anciennes versions de PokerLab.
                 const obsoleteCaches = cacheNames.filter(
                     (cacheName) => {
 
@@ -147,18 +149,23 @@ self.addEventListener("activate", (event) => {
                     }
                 );
 
-                // Suppression des anciennes versions du cache.
-
+                // Supprimer les anciens caches.
                 await Promise.all(
+
                     obsoleteCaches.map((cacheName) => {
+
+                        console.info(
+                            "[PokerLab SW] Suppression de l'ancien cache :",
+                            cacheName
+                        );
 
                         return caches.delete(cacheName);
 
                     })
+
                 );
 
-                // Prise de contrôle des pages ouvertes.
-
+                // Prendre immédiatement le contrôle des pages.
                 await self.clients.claim();
 
                 console.info(
@@ -189,99 +196,21 @@ self.addEventListener("fetch", (event) => {
 
     const request = event.request;
 
-    // Ignorer les requêtes autres que GET.
-
+    // Ignorer les requêtes qui ne sont pas GET.
     if (request.method !== "GET") {
         return;
     }
 
     const requestURL = new URL(request.url);
 
-    // Vérifier si la requête concerne Tailwind CDN.
-
-    const isTailwindRequest =
-        requestURL.origin === "https://cdn.tailwindcss.com";
-
-
-    /* -----------------------------------------------------
-       4.1. TAILWIND CDN
-       Stratégie : Cache First
-       ----------------------------------------------------- */
-
-    if (isTailwindRequest) {
-
-        event.respondWith(
-
-            (async () => {
-
-                const cache = await caches.open(
-                    SW_CONFIG.cacheName
-                );
-
-                const cachedResponse = await cache.match(
-                    request
-                );
-
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-
-                try {
-
-                    const networkResponse = await fetch(request);
-
-                    if (
-                        networkResponse &&
-                        networkResponse.status === 200
-                    ) {
-
-                        const responseClone =
-                            networkResponse.clone();
-
-                        await cache.put(
-                            request,
-                            responseClone
-                        );
-
-                    }
-
-                    return networkResponse;
-
-                } catch (error) {
-
-                    console.error(
-                        "[PokerLab SW] Tailwind indisponible :",
-                        error
-                    );
-
-                    return new Response(
-                        "Tailwind CSS indisponible hors ligne.",
-                        {
-                            status: 503,
-                            statusText: "Service Unavailable"
-                        }
-                    );
-
-                }
-
-            })()
-
-        );
-
-        return;
-
-    }
-
-
-    // Ne pas intercepter les ressources provenant d'autres domaines.
-
+    // Ignorer les requêtes externes.
     if (requestURL.origin !== self.location.origin) {
         return;
     }
 
 
     /* -----------------------------------------------------
-       4.2. NAVIGATION HTML
+       4.1. NAVIGATION HTML
        Stratégie : Network First
        ----------------------------------------------------- */
 
@@ -299,13 +228,19 @@ self.addEventListener("fetch", (event) => {
 
                     const networkResponse = await fetch(request);
 
+                    // Mettre à jour la page en cache si elle est valide.
                     if (
                         networkResponse &&
-                        networkResponse.status === 200
+                        networkResponse.ok
                     ) {
 
-                        await cache.put(
+                        const indexURL = new URL(
                             "./index.html",
+                            self.registration.scope
+                        );
+
+                        await cache.put(
+                            indexURL.href,
                             networkResponse.clone()
                         );
 
@@ -319,6 +254,7 @@ self.addEventListener("fetch", (event) => {
                         "[PokerLab SW] Navigation hors ligne."
                     );
 
+                    // Essayer d'abord la page demandée.
                     const cachedPage = await cache.match(
                         request,
                         {
@@ -330,8 +266,14 @@ self.addEventListener("fetch", (event) => {
                         return cachedPage;
                     }
 
+                    // Sinon, retourner la page d'accueil.
+                    const fallbackURL = new URL(
+                        "./index.html",
+                        self.registration.scope
+                    );
+
                     const fallbackPage = await cache.match(
-                        "./index.html"
+                        fallbackURL.href
                     );
 
                     if (fallbackPage) {
@@ -360,7 +302,7 @@ self.addEventListener("fetch", (event) => {
 
 
     /* -----------------------------------------------------
-       4.3. RESSOURCES LOCALES
+       4.2. RESSOURCES LOCALES
        Stratégie : Cache First
        ----------------------------------------------------- */
 
@@ -372,6 +314,7 @@ self.addEventListener("fetch", (event) => {
                 SW_CONFIG.cacheName
             );
 
+            // Vérifier d'abord le cache.
             const cachedResponse = await cache.match(
                 request
             );
@@ -382,11 +325,14 @@ self.addEventListener("fetch", (event) => {
 
             try {
 
+                // Si la ressource n'est pas en cache,
+                // essayer de la récupérer sur le réseau.
                 const networkResponse = await fetch(request);
 
+                // Mettre en cache les réponses valides.
                 if (
                     networkResponse &&
-                    networkResponse.status === 200
+                    networkResponse.ok
                 ) {
 
                     await cache.put(

@@ -9,44 +9,24 @@
         content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     >
 
+    <!-- Métadonnées générales -->
     <meta name="theme-color" content="#121212">
+    <meta name="description" content="Entraîne-toi au poker Texas Hold'em avec PokerLab.">
+
+    <!-- Compatibilité PWA et iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PokerLab">
 
-    <meta
-        name="description"
-        content="Entraîne-toi au poker Texas Hold'em avec PokerLab."
-    >
-
     <title>PokerLab</title>
 
+    <!-- Manifest et icône -->
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Configuration Tailwind -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        background: "#121212",
-                        surface: "#1E1E1E",
-                        surfaceLight: "#292929",
-                        primary: "#B71C35",
-                        primaryHover: "#D32F4A",
-                        textMain: "#F5F5F5",
-                        textMuted: "#A0A0A0"
-                    }
-                }
-            }
-        };
-    </script>
-
-    <!-- Feuille de style principale -->
+    <!-- Feuilles de style locales -->
+    <link rel="stylesheet" href="./css/utilities.css">
     <link rel="stylesheet" href="./css/style.css">
 </head>
 
