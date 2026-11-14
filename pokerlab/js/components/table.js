@@ -1,499 +1,129 @@
+/**
+ * PokerLab - Table Component
+ * Gère le rendu et la mise à jour visuelle de la table de poker (6-max / Heads-Up).
+ */
+(function() {
+    window.PokerLabTable = {
+        /**
+         * Rendu initial de la table dans le conteneur cible.
+         * @param {HTMLElement} container - Élément conteneur de la vue.
+         * @param {Object} gameState - État actuel de la partie.
+         */
+        render(container, gameState) {
+            if (!container) return;
 
-/* =========================================================
-   POKERLAB - TABLE COMPONENT
-   Version : 1.0.0
-   Description : Affichage de la table et des joueurs
-   ========================================================= */
+            const isHeadsUp = gameState.maxPlayers === 2 || (gameState.players && gameState.players.length === 2);
+            const tableClass = isHeadsUp ? 'pl-table-container heads-up' : 'pl-table-container max-6';
 
-"use strict";
+            container.innerHTML = `
+                <div class="${tableClass}">
+                    <!-- En-tête de la table / Infos de main -->
+                    <div class="pl-table-header">
+                        <span class="pl-hand-counter">Main #${gameState.handNumber || 1}</span>
+                        <span class="pl-game-mode">${isHeadsUp ? 'Heads-Up' : '6-Max Cash Game'}</span>
+                        <span class="pl-stakes">Blinds: 0.5 / 1 BB</span>
+                    </div>
 
-window.PokerLabTable = (function () {
+                    <!-- Surface de la table de poker -->
+                    <div class="pl-felt">
+                        <!-- Pot principal et pots secondaires -->
+                        <div class="pl-pot-display">
+                            <span class="pl-pot-label">Pot Total</span>
+                            <span class="pl-pot-amount">${gameState.pot || 0} jetons</span>
+                        </div>
 
-    /* =====================================================
-       1. CONFIGURATION
-       ===================================================== */
+                        <!-- Tableau (Board) : Flop, Turn, River -->
+                        <div class="pl-community-cards" id="pl-board-cards">
+                            ${this.renderCommunityCards(gameState.board)}
+                        </div>
+                    </div>
 
-    const DEFAULT_OPTIONS = {
-        heroPlayerId: null,
-        revealAllCards: false,
-        currency: "jetons",
-        showPositions: true,
-        showPlayerBets: true,
-        showStacks: true
-    };
+                    <!-- Sièges des joueurs -->
+                    <div class="pl-seats-container" id="pl-seats-container">
+                        ${this.renderSeats(gameState.players, gameState.dealerIndex, gameState.activePlayerIndex)}
+                    </div>
 
+                    <!-- Contrôles d'actions du joueur -->
+                    <div class="pl-action-controls" id="pl-action-controls">
+                        ${this.renderActionControls(gameState)}
+                    </div>
+                </div>
+            `;
+        },
 
-    /* =====================================================
-       2. OUTILS DOM
-       ===================================================== */
+        /**
+         * Génère le HTML pour les cartes communes (Board).
+         */
+        renderCommunityCards(board = []) {
+            if (!board || board.length === 0) {
+                return `
+                    <div class="pl-card-placeholder">Flop</div>
+                    <div class="pl-card-placeholder">Turn</div>
+                    <div class="pl-card-placeholder">River</div>
+                `;
+            }
 
-    function createElement(tag, className, text) {
+            return board.map(card => {
+                const isRed = card.suit === '♥' || card.suit === '♦';
+                return `<div class="pl-card ${isRed ? 'red' : 'black'}"><span class="pl-card-rank">${card.rank}</span><span class="pl-card-suit">${card.suit}</span></div>`;
+            }).join('');
+        },
 
-        const element = document.createElement(tag);
+        /**
+         * Génère les sièges des joueurs positionnés autour du tapis.
+         */
+        renderSeats(players = [], dealerIndex = 0, activePlayerIndex = 0) {
+            if (!players || players.length === 0) return '';
 
-        if (className) {
-            element.className = className;
-        }
+            return players.map((player, index) => {
+                const isDealer = index === dealerIndex;
+                const isActive = index === activePlayerIndex;
+                const isFolded = player.folded;
+                const isAllIn = player.allIn;
 
-        if (text !== undefined && text !== null) {
-            element.textContent = String(text);
-        }
+                return `
+                    <div class="pl-seat pl-seat-${index + 1} ${isActive ? 'active' : ''} ${isFolded ? 'folded' : ''} ${isAllIn ? 'all-in' : ''}" data-player-index="${index}">
+                        <div class="pl-player-info">
+                            <span class="pl-player-name">${player.name}</span>
+                            <span class="pl-player-stack">${player.stack} BB</span>
+                        </div>
+                        <div class="pl-player-cards">
+                            ${this.renderPlayerCards(player.cards, player.isUser)}
+                        </div>
+                        ${isDealer ? '<span class="pl-dealer-button">D</span>' : ''}
+                        ${player.currentBet > 0 ? `<div class="pl-bet-chip">${player.currentBet}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        },
 
-        return element;
+        /**
+         * Affiche les cartes du joueur (visibles ou cachées).
+         */
+        renderPlayerCards(cards = [], isUser = false) {
+            if (!cards || cards.length === 0) {
+                return `<div class="pl-card-back"></div><div class="pl-card-back"></div>`;
+            }
 
-    }
-
-
-    function clear(container) {
-
-        if (!(container instanceof HTMLElement)) {
-            throw new Error("Conteneur de table invalide.");
-        }
-
-        container.replaceChildren();
-
-    }
-
-
-    function formatChips(amount, currency) {
-
-        const value = Number(amount);
-
-        if (!Number.isFinite(value)) {
-            return `0 ${currency}`;
-        }
-
-        return `${value.toLocaleString("fr-FR")} ${currency}`;
-
-    }
-
-
-    function addStatus(container, text, className) {
-
-        if (!text) {
-            return;
-        }
-
-        const status = createElement(
-            "span",
-            `pl-player-status ${className || ""}`,
-            text
-        );
-
-        container.appendChild(status);
-
-    }
-
-
-    /* =====================================================
-       3. AFFICHAGE DES CARTES
-       ===================================================== */
-
-    function createCardBack() {
-
-        return createElement(
-            "div",
-            "pl-card pl-card--back",
-            ""
-        );
-
-    }
-
-
-    function renderPlayerCards(player, options) {
-
-        const cardsContainer = createElement(
-            "div",
-            "pl-player-cards"
-        );
-
-        const canReveal =
-            options.revealAllCards ||
-            player.id === options.heroPlayerId;
-
-        const holeCards = player.holeCards;
-
-        if (
-            canReveal &&
-            Array.isArray(holeCards) &&
-            holeCards.length === 2 &&
-            window.PokerLabCards
-        ) {
-
-            window.PokerLabCards.renderInto(
-                cardsContainer,
-                holeCards,
-                {
-                    compact: true
+            return cards.map(card => {
+                if (!isUser && !card.revealed) {
+                    return `<div class="pl-card-back"></div>`;
                 }
-            );
+                const isRed = card.suit === '♥' || card.suit === '♦';
+                return `<div class="pl-card ${isRed ? 'red' : 'black'}"><span class="pl-card-rank">${card.rank}</span><span class="pl-card-suit">${card.suit}</span></div>`;
+            }).join('');
+        },
 
-            return cardsContainer;
-
+        /**
+         * Génère les boutons d'action (Fold, Check/Call, Raise).
+         */
+        renderActionControls(gameState) {
+            return `
+                <button class="pl-btn pl-btn-fold" data-action="fold">Coucher (Fold)</button>
+                <button class="pl-btn pl-btn-check" data-action="check">Parole (Check)</button>
+                <button class="pl-btn pl-btn-call" data-action="call">Suivre (Call)</button>
+                <button class="pl-btn pl-btn-raise" data-action="raise">Relancer (Raise)</button>
+            `;
         }
-
-        if (Array.isArray(holeCards) && holeCards.length === 0) {
-            return cardsContainer;
-        }
-
-        cardsContainer.appendChild(createCardBack());
-        cardsContainer.appendChild(createCardBack());
-
-        return cardsContainer;
-
-    }
-
-
-    function renderBoard(board) {
-
-        const boardContainer = createElement(
-            "div",
-            "pl-table-board"
-        );
-
-        const title = createElement(
-            "div",
-            "pl-table-board-title",
-            "CARTES COMMUNES"
-        );
-
-        boardContainer.appendChild(title);
-
-        const cardsContainer = createElement(
-            "div",
-            "pl-table-board-cards"
-        );
-
-        if (window.PokerLabCards) {
-
-            window.PokerLabCards.renderBoard(
-                cardsContainer,
-                Array.isArray(board) ? board : []
-            );
-
-        } else {
-
-            console.error(
-                "PokerLabCards n'est pas chargé."
-            );
-
-        }
-
-        boardContainer.appendChild(cardsContainer);
-
-        return boardContainer;
-
-    }
-
-
-    /* =====================================================
-       4. AFFICHAGE D'UN JOUEUR
-       ===================================================== */
-
-    function renderPlayer(player, index, state, options) {
-
-        const isCurrentPlayer =
-            player.id === state.currentPlayerId;
-
-        const isDealer =
-            index === state.dealerIndex;
-
-        const isHero =
-            player.id === options.heroPlayerId;
-
-        const classes = [
-            "pl-table-player"
-        ];
-
-        if (isCurrentPlayer) {
-            classes.push("is-active");
-        }
-
-        if (player.folded) {
-            classes.push("is-folded");
-        }
-
-        if (player.allIn) {
-            classes.push("is-all-in");
-        }
-
-        if (isHero) {
-            classes.push("is-hero");
-        }
-
-        const playerElement = createElement(
-            "div",
-            classes.join(" ")
-        );
-
-        playerElement.dataset.playerId = player.id;
-
-        // En-tête du joueur.
-
-        const header = createElement(
-            "div",
-            "pl-player-header"
-        );
-
-        const name = createElement(
-            "span",
-            "pl-player-name",
-            player.name || `Joueur ${index + 1}`
-        );
-
-        header.appendChild(name);
-
-        if (isDealer) {
-            addStatus(header, "D", "pl-status-dealer");
-        }
-
-        if (options.showPositions && player.position) {
-            addStatus(
-                header,
-                player.position,
-                "pl-status-position"
-            );
-        }
-
-        playerElement.appendChild(header);
-
-        // Stack du joueur.
-
-        if (options.showStacks) {
-
-            const stack = createElement(
-                "div",
-                "pl-player-stack",
-                formatChips(player.stack, options.currency)
-            );
-
-            playerElement.appendChild(stack);
-
-        }
-
-        // Cartes privatives.
-
-        playerElement.appendChild(
-            renderPlayerCards(player, options)
-        );
-
-        // Mise engagée dans le tour actuel.
-
-        if (
-            options.showPlayerBets &&
-            Number(player.streetBet) > 0
-        ) {
-
-            const bet = createElement(
-                "div",
-                "pl-player-bet",
-                `Mise : ${formatChips(
-                    player.streetBet,
-                    options.currency
-                )}`
-            );
-
-            playerElement.appendChild(bet);
-
-        }
-
-        // États particuliers.
-
-        const statuses = createElement(
-            "div",
-            "pl-player-statuses"
-        );
-
-        if (player.folded) {
-            addStatus(statuses, "COUCHÉ", "pl-status-folded");
-        }
-
-        if (player.allIn) {
-            addStatus(statuses, "ALL-IN", "pl-status-all-in");
-        }
-
-        if (isCurrentPlayer) {
-            addStatus(statuses, "À VOUS", "pl-status-active");
-        }
-
-        if (statuses.childElementCount > 0) {
-            playerElement.appendChild(statuses);
-        }
-
-        return playerElement;
-
-    }
-
-
-    /* =====================================================
-       5. AFFICHAGE DU POT
-       ===================================================== */
-
-    function renderPot(state, options) {
-
-        const potContainer = createElement(
-            "div",
-            "pl-table-pot"
-        );
-
-        const label = createElement(
-            "span",
-            "pl-table-pot-label",
-            "POT"
-        );
-
-        const amount = createElement(
-            "strong",
-            "pl-table-pot-amount",
-            formatChips(state.pot, options.currency)
-        );
-
-        potContainer.appendChild(label);
-        potContainer.appendChild(amount);
-
-        return potContainer;
-
-    }
-
-
-    /* =====================================================
-       6. AFFICHAGE DE LA TABLE
-       ===================================================== */
-
-    function render(container, state, customOptions = {}) {
-
-        if (!(container instanceof HTMLElement)) {
-            throw new Error(
-                "Le conteneur HTML de la table est invalide."
-            );
-        }
-
-        if (!state || !Array.isArray(state.players)) {
-            throw new Error(
-                "L'état de la partie est invalide."
-            );
-        }
-
-        if (!window.PokerLabCards) {
-            throw new Error(
-                "PokerLabCards doit être chargé avant PokerLabTable."
-            );
-        }
-
-        const options = {
-            ...DEFAULT_OPTIONS,
-            ...customOptions
-        };
-
-        clear(container);
-
-        container.classList.add("pl-table-container");
-
-        // Tapis de poker.
-
-        const table = createElement(
-            "div",
-            "pl-table"
-        );
-
-        // Zone des joueurs.
-
-        const playersContainer = createElement(
-            "div",
-            "pl-table-players"
-        );
-
-        state.players.forEach((player, index) => {
-
-            const playerElement = renderPlayer(
-                player,
-                index,
-                state,
-                options
-            );
-
-            playersContainer.appendChild(playerElement);
-
-        });
-
-        table.appendChild(playersContainer);
-
-        // Zone centrale.
-
-        const center = createElement(
-            "div",
-            "pl-table-center"
-        );
-
-        center.appendChild(renderPot(state, options));
-        center.appendChild(renderBoard(state.board));
-
-        table.appendChild(center);
-
-        // Informations de la main.
-
-        const information = createElement(
-            "div",
-            "pl-table-information"
-        );
-
-        const street = createElement(
-            "span",
-            "pl-table-street",
-            getStreetLabel(state.street)
-        );
-
-        const handNumber = createElement(
-            "span",
-            "pl-table-hand-number",
-            `Main n° ${state.handNumber || 0}`
-        );
-
-        information.appendChild(street);
-        information.appendChild(handNumber);
-
-        table.appendChild(information);
-
-        container.appendChild(table);
-
-        return table;
-
-    }
-
-
-    /* =====================================================
-       7. TRADUCTION DES TOURS DE JEU
-       ===================================================== */
-
-    function getStreetLabel(street) {
-
-        const labels = {
-            waiting: "En attente",
-            preflop: "Préflop",
-            flop: "Flop",
-            turn: "Turn",
-            river: "River",
-            showdown: "Showdown",
-            complete: "Main terminée"
-        };
-
-        return labels[street] || "Partie";
-
-    }
-
-
-    /* =====================================================
-       8. EXPORT PUBLIC
-       ===================================================== */
-
-    return {
-
-        render,
-
-        clear,
-
-        getStreetLabel
-
     };
-
 })();
