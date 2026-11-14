@@ -618,6 +618,12 @@ function renderGame(state = null) {
 
     window.PokerLabTable.render(tableElement, gameState);
 
+    // Place the controls inside the table, directly below the hero seat.
+    const actionMount = tableElement.querySelector(".pl-hero-actions-mount");
+    if (actionMount) {
+        actionMount.appendChild(actionsElement);
+    }
+
     renderGameActions(gameState);
 
     // Masquer la configuration
@@ -657,6 +663,7 @@ function renderGame(state = null) {
         }
 
         actionsElement.replaceChildren();
+        actionsElement.classList.add("pl-action-panel");
 
         if (state.handComplete) {
 
@@ -739,7 +746,7 @@ function renderGame(state = null) {
 
         const buttonsContainer = createElement(
             "div",
-            "flex flex-wrap gap-3"
+            "pl-action-buttons"
         );
 
         if (actionOptions.canFold) {
@@ -812,7 +819,7 @@ function renderGame(state = null) {
 
         const betContainer = createElement(
             "div",
-            "flex flex-wrap items-center gap-2 w-full mt-3"
+            "pl-action-bet-controls"
         );
 
         const amountInput = createElement(
