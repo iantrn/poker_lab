@@ -528,7 +528,7 @@
                 player.name
             );
 
-            const isEliminated = handComplete && Number(player.stack) <= 0;
+            const isEliminated = Number(player.stack) <= 0;
             const positionLabel = isEliminated
                 ? "OUT"
                 : (player.position || (isDealer ? "BTN" : ""));
