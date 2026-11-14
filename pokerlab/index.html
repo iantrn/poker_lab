@@ -3,17 +3,11 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    >
-
-    <!-- Métadonnées générales -->
     <meta name="theme-color" content="#121212">
     <meta name="description" content="Entraîne-toi au poker Texas Hold'em avec PokerLab.">
 
-    <!-- Compatibilité PWA et iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,315 +15,390 @@
 
     <title>PokerLab</title>
 
-    <!-- Manifest et icône -->
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
 
-    <!-- Feuilles de style locales -->
     <link rel="stylesheet" href="./css/utilities.css">
     <link rel="stylesheet" href="./css/style.css">
 </head>
 
 <body class="bg-background text-textMain min-h-screen">
 
-    <!-- Application principale -->
-    <div id="app" class="min-h-screen flex flex-col">
+<div id="app" class="min-h-screen flex flex-col">
 
-        <!-- En-tête -->
-        <header class="w-full bg-surface border-b border-white/10">
+    <!-- EN-TÊTE -->
+    <header class="w-full bg-surface border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
 
-            <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-
-                <a href="#home" class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-xl font-bold">
-                        ♠
-                    </div>
-
-                    <div>
-                        <h1 class="text-lg font-bold tracking-wide">
-                            POKERLAB
-                        </h1>
-
-                        <p class="text-xs text-textMuted">
-                            Texas Hold'em Training
-                        </p>
-                    </div>
-                </a>
-
-                <!-- Navigation ordinateur -->
-                <nav class="hidden md:flex items-center gap-6 text-sm">
-
-                    <a href="#home" class="text-white hover:text-primaryHover transition">
-                        Accueil
-                    </a>
-
-                    <a href="#training" class="text-textMuted hover:text-white transition">
-                        Entraînement
-                    </a>
-
-                    <a href="#tactics" class="text-textMuted hover:text-white transition">
-                        Tactiques
-                    </a>
-
-                    <a href="#lessons" class="text-textMuted hover:text-white transition">
-                        Apprentissage
-                    </a>
-
-                    <a href="#review" class="text-textMuted hover:text-white transition">
-                        Analyse
-                    </a>
-
-                </nav>
-
-                <!-- Paramètres -->
-                <a
-                    href="#settings"
-                    class="w-10 h-10 flex items-center justify-center rounded-xl bg-surfaceLight hover:bg-white/10 transition"
-                    aria-label="Paramètres"
-                >
-                    ⚙
-                </a>
-
-            </div>
-
-        </header>
-
-        <!-- Contenu principal -->
-        <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-8">
-
-            <!-- Accueil -->
-            <section id="home" class="mb-10">
-
-                <div class="mb-8">
-
-                    <p class="text-primaryHover text-sm font-semibold uppercase tracking-widest mb-2">
-                        Poker Training Platform
-                    </p>
-
-                    <h2 class="text-3xl md:text-4xl font-bold mb-3">
-                        Deviens meilleur au poker.
-                    </h2>
-
-                    <p class="text-textMuted max-w-2xl leading-relaxed">
-                        Entraîne-toi, développe tes connaissances stratégiques
-                        et améliore ton jeu au Texas Hold'em No-Limit.
-                    </p>
-
+            <a href="#home" class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-xl font-bold">
+                    ♠
                 </div>
 
-                <!-- Cartes des modules -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-                    <a
-                        href="#training"
-                        class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition"
-                    >
-                        <div class="text-3xl mb-4">♠</div>
-
-                        <h3 class="font-bold text-lg mb-2">
-                            Entraînement
-                        </h3>
-
-                        <p class="text-sm text-textMuted leading-relaxed">
-                            Affronte des intelligences artificielles
-                            aux styles de jeu variés.
-                        </p>
-                    </a>
-
-                    <a
-                        href="#tactics"
-                        class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition"
-                    >
-                        <div class="text-3xl mb-4">🎯</div>
-
-                        <h3 class="font-bold text-lg mb-2">
-                            Tactiques
-                        </h3>
-
-                        <p class="text-sm text-textMuted leading-relaxed">
-                            Résous des situations stratégiques
-                            et améliore tes décisions.
-                        </p>
-                    </a>
-
-                    <a
-                        href="#lessons"
-                        class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition"
-                    >
-                        <div class="text-3xl mb-4">📚</div>
-
-                        <h3 class="font-bold text-lg mb-2">
-                            Apprentissage
-                        </h3>
-
-                        <p class="text-sm text-textMuted leading-relaxed">
-                            Découvre les fondamentaux et
-                            les ranges théoriques du poker.
-                        </p>
-                    </a>
-
-                    <a
-                        href="#review"
-                        class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition"
-                    >
-                        <div class="text-3xl mb-4">📊</div>
-
-                        <h3 class="font-bold text-lg mb-2">
-                            Game Review
-                        </h3>
-
-                        <p class="text-sm text-textMuted leading-relaxed">
-                            Analyse tes parties et identifie
-                            tes erreurs stratégiques.
-                        </p>
-                    </a>
-
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide">POKERLAB</h1>
+                    <p class="text-xs text-textMuted">Texas Hold'em Training</p>
                 </div>
+            </a>
 
-            </section>
+            <nav class="hidden md:flex items-center gap-6 text-sm">
+                <a href="#home" class="text-white hover:text-primaryHover transition">Accueil</a>
+                <a href="#training" class="text-textMuted hover:text-white transition">Entraînement</a>
+                <a href="#tactics" class="text-textMuted hover:text-white transition">Tactiques</a>
+                <a href="#lessons" class="text-textMuted hover:text-white transition">Apprentissage</a>
+                <a href="#review" class="text-textMuted hover:text-white transition">Analyse</a>
+            </nav>
 
-            <!-- Zone des modules -->
+            <a href="#settings"
+               class="w-10 h-10 flex items-center justify-center rounded-xl bg-surfaceLight hover:bg-white/10 transition"
+               aria-label="Paramètres">⚙</a>
+        </div>
+    </header>
 
-            <section id="training" class="mb-10 scroll-mt-6">
-                <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                    <h2 class="text-xl font-bold mb-2">
-                        Entraînement
-                    </h2>
+    <!-- CONTENU PRINCIPAL -->
+    <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-8">
 
-                    <p class="text-textMuted text-sm">
-                        Le module de jeu contre les bots sera développé ici.
-                    </p>
-                </div>
-            </section>
+        <!-- ACCUEIL -->
+        <section id="home" class="mb-10">
 
-            <section id="tactics" class="mb-10 scroll-mt-6">
-                <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                    <h2 class="text-xl font-bold mb-2">
-                        Tactiques
-                    </h2>
-
-                    <p class="text-textMuted text-sm">
-                        Le module de puzzles tactiques sera développé ici.
-                    </p>
-                </div>
-            </section>
-
-            <section id="lessons" class="mb-10 scroll-mt-6">
-                <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                    <h2 class="text-xl font-bold mb-2">
-                        Apprentissage
-                    </h2>
-
-                    <p class="text-textMuted text-sm">
-                        Les leçons et la matrice de ranges seront développées ici.
-                    </p>
-                </div>
-            </section>
-
-            <section id="review" class="mb-10 scroll-mt-6">
-                <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                    <h2 class="text-xl font-bold mb-2">
-                        Game Review
-                    </h2>
-
-                    <p class="text-textMuted text-sm">
-                        Le système d'analyse des parties sera développé ici.
-                    </p>
-                </div>
-            </section>
-
-            <section id="settings" class="mb-10 scroll-mt-6">
-                <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                    <h2 class="text-xl font-bold mb-2">
-                        Paramètres
-                    </h2>
-
-                    <p class="text-textMuted text-sm">
-                        Les options de personnalisation seront développées ici.
-                    </p>
-                </div>
-            </section>
-
-        </main>
-
-        <!-- Navigation mobile -->
-        <nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-white/10 z-50">
-
-            <div class="grid grid-cols-5 max-w-xl mx-auto py-3">
-
-                <a href="#home" class="flex flex-col items-center gap-1 text-xs text-textMuted">
-                    <span class="text-xl">⌂</span>
-                    Accueil
-                </a>
-
-                <a href="#training" class="flex flex-col items-center gap-1 text-xs text-textMuted">
-                    <span class="text-xl">♠</span>
-                    Jouer
-                </a>
-
-                <a href="#tactics" class="flex flex-col items-center gap-1 text-xs text-textMuted">
-                    <span class="text-xl">🎯</span>
-                    Tactiques
-                </a>
-
-                <a href="#lessons" class="flex flex-col items-center gap-1 text-xs text-textMuted">
-                    <span class="text-xl">📚</span>
-                    Leçons
-                </a>
-
-                <a href="#settings" class="flex flex-col items-center gap-1 text-xs text-textMuted">
-                    <span class="text-xl">⚙</span>
-                    Réglages
-                </a>
-
-            </div>
-
-        </nav>
-
-        <!-- Pied de page -->
-        <footer class="hidden md:block border-t border-white/10 bg-surface mt-8">
-
-            <div class="max-w-7xl mx-auto px-4 py-5 text-center">
-
-                <p class="text-xs text-textMuted">
-                    PokerLab — Texas Hold'em Training Platform
+            <div class="mb-8">
+                <p class="text-primaryHover text-sm font-semibold uppercase tracking-widest mb-2">
+                    Poker Training Platform
                 </p>
 
+                <h2 class="text-3xl md:text-4xl font-bold mb-3">
+                    Deviens meilleur au poker.
+                </h2>
+
+                <p class="text-textMuted max-w-2xl leading-relaxed">
+                    Entraîne-toi, développe tes connaissances stratégiques
+                    et améliore ton jeu au Texas Hold'em No-Limit.
+                </p>
             </div>
 
-        </footer>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-    </div>
+                <a href="#training" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                    <div class="text-3xl mb-4">♠</div>
+                    <h3 class="font-bold text-lg mb-2">Entraînement</h3>
+                    <p class="text-sm text-textMuted leading-relaxed">
+                        Affronte des intelligences artificielles aux styles variés.
+                    </p>
+                </a>
 
-    <!-- =====================================================
-         JAVASCRIPT : CHARGEMENT DES DÉPENDANCES
-         L'attribut defer conserve l'ordre des scripts.
-         ===================================================== -->
+                <a href="#tactics" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                    <div class="text-3xl mb-4">🎯</div>
+                    <h3 class="font-bold text-lg mb-2">Tactiques</h3>
+                    <p class="text-sm text-textMuted leading-relaxed">
+                        Résous des situations stratégiques.
+                    </p>
+                </a>
 
-    <!-- 1. Moteur poker -->
-    <script src="./js/core/deck.js" defer></script>
-    <script src="./js/core/poker-rules.js" defer></script>
-    <script src="./js/core/evaluator.js" defer></script>
-    <script src="./js/core/game-engine.js" defer></script>
+                <a href="#lessons" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                    <div class="text-3xl mb-4">📚</div>
+                    <h3 class="font-bold text-lg mb-2">Apprentissage</h3>
+                    <p class="text-sm text-textMuted leading-relaxed">
+                        Découvre les fondamentaux et les ranges théoriques.
+                    </p>
+                </a>
 
-    <!-- 2. Profils et intelligence artificielle -->
-    <script src="./js/bots/bot-profiles.js" defer></script>
-    <script src="./js/bots/bot-engine.js" defer></script>
+                <a href="#review" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                    <div class="text-3xl mb-4">📊</div>
+                    <h3 class="font-bold text-lg mb-2">Game Review</h3>
+                    <p class="text-sm text-textMuted leading-relaxed">
+                        Analyse tes parties et identifie tes erreurs.
+                    </p>
+                </a>
 
-    <!-- 3. Composants visuels -->
-    <script src="./js/components/cards.js" defer></script>
-    <script src="./js/components/table.js" defer></script>
-    <script src="./js/components/navigation.js" defer></script>
-    <script src="./js/components/range-matrix.js" defer></script>
+            </div>
+        </section>
 
-    <!-- 4. Modules fonctionnels -->
-    <script src="./js/modules/training.js" defer></script>
-    <script src="./js/modules/puzzles.js" defer></script>
-    <script src="./js/modules/lessons.js" defer></script>
-    <script src="./js/modules/game-review.js" defer></script>
+        <!-- ENTRAÎNEMENT -->
+        <section id="training" class="mb-10 scroll-mt-6">
 
-    <!-- 5. Application principale : toujours en dernier -->
-    <script src="./js/app.js" defer></script>
+            <div class="bg-surface rounded-2xl p-6 border border-white/5">
+
+                <div class="mb-6">
+                    <p class="text-primaryHover text-xs font-semibold uppercase tracking-widest mb-2">
+                        Poker contre intelligence artificielle
+                    </p>
+
+                    <h2 class="text-2xl font-bold mb-2">Entraînement</h2>
+
+                    <p class="text-textMuted text-sm">
+                        Configure ta partie avant de rejoindre la table.
+                    </p>
+                </div>
+
+                <!-- CONFIGURATION -->
+                <div id="training-configuration">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                        <!-- MODE -->
+                        <div>
+                            <label for="training-mode" class="block text-sm font-semibold mb-2">
+                                Mode de jeu
+                            </label>
+
+                            <select id="training-mode"
+                                    data-training-setting="gameMode"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="6max">6-max — 6 joueurs maximum</option>
+                                <option value="heads-up">Heads-up — 2 joueurs</option>
+                            </select>
+                        </div>
+
+                        <!-- NOMBRE DE JOUEURS -->
+                        <div>
+                            <label for="training-player-count" class="block text-sm font-semibold mb-2">
+                                Nombre de joueurs
+                            </label>
+
+                            <select id="training-player-count"
+                                    data-training-setting="playerCount"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="2">2 joueurs</option>
+                                <option value="3">3 joueurs</option>
+                                <option value="4">4 joueurs</option>
+                                <option value="5">5 joueurs</option>
+                                <option value="6" selected>6 joueurs</option>
+                            </select>
+                        </div>
+
+                        <!-- DIFFICULTÉ -->
+                        <div>
+                            <label for="training-difficulty" class="block text-sm font-semibold mb-2">
+                                Difficulté des bots
+                            </label>
+
+                            <select id="training-difficulty"
+                                    data-training-setting="difficulty"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="easy">Débutant</option>
+                                <option value="medium" selected>Intermédiaire</option>
+                                <option value="hard">Avancé</option>
+                            </select>
+                        </div>
+
+                        <!-- PROFIL -->
+                        <div>
+                            <label for="training-profile" class="block text-sm font-semibold mb-2">
+                                Style de jeu des bots
+                            </label>
+
+                            <select id="training-profile"
+                                    data-training-setting="botProfile"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="balanced" selected>Balanced — équilibré</option>
+                                <option value="nit">Nit — très serré</option>
+                                <option value="tag">TAG — serré-agressif</option>
+                                <option value="lag">LAG — large-agressif</option>
+                            </select>
+                        </div>
+
+                        <!-- TAPIS -->
+                        <div>
+                            <label for="training-stack" class="block text-sm font-semibold mb-2">
+                                Tapis de départ
+                            </label>
+
+                            <select id="training-stack"
+                                    data-training-setting="startingStack"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="50">50 jetons</option>
+                                <option value="100" selected>100 jetons</option>
+                                <option value="200">200 jetons</option>
+                                <option value="500">500 jetons</option>
+                                <option value="1000">1 000 jetons</option>
+                            </select>
+                        </div>
+
+                        <!-- PETITE BLIND -->
+                        <div>
+                            <label for="training-small-blind" class="block text-sm font-semibold mb-2">
+                                Petite blind (SB)
+                            </label>
+
+                            <select id="training-small-blind"
+                                    data-training-setting="smallBlind"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="0.5" selected>0,5</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
+
+                        <!-- GROSSE BLIND -->
+                        <div>
+                            <label for="training-big-blind" class="block text-sm font-semibold mb-2">
+                                Grosse blind (BB)
+                            </label>
+
+                            <select id="training-big-blind"
+                                    data-training-setting="bigBlind"
+                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                                <option value="4">4</option>
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mt-6">
+
+                        <button type="button"
+                                data-training-action="start"
+                                class="bg-primary hover:bg-primaryHover text-white font-semibold rounded-lg px-6 py-3 transition">
+                            ♠ Créer une partie
+                        </button>
+
+                        <button type="button"
+                                data-training-action="reset"
+                                class="bg-background border border-white/10 hover:bg-white/5 rounded-lg px-5 py-3 transition">
+                            Réinitialiser
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <!-- MESSAGES DU MODULE -->
+                <div id="training-message"
+                     class="hidden mt-5 rounded-lg p-4 text-sm"
+                     role="status"
+                     aria-live="polite"></div>
+
+                <!-- ZONE DE JEU -->
+                <div id="training-game" class="hidden mt-8">
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                        <h3 class="text-xl font-bold">Table de poker</h3>
+
+                        <button type="button"
+                                data-training-action="stop"
+                                class="bg-background border border-white/10 hover:bg-white/5 rounded-lg px-4 py-2 text-sm">
+                            Quitter la partie
+                        </button>
+                    </div>
+
+                    <div id="training-table" class="w-full"></div>
+
+                    <div id="training-actions" class="mt-6">
+                        <!-- Les commandes de jeu seront ajoutées lors de l'intégration du moteur. -->
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TACTIQUES -->
+        <section id="tactics" class="mb-10 scroll-mt-6">
+            <div class="bg-surface rounded-2xl p-6 border border-white/5">
+                <h2 class="text-xl font-bold mb-2">Tactiques</h2>
+                <p class="text-textMuted text-sm">
+                    Le module de puzzles tactiques sera développé ici.
+                </p>
+            </div>
+        </section>
+
+        <!-- APPRENTISSAGE -->
+        <section id="lessons" class="mb-10 scroll-mt-6">
+            <div class="bg-surface rounded-2xl p-6 border border-white/5">
+                <h2 class="text-xl font-bold mb-2">Apprentissage</h2>
+                <p class="text-textMuted text-sm">
+                    Les leçons et la matrice de ranges seront développées ici.
+                </p>
+            </div>
+        </section>
+
+        <!-- GAME REVIEW -->
+        <section id="review" class="mb-10 scroll-mt-6">
+            <div class="bg-surface rounded-2xl p-6 border border-white/5">
+                <h2 class="text-xl font-bold mb-2">Game Review</h2>
+                <p class="text-textMuted text-sm">
+                    Le système d'analyse des parties sera développé ici.
+                </p>
+            </div>
+        </section>
+
+        <!-- PARAMÈTRES -->
+        <section id="settings" class="mb-10 scroll-mt-6">
+            <div class="bg-surface rounded-2xl p-6 border border-white/5">
+                <h2 class="text-xl font-bold mb-2">Paramètres</h2>
+                <p class="text-textMuted text-sm">
+                    Les options de personnalisation seront développées ici.
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- NAVIGATION MOBILE -->
+    <nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-white/10 z-50">
+        <div class="grid grid-cols-5 max-w-xl mx-auto py-3">
+
+            <a href="#home" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+                <span class="text-xl">⌂</span>Accueil
+            </a>
+
+            <a href="#training" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+                <span class="text-xl">♠</span>Jouer
+            </a>
+
+            <a href="#tactics" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+                <span class="text-xl">🎯</span>Tactiques
+            </a>
+
+            <a href="#lessons" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+                <span class="text-xl">📚</span>Leçons
+            </a>
+
+            <a href="#settings" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+                <span class="text-xl">⚙</span>Réglages
+            </a>
+
+        </div>
+    </nav>
+
+    <!-- PIED DE PAGE -->
+    <footer class="hidden md:block border-t border-white/10 bg-surface mt-8">
+        <div class="max-w-7xl mx-auto px-4 py-5 text-center">
+            <p class="text-xs text-textMuted">
+                PokerLab — Texas Hold'em Training Platform
+            </p>
+        </div>
+    </footer>
+
+</div>
+
+<!-- JAVASCRIPT : ORDRE DES DÉPENDANCES -->
+
+<script src="./js/core/deck.js" defer></script>
+<script src="./js/core/poker-rules.js" defer></script>
+<script src="./js/core/evaluator.js" defer></script>
+<script src="./js/core/game-engine.js" defer></script>
+
+<script src="./js/bots/bot-profiles.js" defer></script>
+<script src="./js/bots/bot-engine.js" defer></script>
+
+<script src="./js/components/cards.js" defer></script>
+<script src="./js/components/table.js" defer></script>
+<script src="./js/components/navigation.js" defer></script>
+<script src="./js/components/range-matrix.js" defer></script>
+
+<script src="./js/modules/training.js" defer></script>
+<script src="./js/modules/puzzles.js" defer></script>
+<script src="./js/modules/lessons.js" defer></script>
+<script src="./js/modules/game-review.js" defer></script>
+
+<script src="./js/app.js" defer></script>
 
 </body>
 </html>
