@@ -1,4 +1,4 @@
-/* =================================================================â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* =================================================================
    PokerLab - Styles Généraux & Table de Poker (Thème Sombre)
    ========================================================================= */
 
@@ -15,6 +15,10 @@
     --pl-gold: #F59E0B;
 }
 
+/* =================================================================
+   RESET ET BASE
+   ================================================================= */
+
 body {
     background-color: var(--pl-bg-main);
     color: var(--pl-text-primary);
@@ -24,12 +28,17 @@ body {
     overflow-x: hidden;
 }
 
-/* Conteneur principal de la table */
+/* =================================================================
+   CONTENEUR PRINCIPAL DE LA TABLE
+   ================================================================= */
+
 .pl-table-container {
     position: relative;
     width: 100%;
     max-width: 1000px;
-    height: 650px;
+    min-height: 500px;
+    height: 65vh;
+    max-height: 700px;
     margin: 20px auto;
     background-color: var(--pl-bg-surface);
     border-radius: 16px;
@@ -40,9 +49,13 @@ body {
     justify-content: space-between;
     padding: 20px;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
-/* En-tête de table */
+/* =================================================================
+   EN-TÊTE DE TABLE
+   ================================================================= */
+
 .pl-table-header {
     display: flex;
     justify-content: space-between;
@@ -50,31 +63,45 @@ body {
     font-size: 0.9rem;
     color: var(--pl-text-secondary);
     padding: 0 10px;
+    z-index: 10;
 }
 
-/* Tapis de poker (Felt) */
+.pl-hand-counter, .pl-game-mode, .pl-stakes {
+    font-size: 0.85rem;
+}
+
+/* =================================================================
+   TAPIS DE POKER (Felt)
+   ================================================================= */
+
 .pl-felt {
     position: relative;
-    width: 75%;
-    height: 55%;
+    width: 80%;
+    height: 60%;
+    min-height: 250px;
     background: radial-gradient(circle, #065F46 0%, var(--pl-felt-green) 100%);
-    border: 8px solid #064E3B;
+    border: 6px solid #064E3B;
     border-radius: 180px;
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    z-index: 5;
 }
 
-/* Pot Display */
+/* =================================================================
+   POT DISPLAY
+   ================================================================= */
+
 .pl-pot-display {
     text-align: center;
     background: rgba(0, 0, 0, 0.4);
-    padding: 6px 16px;
+    padding: 8px 20px;
     border-radius: 20px;
     margin-bottom: 15px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 10;
 }
 
 .pl-pot-label {
@@ -83,33 +110,30 @@ body {
     color: var(--pl-text-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
+    margin-bottom: 2px;
 }
 
 .pl-pot-amount {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: bold;
     color: var(--pl-gold);
 }
 
-/* Community Cards (Board) */
+/* =================================================================
+   COMMUNITY CARDS (Board)
+   ================================================================= */
+
 .pl-community-cards {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+    margin-top: 10px;
+    z-index: 10;
 }
 
-.pl-card-placeholder {
-    width: 45px;
-    height: 65px;
-    border: 2px dashed rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    color: var(--pl-text-secondary);
-}
+/* =================================================================
+   SIÈGES AUTOUR DE LA TABLE
+   ================================================================= */
 
-/* Sièges autour de la table */
 .pl-seats-container {
     position: absolute;
     top: 0;
@@ -117,6 +141,7 @@ body {
     width: 100%;
     height: 100%;
     pointer-events: none;
+    z-index: 1;
 }
 
 .pl-seat {
@@ -124,31 +149,60 @@ body {
     background: var(--pl-bg-surface-secondary);
     border: 2px solid #374151;
     border-radius: 10px;
-    padding: 8px 12px;
-    width: 140px;
+    padding: 10px 12px;
+    width: 130px;
+    min-height: 60px;
     text-align: center;
     pointer-events: auto;
     transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.pl-seat.hidden {
+    display: none !important;
 }
 
 .pl-seat.active {
     border-color: var(--pl-accent-red);
-    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.5);
+    background: rgba(220, 38, 38, 0.1);
 }
 
 .pl-seat.folded {
-    opacity: 0.5;
+    opacity: 0.4;
+    transform: scale(0.9);
 }
 
-/* Positionnement des 6 sièges (6-max) */
-.pl-seat-1 { bottom: 10px; left: 50%; transform: translateX(-50%); }
-.pl-seat-2 { bottom: 120px; left: 20px; }
-.pl-seat-3 { top: 100px; left: 20px; }
-.pl-seat-4 { top: 10px; left: 50%; transform: translateX(-50%); }
-.pl-seat-5 { top: 100px; right: 20px; }
-.pl-seat-6 { bottom: 120px; right: 20px; }
+.pl-seat.all-in {
+    border-color: var(--pl-gold);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+}
 
-/* Infos du joueur au siège */
+/* Positionnement des sièges pour 6-max */
+.pl-seat-1 { bottom: 20px; left: 50%; transform: translateX(-50%); }
+.pl-seat-2 { bottom: 100px; left: 10%; }
+.pl-seat-3 { top: 100px; left: 10%; }
+.pl-seat-4 { top: 20px; left: 50%; transform: translateX(-50%); }
+.pl-seat-5 { top: 100px; right: 10%; }
+.pl-seat-6 { bottom: 100px; right: 10%; }
+
+/* Positionnement pour Heads-Up (2 joueurs) */
+.pl-seat-hu-1 { bottom: 20px; left: 50%; transform: translateX(-50%); }
+.pl-seat-hu-2 { top: 20px; left: 50%; transform: translateX(-50%); }
+
+/* =================================================================
+   INFOS DU JOUEUR AU SIÈGE
+   ================================================================= */
+
+.pl-player-info {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
 .pl-player-name {
     display: block;
     font-size: 0.85rem;
@@ -157,6 +211,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-bottom: 2px;
 }
 
 .pl-player-stack {
@@ -167,77 +222,301 @@ body {
 .pl-player-cards {
     display: flex;
     justify-content: center;
-    gap: 4px;
+    gap: 5px;
     margin-top: 5px;
 }
 
-/* Bouton Dealer */
+/* =================================================================
+   BOUTON DEALER
+   ================================================================= */
+
 .pl-dealer-button {
     position: absolute;
-    top: -10px;
-    right: -10px;
+    top: -12px;
+    right: -12px;
     background: #FFFFFF;
     color: #000000;
     font-weight: bold;
     font-size: 0.75rem;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    z-index: 5;
+}
+
+/* =================================================================
+   MISES DES JOUEURS
+   ================================================================= */
+
+.pl-bet-chip {
+    background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
+    color: #1a1a1a;
+    font-weight: bold;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 15px;
+    margin-top: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-/* Cartes individuelles */
+/* =================================================================
+   CARTES - SYSTÈME UNIFIÉ (compatible avec cards.js)
+   ================================================================= */
+
 .pl-card {
-    width: 28px;
-    height: 40px;
+    width: 40px;
+    height: 60px;
     background: #FFFFFF;
-    border-radius: 4px;
+    border-radius: 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
+    justify-content: space-between;
+    font-size: 0.85rem;
     font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    position: relative;
+    overflow: hidden;
+    padding: 4px 0;
+    box-sizing: border-box;
 }
 
-.pl-card.red { color: #DC2626; }
-.pl-card.black { color: #111827; }
+.pl-card--red {
+    color: #DC2626;
+}
 
-.pl-card-back {
+.pl-card--black {
+    color: #111827;
+}
+
+.pl-card--compact {
     width: 28px;
     height: 40px;
-    background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
-    border: 1px solid #FFFFFF;
-    border-radius: 4px;
+    font-size: 0.7rem;
 }
 
-/* Commandes d'action */
-.pl-action-controls {
+.pl-card--selected {
+    box-shadow: 0 0 0 2px var(--pl-accent-red);
+    transform: scale(1.05);
+}
+
+.pl-card--empty {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+.pl-card--back {
+    width: 40px;
+    height: 60px;
+    background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+    border: 1px solid #FFFFFF;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.pl-card--board-slot {
+    width: 40px;
+    height: 60px;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--pl-text-secondary);
+}
+
+.pl-card__corner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.pl-card__corner--top {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+}
+
+.pl-card__corner--bottom {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    transform: rotate(180deg);
+}
+
+.pl-card__rank {
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.pl-card__suit {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.pl-card__center {
+    font-size: 1.5rem;
+    line-height: 1;
+    opacity: 0.8;
+}
+
+.pl-cards {
+    display: flex;
+    gap: 5px;
+}
+
+.pl-hole-cards {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.pl-board {
     display: flex;
     gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =================================================================
+   COMMANDES D'ACTION
+   ================================================================= */
+
+.pl-action-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     width: 100%;
     justify-content: center;
-    margin-top: 10px;
+    margin-top: 20px;
+    padding: 15px;
+    background: var(--pl-bg-surface-secondary);
+    border-radius: 12px;
+    z-index: 10;
 }
 
 .pl-btn {
-    padding: 10px 20px;
+    padding: 12px 24px;
     border: none;
     border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.2s;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    min-width: 100px;
 }
 
-.pl-btn-fold { background: #374151; color: #FFF; }
-.pl-btn-check, .pl-btn-call { background: #2563EB; color: #FFF; }
-.pl-btn-raise { background: var(--pl-accent-red); color: #FFF; }
+.pl-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
-.pl-btn:hover {
-    opacity: 0.9;
+.pl-btn-fold {
+    background: #374151;
+    color: #FFF;
+}
+
+.pl-btn-fold:hover:not(:disabled) {
+    background: #4B5563;
+}
+
+.pl-btn-check, .pl-btn-call {
+    background: #2563EB;
+    color: #FFF;
+}
+
+.pl-btn-check:hover:not(:disabled), .pl-btn-call:hover:not(:disabled) {
+    background: #3B82F6;
+}
+
+.pl-btn-raise, .pl-btn-bet {
+    background: var(--pl-accent-red);
+    color: #FFF;
+}
+
+.pl-btn-raise:hover:not(:disabled), .pl-btn-bet:hover:not(:disabled) {
+    background: var(--pl-accent-red-hover);
+}
+
+/* =================================================================
+   RESPONSIVE
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .pl-table-container {
+        height: 70vh;
+        max-height: 600px;
+        padding: 10px;
+    }
+
+    .pl-felt {
+        width: 90%;
+        height: 65%;
+    }
+
+    .pl-seat {
+        width: 110px;
+        min-height: 50px;
+        padding: 8px 10px;
+    }
+
+    .pl-seat-1 { bottom: 10px; left: 50%; transform: translateX(-50%); }
+    .pl-seat-2 { bottom: 80px; left: 5%; }
+    .pl-seat-3 { top: 80px; left: 5%; }
+    .pl-seat-4 { top: 10px; left: 50%; transform: translateX(-50%); }
+    .pl-seat-5 { top: 80px; right: 5%; }
+    .pl-seat-6 { bottom: 80px; right: 5%; }
+
+    .pl-card {
+        width: 30px;
+        height: 45px;
+        font-size: 0.7rem;
+    }
+
+    .pl-card__rank {
+        font-size: 0.75rem;
+    }
+
+    .pl-card__suit {
+        font-size: 0.85rem;
+    }
+
+    .pl-card__center {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .pl-table-container {
+        height: 65vh;
+        max-height: 500px;
+    }
+
+    .pl-seat {
+        width: 90px;
+        min-height: 45px;
+        padding: 6px 8px;
+        font-size: 0.8rem;
+    }
+
+    .pl-seat-2 { bottom: 70px; left: 2%; }
+    .pl-seat-3 { top: 70px; left: 2%; }
+    .pl-seat-5 { top: 70px; right: 2%; }
+    .pl-seat-6 { bottom: 70px; right: 2%; }
+
+    .pl-card {
+        width: 25px;
+        height: 38px;
+    }
 }

@@ -1,9 +1,10 @@
 /**
- * PokerLab Service Worker - v5
+ * PokerLab Service Worker - v6
  * Gestion du cache offline-first pour GitHub Pages.
+ * Version incrémentée pour forcer le rechargement des nouvelles ressources.
  */
 
-const CACHE_NAME = 'pokerlab-cache-v5';
+const CACHE_NAME = 'pokerlab-cache-v6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -25,8 +26,6 @@ const ASSETS_TO_CACHE = [
     './js/modules/puzzles.js',
     './js/modules/lessons.js',
     './js/modules/game-review.js',
-    './js/utils/storage.js',
-    './js/utils/helpers.js',
     './data/ranges/ranges.json',
     './data/puzzles/puzzles.json',
     './data/lessons/lessons.json'
@@ -37,10 +36,13 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[Service Worker] Mise en cache des fichiers v5');
+                console.log('[Service Worker] Mise en cache des fichiers v6');
                 return cache.addAll(ASSETS_TO_CACHE);
             })
             .then(() => self.skipWaiting())
+            .catch((error) => {
+                console.error('[Service Worker] Erreur lors de la mise en cache:', error);
+            })
     );
 });
 
@@ -62,6 +64,11 @@ self.addEventListener('activate', (event) => {
 
 // Stratégie Cache-First avec fallback réseau
 self.addEventListener('fetch', (event) => {
+    // Ne pas intercepter les requêtes vers d'autres domaines
+    if (!event.request.url.includes(self.location.origin)) {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then((cachedResponse) => {
@@ -69,20 +76,25 @@ self.addEventListener('fetch', (event) => {
                     return cachedResponse;
                 }
                 return fetch(event.request).then((networkResponse) => {
+                    // Ne pas mettre en cache les requêtes POST ou les erreurs
+                    if (event.request.method !== 'GET' || networkResponse.status !== 200) {
+                        return networkResponse;
+                    }
+
                     return caches.open(CACHE_NAME).then((cache) => {
-                        // Mettre en cache la nouvelle ressource si valide
-                        if (event.request.method === 'GET' && networkResponse.status === 200) {
-                            cache.put(event.request, networkResponse.clone());
-                        }
+                        // Mettre en cache la nouvelle ressource
+                        cache.put(event.request, networkResponse.clone());
                         return networkResponse;
                     });
                 });
             })
             .catch(() => {
-                // Fallback optionnel hors ligne si la ressource n'est pas dans le cache
+                // Fallback pour les pages de navigation
                 if (event.request.mode === 'navigate') {
                     return caches.match('./index.html');
                 }
+                // Fallback pour les autres ressources
+                return caches.match('./index.html');
             })
     );
 });
