@@ -434,19 +434,7 @@ const PokerLabServiceWorker = {
 
         try {
 
-            this.registration =
-                await navigator.serviceWorker.register(
-                    "./service-worker.js",
-                    {
-                        scope: "./"
-                    }
-                );
-
-            // Check for deployments whenever the app is opened.
-            this.registration.update().catch(() => {});
-
-            // A newly activated worker takes control with the fresh cache.
-            // Reload once so the current tab also uses the new HTML and scripts.
+            // Listen before registration: an update can take control immediately.
             let refreshing = false;
             navigator.serviceWorker.addEventListener("controllerchange", () => {
                 if (refreshing) return;
@@ -454,42 +442,36 @@ const PokerLabServiceWorker = {
                 window.location.reload();
             });
 
+            this.registration = await navigator.serviceWorker.register(
+                "./service-worker.js",
+                {
+                    scope: "./",
+                    updateViaCache: "none"
+                }
+            );
+
+            // Explicitly check the worker script on every app opening.
+            await this.registration.update().catch(() => {});
+
+            // If an update is already waiting, activate it now.
+            if (this.registration.waiting && navigator.serviceWorker.controller) {
+                this.registration.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+
             PokerLabLogger.info(
-                "Service Worker enregistré.",
+                "Service Worker enregistré et vérifié.",
                 this.registration.scope
             );
 
-            this.registration.addEventListener(
-                "updatefound",
-                () => {
-
-                    const newWorker =
-                        this.registration.installing;
-
-                    if (!newWorker) {
-                        return;
+            this.registration.addEventListener("updatefound", () => {
+                const newWorker = this.registration.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener("statechange", () => {
+                    if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                        PokerLabLogger.info("Mise à jour de PokerLab installée.");
                     }
-
-                    newWorker.addEventListener(
-                        "statechange",
-                        () => {
-
-                            if (
-                                newWorker.state === "installed" &&
-                                navigator.serviceWorker.controller
-                            ) {
-
-                                PokerLabLogger.info(
-                                    "Une nouvelle version de PokerLab est disponible."
-                                );
-
-                            }
-
-                        }
-                    );
-
-                }
-            );
+                });
+            });
 
             return true;
 
