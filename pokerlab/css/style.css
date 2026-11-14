@@ -1875,3 +1875,38 @@ button:disabled {
         max-width: 66px !important;
     }
 }
+
+
+/* PokerLab v7 — couleurs définitives des actions. */
+#training-actions .pl-action-btn-fold {
+    background: #626B73 !important;
+    border-color: #626B73 !important;
+    color: #FFFFFF !important;
+}
+#training-actions .pl-action-btn-fold:hover {
+    background: #737D86 !important;
+}
+#training-actions .pl-action-btn-call {
+    background: #C62835 !important;
+    border-color: #C62835 !important;
+    color: #FFFFFF !important;
+}
+#training-actions .pl-action-btn-call:hover {
+    background: #DC3545 !important;
+}
+#training-actions .pl-action-btn-raise {
+    background: #861B27 !important;
+    border-color: #861B27 !important;
+    color: #FFFFFF !important;
+}
+#training-actions .pl-action-btn-raise:hover {
+    background: #A32130 !important;
+}
+#training-actions .pl-action-btn-allin {
+    background: #23834A !important;
+    border-color: #23834A !important;
+    color: #FFFFFF !important;
+}
+#training-actions .pl-action-btn-allin:hover {
+    background: #2D9B5A !important;
+}
