@@ -1,7 +1,7 @@
 
 /* =========================================================
    POKERLAB - POKER RULES
-   Version : 1.0.0
+   Version : 2.0.0
    Description : Règles du Texas Hold'em No-Limit
    ========================================================= */
 
@@ -34,6 +34,10 @@ const POKER_RULES = {
 
     minPlayers: 2,
 
+    // Plus petite unité monétaire autorisée.
+
+    chipUnit: 0.5,
+
     // Phases successives d'une main.
 
     streets: [
@@ -61,12 +65,13 @@ const POKER_RULES = {
     },
 
     // Configuration des blinds par défaut.
+    // 1 BB = 1 jeton.
 
     defaultBlinds: {
 
-        smallBlind: 1,
+        smallBlind: 0.5,
 
-        bigBlind: 2
+        bigBlind: 1
 
     },
 
@@ -92,7 +97,73 @@ const POKER_RULES = {
 
 
 /* =========================================================
-   2. GESTION DES PHASES DE JEU
+   2. OUTILS DE VALIDATION
+   ========================================================= */
+
+const PokerLabValidation = {
+
+    isFiniteNumber(value) {
+
+        return (
+            typeof value === "number" &&
+            Number.isFinite(value)
+        );
+
+    },
+
+
+    isNonNegativeAmount(value) {
+
+        return (
+            this.isFiniteNumber(value) &&
+            value >= 0
+        );
+
+    },
+
+
+    // Vérifie qu'un montant respecte l'unité minimale
+    // de 0,5 jeton.
+
+    isChipAmount(value) {
+
+        if (
+            !this.isNonNegativeAmount(value)
+        ) {
+            return false;
+        }
+
+        const units =
+            value / POKER_RULES.chipUnit;
+
+        return Math.abs(
+            units - Math.round(units)
+        ) < 0.000001;
+
+    },
+
+
+    // Arrondit un montant à la plus petite unité autorisée.
+
+    roundChipAmount(value) {
+
+        if (!this.isFiniteNumber(value)) {
+            throw new Error(
+                "Le montant doit être un nombre valide."
+            );
+        }
+
+        const unit = POKER_RULES.chipUnit;
+
+        return Math.round(value / unit) * unit;
+
+    }
+
+};
+
+
+/* =========================================================
+   3. GESTION DES PHASES DE JEU
    ========================================================= */
 
 const PokerLabStreets = {
@@ -124,13 +195,18 @@ const PokerLabStreets = {
 
         }
 
-        if (currentIndex >= POKER_RULES.streets.length - 1) {
+        if (
+            currentIndex >=
+            POKER_RULES.streets.length - 1
+        ) {
 
             return null;
 
         }
 
-        return POKER_RULES.streets[currentIndex + 1];
+        return POKER_RULES.streets[
+            currentIndex + 1
+        ];
 
     },
 
@@ -182,7 +258,7 @@ const PokerLabStreets = {
 
 
 /* =========================================================
-   3. VALIDATION DES FORMATS DE JEU
+   4. VALIDATION DES FORMATS DE JEU
    ========================================================= */
 
 const PokerLabFormats = {
@@ -215,18 +291,17 @@ const PokerLabFormats = {
     },
 
 
-    validatePlayerCount(count, format = "sixMax") {
+    validatePlayerCount(
+        count,
+        format = "sixMax"
+    ) {
 
         if (!Number.isInteger(count)) {
-
             return false;
-
         }
 
         if (!this.isValid(format)) {
-
             return false;
-
         }
 
         const selectedFormat =
@@ -243,7 +318,7 @@ const PokerLabFormats = {
 
 
 /* =========================================================
-   4. GESTION DES POSITIONS À LA TABLE
+   5. GESTION DES POSITIONS À LA TABLE
    ========================================================= */
 
 const PokerLabPositions = {
@@ -313,7 +388,22 @@ const PokerLabPositions = {
     // Calcule la position de chaque siège.
     // Le dealerIndex représente le siège du bouton.
 
-    getTablePositions(playerCount, dealerIndex = 0) {
+    getTablePositions(
+        playerCount,
+        dealerIndex = 0
+    ) {
+
+        if (
+            !Number.isInteger(playerCount) ||
+            playerCount < 2 ||
+            playerCount > 6
+        ) {
+
+            throw new Error(
+                "Nombre de joueurs invalide."
+            );
+
+        }
 
         if (
             !Number.isInteger(dealerIndex) ||
@@ -396,7 +486,10 @@ const PokerLabPositions = {
 
     // Retourne les sièges dans le sens horaire.
 
-    getClockwiseOrder(startIndex, playerCount) {
+    getClockwiseOrder(
+        startIndex,
+        playerCount
+    ) {
 
         if (
             !Number.isInteger(playerCount) ||
@@ -440,7 +533,7 @@ const PokerLabPositions = {
 
 
 /* =========================================================
-   5. ORDRE DE PAROLE
+   6. ORDRE DE PAROLE
    ========================================================= */
 
 const PokerLabActionOrder = {
@@ -520,9 +613,7 @@ const PokerLabActionOrder = {
     filterActiveSeats(order, activeSeats) {
 
         if (!activeSeats) {
-
             return [...order];
-
         }
 
         const activeSet = new Set(activeSeats);
@@ -537,7 +628,7 @@ const PokerLabActionOrder = {
 
 
 /* =========================================================
-   6. GESTION DES BLINDS
+   7. GESTION DES BLINDS
    ========================================================= */
 
 const PokerLabBlinds = {
@@ -551,13 +642,20 @@ const PokerLabBlinds = {
     },
 
 
-    validate(smallBlind, bigBlind) {
+    validate(
+        smallBlind,
+        bigBlind
+    ) {
 
         return (
 
-            Number.isFinite(smallBlind) &&
+            PokerLabValidation.isChipAmount(
+                smallBlind
+            ) &&
 
-            Number.isFinite(bigBlind) &&
+            PokerLabValidation.isChipAmount(
+                bigBlind
+            ) &&
 
             smallBlind > 0 &&
 
@@ -570,12 +668,23 @@ const PokerLabBlinds = {
     },
 
 
-    create(smallBlind = 1, bigBlind = 2) {
+    create(
+        smallBlind = 0.5,
+        bigBlind = 1
+    ) {
 
-        if (!this.validate(smallBlind, bigBlind)) {
+        if (
+            !this.validate(
+                smallBlind,
+                bigBlind
+            )
+        ) {
 
             throw new Error(
-                "Configuration des blinds invalide."
+                "Configuration des blinds invalide. " +
+                "La petite blind doit être positive, " +
+                "la big blind doit être supérieure, " +
+                "et les montants doivent respecter des incréments de 0,5."
             );
 
         }
@@ -594,18 +703,18 @@ const PokerLabBlinds = {
 
 
 /* =========================================================
-   7. RÈGLES DES MISES
+   8. RÈGLES DES MISES
    ========================================================= */
 
 const PokerLabBettingRules = {
 
-    // Vérifie si un montant de mise est valide.
+    // Vérifie si un montant est valide.
+    // Les montants doivent respecter l'unité de 0,5 jeton.
 
     isValidAmount(amount) {
 
-        return (
-            Number.isFinite(amount) &&
-            amount >= 0
+        return PokerLabValidation.isChipAmount(
+            amount
         );
 
     },
@@ -617,7 +726,7 @@ const PokerLabBettingRules = {
     getMinimumOpeningBet(bigBlind) {
 
         if (
-            !Number.isFinite(bigBlind) ||
+            !PokerLabValidation.isChipAmount(bigBlind) ||
             bigBlind <= 0
         ) {
 
@@ -633,16 +742,19 @@ const PokerLabBettingRules = {
 
 
     // Calcule le montant minimum total à atteindre
-    // pour effectuer une relance complète.
+    // pour effectuer une relance.
     //
     // currentBet : mise totale actuelle à égaler.
     // lastFullRaise : taille de la dernière relance complète.
 
-    getMinimumRaiseTo(currentBet, lastFullRaise) {
+    getMinimumRaiseTo(
+        currentBet,
+        lastFullRaise
+    ) {
 
         if (
-            !this.isValidAmount(currentBet) ||
-            !Number.isFinite(lastFullRaise) ||
+            !PokerLabValidation.isChipAmount(currentBet) ||
+            !PokerLabValidation.isChipAmount(lastFullRaise) ||
             lastFullRaise <= 0
         ) {
 
@@ -652,7 +764,9 @@ const PokerLabBettingRules = {
 
         }
 
-        return currentBet + lastFullRaise;
+        return PokerLabValidation.roundChipAmount(
+            currentBet + lastFullRaise
+        );
 
     },
 
@@ -660,11 +774,14 @@ const PokerLabBettingRules = {
     // Calcule le montant que le joueur doit ajouter
     // pour égaliser la mise actuelle.
 
-    getAmountToCall(currentBet, playerBet) {
+    getAmountToCall(
+        currentBet,
+        playerBet
+    ) {
 
         if (
-            !this.isValidAmount(currentBet) ||
-            !this.isValidAmount(playerBet)
+            !PokerLabValidation.isChipAmount(currentBet) ||
+            !PokerLabValidation.isChipAmount(playerBet)
         ) {
 
             throw new Error(
@@ -673,9 +790,11 @@ const PokerLabBettingRules = {
 
         }
 
-        return Math.max(
-            0,
-            currentBet - playerBet
+        return PokerLabValidation.roundChipAmount(
+            Math.max(
+                0,
+                currentBet - playerBet
+            )
         );
 
     },
@@ -683,10 +802,6 @@ const PokerLabBettingRules = {
 
     // Vérifie si une relance est suffisamment importante
     // pour constituer une relance complète.
-    //
-    // raiseTo : montant total que le joueur aura misé.
-    // currentBet : mise totale actuelle.
-    // lastFullRaise : taille de la dernière relance complète.
 
     isFullRaise(
         raiseTo,
@@ -695,9 +810,9 @@ const PokerLabBettingRules = {
     ) {
 
         if (
-            !this.isValidAmount(raiseTo) ||
-            !this.isValidAmount(currentBet) ||
-            !Number.isFinite(lastFullRaise) ||
+            !PokerLabValidation.isChipAmount(raiseTo) ||
+            !PokerLabValidation.isChipAmount(currentBet) ||
+            !PokerLabValidation.isChipAmount(lastFullRaise) ||
             lastFullRaise <= 0
         ) {
 
@@ -708,17 +823,18 @@ const PokerLabBettingRules = {
         const raiseSize =
             raiseTo - currentBet;
 
-        return raiseSize >= lastFullRaise;
+        return (
+            raiseSize >= lastFullRaise - 0.000001
+        );
 
     },
 
 
-    // Vérifie si une action est autorisée par rapport
-    // à la mise actuelle et au minimum de relance.
+    // Vérifie si une relance respecte le minimum.
     //
-    // Cette fonction vérifie uniquement les montants.
-    // La disponibilité des jetons et les tapis sont
-    // contrôlés par le moteur de jeu.
+    // raiseTo : montant total que le joueur aura misé.
+    // currentBet : mise totale actuelle.
+    // lastFullRaise : taille de la dernière relance complète.
 
     validateRaise(
         raiseTo,
@@ -727,9 +843,9 @@ const PokerLabBettingRules = {
     ) {
 
         if (
-            !this.isValidAmount(raiseTo) ||
-            !this.isValidAmount(currentBet) ||
-            !Number.isFinite(lastFullRaise) ||
+            !PokerLabValidation.isChipAmount(raiseTo) ||
+            !PokerLabValidation.isChipAmount(currentBet) ||
+            !PokerLabValidation.isChipAmount(lastFullRaise) ||
             lastFullRaise <= 0
         ) {
 
@@ -743,7 +859,9 @@ const PokerLabBettingRules = {
                 lastFullRaise
             );
 
-        return raiseTo >= minimumRaiseTo;
+        return (
+            raiseTo >= minimumRaiseTo - 0.000001
+        );
 
     }
 
@@ -751,7 +869,7 @@ const PokerLabBettingRules = {
 
 
 /* =========================================================
-   8. RÈGLES DE DISTRIBUTION
+   9. RÈGLES DE DISTRIBUTION
    ========================================================= */
 
 const PokerLabDealingRules = {
@@ -821,7 +939,7 @@ const PokerLabDealingRules = {
 
 
 /* =========================================================
-   9. INFORMATIONS GÉNÉRALES
+   10. INFORMATIONS GÉNÉRALES
    ========================================================= */
 
 const PokerLabRulesInfo = {
@@ -846,7 +964,11 @@ const PokerLabRulesInfo = {
             maximumPlayers:
                 POKER_RULES.maxPlayers,
 
-            streets: PokerLabStreets.getAll(),
+            chipUnit:
+                POKER_RULES.chipUnit,
+
+            streets:
+                PokerLabStreets.getAll(),
 
             defaultBlinds:
                 PokerLabBlinds.getDefault()
@@ -859,12 +981,14 @@ const PokerLabRulesInfo = {
 
 
 /* =========================================================
-   10. EXPORT DES MODULES
+   11. EXPORT DES MODULES
    ========================================================= */
 
 window.PokerLabRules = {
 
     constants: POKER_RULES,
+
+    validation: PokerLabValidation,
 
     streets: PokerLabStreets,
 

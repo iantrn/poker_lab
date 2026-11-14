@@ -1,7 +1,7 @@
 
 /* =========================================================
    POKERLAB - BOT ENGINE
-   Version : 1.1.0
+   Version : 2.0.0
    Description : Moteur décisionnel des adversaires
    ========================================================= */
 
@@ -10,6 +10,8 @@
 
     const DEFAULT_PROFILE = "balanced";
     const DEFAULT_DIFFICULTY = "medium";
+
+    const CHIP_UNIT = 0.5;
 
     /* =====================================================
        1. OUTILS GÉNÉRAUX
@@ -31,11 +33,29 @@
             : fallback;
     }
 
+    function roundChips(amount) {
+        return Math.round(amount / CHIP_UNIT) * CHIP_UNIT;
+    }
+
+    function percentage(value, fallback = 0) {
+        return clamp(toNumber(value, fallback), 0, 100);
+    }
+
+    function getStat(profile, name, fallback = 0) {
+        return toNumber(
+            profile &&
+            profile.stats &&
+            profile.stats[name],
+            fallback
+        );
+    }
+
     /* =====================================================
        2. ÉVALUATION PRÉFLOP
        ===================================================== */
 
     function evaluatePreflop(cards) {
+
         if (!Array.isArray(cards) || cards.length !== 2) {
             return 0;
         }
@@ -60,11 +80,13 @@
         const gap = high - low;
 
         if (pair) {
+
             return clamp(
                 0.48 + (high - 2) * 0.035,
                 0,
                 0.92
             );
+
         }
 
         let strength =
@@ -94,30 +116,31 @@
         }
 
         return clamp(strength, 0.05, 0.90);
+
     }
+
 
     /* =====================================================
        3. ÉVALUATION POSTFLOP
        ===================================================== */
 
     function extractCategory(result) {
+
         if (typeof result === "number") {
             return result;
         }
 
         if (Array.isArray(result)) {
+
             return typeof result[0] === "number"
                 ? result[0]
                 : null;
+
         }
 
         if (!result || typeof result !== "object") {
             return null;
         }
-
-        // L'évaluateur PokerLab retourne normalement
-        // un score dont le premier élément représente
-        // la catégorie de combinaison.
 
         if (
             Array.isArray(result.score) &&
@@ -135,6 +158,7 @@
         ];
 
         for (const key of possibleKeys) {
+
             const value = result[key];
 
             if (typeof value === "number") {
@@ -147,12 +171,16 @@
             ) {
                 return value[0];
             }
+
         }
 
         return null;
+
     }
 
+
     function evaluatePostflop(holeCards, communityCards) {
+
         const allCards = [
             ...holeCards,
             ...communityCards
@@ -162,7 +190,8 @@
             return evaluatePreflop(holeCards);
         }
 
-        const evaluator = window.PokerLabHandEvaluator;
+        const evaluator =
+            window.PokerLabHandEvaluator;
 
         if (
             !evaluator ||
@@ -172,8 +201,12 @@
         }
 
         try {
-            const result = evaluator.evaluate(allCards);
-            const category = extractCategory(result);
+
+            const result =
+                evaluator.evaluate(allCards);
+
+            const category =
+                extractCategory(result);
 
             if (
                 category === null ||
@@ -184,21 +217,13 @@
             }
 
             /*
-             * Estimation simplifiée de la force.
+             * Estimation heuristique de la force.
              *
-             * Les catégories sont ordonnées de 0 à 9 :
-             * 0 : carte haute
-             * 1 : paire
-             * 2 : double paire
-             * 3 : brelan
-             * 4 : quinte
-             * 5 : couleur
-             * 6 : full
-             * 7 : carré
-             * 8 : quinte flush
-             * 9 : quinte flush royale
+             * Cette valeur représente une approximation
+             * de la force de combinaison, pas une équité
+             * contre une range adverse.
              *
-             * Cette estimation n'est pas une équité GTO.
+             * Elle ne constitue pas une stratégie GTO.
              */
 
             const categoryStrength = [
@@ -214,50 +239,56 @@
                 0.995
             ];
 
-            let strength = categoryStrength[category];
-
-            // Petite prise en compte des kickers.
-            // Leur poids reste limité afin de ne pas
-            // surestimer leur influence.
+            let strength =
+                categoryStrength[category];
 
             if (
                 result &&
                 Array.isArray(result.score) &&
                 result.score.length > 1
             ) {
+
                 const kickerValues =
                     result.score.slice(1);
 
-                const kickerSum = kickerValues.reduce(
-                    (total, value) => {
-                        return total +
-                            (Number.isFinite(value) ? value : 0);
-                    },
-                    0
-                );
+                const kickerSum =
+                    kickerValues.reduce(
+                        (total, value) =>
+                            total +
+                            (
+                                Number.isFinite(value)
+                                    ? value
+                                    : 0
+                            ),
+                        0
+                    );
 
-                const kickerAdjustment = clamp(
+                strength += clamp(
                     kickerSum / 1000,
                     0,
                     0.025
                 );
 
-                strength += kickerAdjustment;
             }
 
             return clamp(strength, 0.05, 0.995);
 
         } catch (error) {
+
             console.warn(
                 "[PokerLab Bot] Évaluation postflop impossible :",
                 error
             );
 
             return evaluatePreflop(holeCards);
+
         }
+
     }
 
+
     function evaluateHand(holeCards, communityCards) {
+
         if (
             !Array.isArray(holeCards) ||
             holeCards.length !== 2
@@ -277,15 +308,145 @@
             holeCards,
             communityCards
         );
+
     }
 
+
     /* =====================================================
-       4. BLUFF
+       4. PROFILS COMPORTEMENTAUX
+       ===================================================== */
+
+    function getPreflopThreshold(profile, position) {
+
+        const vpip = getStat(profile, "vpip", 25);
+        const pfr = getStat(profile, "pfr", 20);
+
+        /*
+         * Plus le VPIP est bas, plus le bot sélectionne
+         * rigoureusement ses mains.
+         */
+
+        let threshold =
+            0.78 - (vpip - 14) * 0.012;
+
+        threshold = clamp(
+            threshold,
+            0.47,
+            0.79
+        );
+
+        /*
+         * Le PFR influence la propension à entrer
+         * agressivement dans le coup.
+         */
+
+        threshold += clamp(
+            (22 - pfr) * 0.0015,
+            -0.015,
+            0.025
+        );
+
+        /*
+         * Adaptation simplifiée à la position.
+         */
+
+        const positionAdjustments = {
+
+            "BTN": -0.11,
+            "BTN/SB": -0.09,
+            "CO": -0.07,
+            "HJ": -0.035,
+            "UTG": 0.045,
+            "SB": 0.025,
+            "BB": 0
+
+        };
+
+        threshold +=
+            positionAdjustments[position] ?? 0;
+
+        return clamp(threshold, 0.35, 0.85);
+
+    }
+
+
+    function getPreflopRaiseThreshold(profile) {
+
+        const pfr = getStat(profile, "pfr", 20);
+
+        return clamp(
+            0.72 - (pfr - 11) * 0.006,
+            0.57,
+            0.76
+        );
+
+    }
+
+
+    function getThreeBetFrequency(profile) {
+
+        return percentage(
+            getStat(profile, "threeBet", 8)
+        );
+
+    }
+
+
+    function getAggression(profile) {
+
+        return clamp(
+            getStat(profile, "aggression", 3),
+            0.5,
+            5
+        );
+
+    }
+
+
+    function getFoldToBetFrequency(profile) {
+
+        return percentage(
+            getStat(profile, "foldToBet", 45)
+        );
+
+    }
+
+
+    function getFoldToThreeBetFrequency(profile) {
+
+        return percentage(
+            getStat(profile, "foldToThreeBet", 58)
+        );
+
+    }
+
+
+    function getContinuationBetFrequency(profile) {
+
+        return percentage(
+            getStat(profile, "continuationBet", 68)
+        );
+
+    }
+
+
+    function getShowdownFrequency(profile) {
+
+        return percentage(
+            getStat(profile, "showdownFrequency", 27)
+        );
+
+    }
+
+
+    /* =====================================================
+       5. BLUFF
        ===================================================== */
 
     function shouldBluff(profile, difficulty, context) {
+
         const baseFrequency =
-            toNumber(profile.stats.bluffFrequency) / 100;
+            getStat(profile, "bluffFrequency", 20) / 100;
 
         const adjustment =
             toNumber(difficulty.bluffAdjustment) / 100;
@@ -301,17 +462,35 @@
             frequency *= 0.8;
         }
 
+        if (context.street === "preflop") {
+            frequency *= 0.5;
+        }
+
         return Math.random() <
             clamp(frequency, 0, 0.60);
+
     }
 
+
     /* =====================================================
-       5. CALCUL DES MISES
+       6. CALCUL DES MISES
        ===================================================== */
 
-    function calculateBetSize(context, strength, difficulty) {
-        const pot = Math.max(0, context.pot);
-        const availableStack = Math.max(0, context.stack);
+    function calculateBetSize(
+        context,
+        strength,
+        difficulty
+    ) {
+
+        const pot = Math.max(
+            0,
+            toNumber(context.pot)
+        );
+
+        const availableStack = Math.max(
+            0,
+            toNumber(context.stack)
+        );
 
         if (availableStack <= 0) {
             return 0;
@@ -326,25 +505,34 @@
         }
 
         const difficultyFactor =
-            difficulty.id === "hard" ? 1.05 : 1;
+            difficulty.id === "hard"
+                ? 1.05
+                : 1;
 
-        const calculatedAmount = Math.round(
-            pot * multiplier * difficultyFactor
+        const calculatedAmount =
+            pot * multiplier * difficultyFactor;
+
+        const minimum =
+            Math.max(
+                CHIP_UNIT,
+                toNumber(context.minimum, 1)
+            );
+
+        return roundChips(
+            Math.min(
+                availableStack,
+                Math.max(
+                    minimum,
+                    calculatedAmount
+                )
+            )
         );
 
-        const minimum = Math.max(
-            1,
-            toNumber(context.minRaise, 1)
-        );
-
-        return Math.min(
-            availableStack,
-            Math.max(minimum, calculatedAmount)
-        );
     }
 
+
     /* =====================================================
-       6. CRÉATION DES DÉCISIONS
+       7. CRÉATION DES DÉCISIONS
        ===================================================== */
 
     function createDecision(
@@ -353,26 +541,781 @@
         reason,
         extra = {}
     ) {
+
         return {
+
             action,
-            amount: Math.max(0, Math.round(amount)),
+
+            amount: Math.max(
+                0,
+                roundChips(toNumber(amount))
+            ),
+
             reason,
+
             ...extra
+
         };
+
     }
 
+
     /* =====================================================
-       7. DÉCISION PRINCIPALE
+       8. DÉCISION PRÉFLOP
+       ===================================================== */
+
+    function decidePreflop(context) {
+
+        const {
+            profile,
+            strength,
+            callAmount,
+            stack,
+            currentBet,
+            currentContribution,
+            minRaise,
+            canRaise,
+            pot,
+            difficulty,
+            opponentsRemaining,
+            bluff
+        } = context;
+
+        const threshold =
+            getPreflopThreshold(
+                profile,
+                context.position
+            );
+
+        const raiseThreshold =
+            getPreflopRaiseThreshold(profile);
+
+        const facingRaise =
+            currentBet > context.bigBlind + 0.000001;
+
+        const facingOpen =
+            currentBet > 0 &&
+            callAmount > 0 &&
+            !facingRaise;
+
+        const threeBetFrequency =
+            getThreeBetFrequency(profile);
+
+        const aggression =
+            getAggression(profile);
+
+        // -------------------------------------------------
+        // AUCUNE MISE À ÉGALISER
+        // -------------------------------------------------
+
+        if (callAmount === 0) {
+
+            if (currentBet === 0) {
+
+                if (strength < threshold && !bluff) {
+
+                    return createDecision(
+                        "fold",
+                        0,
+                        "Main trop faible pour entrer dans le coup."
+                    );
+
+                }
+
+                const shouldOpenRaise =
+                    strength >= raiseThreshold ||
+                    (
+                        bluff &&
+                        strength >= threshold
+                    );
+
+                if (!shouldOpenRaise) {
+
+                    return createDecision(
+                        "call",
+                        0,
+                        "Le bot complète la mise."
+                    );
+
+                }
+
+                const openingBet =
+                    calculateBetSize(
+                        {
+                            pot,
+                            stack,
+                            minimum: context.bigBlind
+                        },
+                        strength,
+                        difficulty
+                    );
+
+                if (openingBet >= stack) {
+
+                    return createDecision(
+                        "all-in",
+                        stack,
+                        "Le bot engage son tapis préflop.",
+                        { allIn: true }
+                    );
+
+                }
+
+                return createDecision(
+                    "bet",
+                    openingBet,
+                    "Le bot ouvre le coup préflop."
+                );
+
+            }
+
+            // Option de la Big Blind ou absence de mise
+            // à égaliser : le bot peut checker ou relancer.
+
+            const shouldRaise =
+                canRaise &&
+                (
+                    strength >= raiseThreshold ||
+                    (
+                        bluff &&
+                        strength >= threshold
+                    )
+                );
+
+            if (!shouldRaise) {
+
+                return createDecision(
+                    "check",
+                    0,
+                    "Le bot conserve son option de check."
+                );
+
+            }
+
+            const raiseIncrement =
+                calculateBetSize(
+                    {
+                        pot,
+                        stack,
+                        minimum: minRaise
+                    },
+                    strength,
+                    difficulty
+                );
+
+            const minimumRaiseTo =
+                currentBet + minRaise;
+
+            const maximumRaiseTo =
+                currentContribution + stack;
+
+            const raiseTo = Math.min(
+                maximumRaiseTo,
+                Math.max(
+                    minimumRaiseTo,
+                    currentBet + raiseIncrement
+                )
+            );
+
+            if (
+                raiseTo >= maximumRaiseTo - 0.000001
+            ) {
+
+                return createDecision(
+                    "all-in",
+                    stack,
+                    "Le bot relance à tapis préflop.",
+                    {
+                        allIn: true,
+                        raiseTo
+                    }
+                );
+
+            }
+
+            return createDecision(
+                "raise",
+                raiseTo - currentContribution,
+                "Le bot relance depuis la Big Blind.",
+                { raiseTo }
+            );
+
+        }
+
+        // -------------------------------------------------
+        // LE BOT FAIT FACE À UNE OUVERTURE
+        // -------------------------------------------------
+
+        if (facingOpen) {
+
+            const shouldFold =
+                strength < threshold &&
+                !bluff;
+
+            if (shouldFold) {
+
+                return createDecision(
+                    "fold",
+                    0,
+                    "Le bot abandonne face à l'ouverture."
+                );
+
+            }
+
+            const shouldThreeBet =
+                canRaise &&
+                strength >= raiseThreshold &&
+                Math.random() <
+                    clamp(
+                        threeBetFrequency / 100 +
+                        (aggression - 2.5) * 0.06,
+                        0.02,
+                        0.85
+                    );
+
+            if (shouldThreeBet) {
+
+                const raiseIncrement =
+                    calculateBetSize(
+                        {
+                            pot: pot + callAmount,
+                            stack: stack - callAmount,
+                            minimum: minRaise
+                        },
+                        strength,
+                        difficulty
+                    );
+
+                const maximumRaiseTo =
+                    currentContribution + stack;
+
+                const raiseTo = Math.min(
+                    maximumRaiseTo,
+                    Math.max(
+                        currentBet + minRaise,
+                        currentBet + raiseIncrement
+                    )
+                );
+
+                if (
+                    raiseTo >= maximumRaiseTo - 0.000001
+                ) {
+
+                    return createDecision(
+                        "all-in",
+                        stack,
+                        "Le bot effectue une sur-relance à tapis.",
+                        {
+                            allIn: true,
+                            raiseTo
+                        }
+                    );
+
+                }
+
+                return createDecision(
+                    "raise",
+                    raiseTo - currentContribution,
+                    "Le bot effectue une sur-relance.",
+                    { raiseTo }
+                );
+
+            }
+
+            if (stack <= callAmount) {
+
+                return createDecision(
+                    "call",
+                    stack,
+                    "Le bot suit à tapis.",
+                    { allIn: true }
+                );
+
+            }
+
+            return createDecision(
+                "call",
+                callAmount,
+                "Le bot suit l'ouverture."
+            );
+
+        }
+
+        // -------------------------------------------------
+        // LE BOT FAIT FACE À UNE RELANCE
+        // -------------------------------------------------
+
+        if (facingRaise) {
+
+            const foldFrequency =
+                getFoldToThreeBetFrequency(profile);
+
+            const estimatedFold =
+                Math.random() <
+                foldFrequency / 100;
+
+            const shouldFold =
+                strength < threshold ||
+                (
+                    estimatedFold &&
+                    strength < raiseThreshold
+                );
+
+            if (shouldFold && !bluff) {
+
+                return createDecision(
+                    "fold",
+                    0,
+                    "Le bot abandonne face à la relance."
+                );
+
+            }
+
+            const shouldReraise =
+                canRaise &&
+                strength >= raiseThreshold + 0.08 &&
+                Math.random() <
+                    clamp(
+                        threeBetFrequency / 100,
+                        0.01,
+                        0.65
+                    );
+
+            if (shouldReraise) {
+
+                const raiseIncrement =
+                    calculateBetSize(
+                        {
+                            pot: pot + callAmount,
+                            stack: stack - callAmount,
+                            minimum: minRaise
+                        },
+                        strength,
+                        difficulty
+                    );
+
+                const maximumRaiseTo =
+                    currentContribution + stack;
+
+                const raiseTo = Math.min(
+                    maximumRaiseTo,
+                    Math.max(
+                        currentBet + minRaise,
+                        currentBet + raiseIncrement
+                    )
+                );
+
+                if (
+                    raiseTo >= maximumRaiseTo - 0.000001
+                ) {
+
+                    return createDecision(
+                        "all-in",
+                        stack,
+                        "Le bot sur-relance à tapis.",
+                        {
+                            allIn: true,
+                            raiseTo
+                        }
+                    );
+
+                }
+
+                return createDecision(
+                    "raise",
+                    raiseTo - currentContribution,
+                    "Le bot sur-relance.",
+                    { raiseTo }
+                );
+
+            }
+
+            if (stack <= callAmount) {
+
+                return createDecision(
+                    "call",
+                    stack,
+                    "Le bot suit à tapis.",
+                    { allIn: true }
+                );
+
+            }
+
+            return createDecision(
+                "call",
+                callAmount,
+                "Le bot suit la relance."
+            );
+
+        }
+
+        return createDecision(
+            "check",
+            0,
+            "Le bot ne possède aucune mise à égaliser."
+        );
+
+    }
+
+
+    /* =====================================================
+       9. DÉCISION POSTFLOP
+       ===================================================== */
+
+    function decidePostflop(context) {
+
+        const {
+            profile,
+            strength,
+            callAmount,
+            stack,
+            currentBet,
+            currentContribution,
+            minRaise,
+            canRaise,
+            pot,
+            difficulty,
+            opponentsRemaining,
+            bluff
+        } = context;
+
+        const aggression =
+            getAggression(profile);
+
+        const foldToBet =
+            getFoldToBetFrequency(profile);
+
+        const continuationBet =
+            getContinuationBetFrequency(profile);
+
+        const showdownFrequency =
+            getShowdownFrequency(profile);
+
+        // -------------------------------------------------
+        // AUCUNE MISE À ÉGALISER
+        // -------------------------------------------------
+
+        if (callAmount === 0) {
+
+            const shouldBet =
+                strength >= 0.58 ||
+                (
+                    bluff &&
+                    strength >= 0.30
+                );
+
+            if (!shouldBet) {
+
+                return createDecision(
+                    "check",
+                    0,
+                    "Le bot contrôle le pot."
+                );
+
+            }
+
+            /*
+             * La fréquence de continuation bet et
+             * l'agressivité influencent la fréquence
+             * d'initiative postflop.
+             */
+
+            const bettingFrequency =
+                clamp(
+                    continuationBet / 100 +
+                    (aggression - 2.5) * 0.05,
+                    0.15,
+                    0.90
+                );
+
+            if (
+                strength < 0.75 &&
+                Math.random() > bettingFrequency &&
+                !bluff
+            ) {
+
+                return createDecision(
+                    "check",
+                    0,
+                    "Le bot choisit de contrôler le pot."
+                );
+
+            }
+
+            const betAmount =
+                calculateBetSize(
+                    {
+                        pot,
+                        stack,
+                        minimum: context.bigBlind
+                    },
+                    strength,
+                    difficulty
+                );
+
+            if (betAmount >= stack) {
+
+                return createDecision(
+                    "all-in",
+                    stack,
+                    "Le bot engage son tapis.",
+                    { allIn: true }
+                );
+
+            }
+
+            if (currentBet === 0) {
+
+                return createDecision(
+                    "bet",
+                    betAmount,
+                    bluff
+                        ? "Le bot tente un bluff."
+                        : "Le bot mise pour valoriser sa main."
+                );
+
+            }
+
+            // Cas particulier : une mise existe déjà,
+            // mais le bot n'a rien à égaliser.
+            // Exemple : option de la Big Blind préflop.
+
+            if (!canRaise) {
+
+                return createDecision(
+                    "check",
+                    0,
+                    "Le bot ne peut pas relancer."
+                );
+
+            }
+
+            const raiseTo = Math.min(
+                currentContribution + stack,
+                Math.max(
+                    currentBet + minRaise,
+                    currentBet + betAmount
+                )
+            );
+
+            if (
+                raiseTo >=
+                currentContribution + stack - 0.000001
+            ) {
+
+                return createDecision(
+                    "all-in",
+                    stack,
+                    "Le bot relance à tapis.",
+                    {
+                        allIn: true,
+                        raiseTo
+                    }
+                );
+
+            }
+
+            return createDecision(
+                "raise",
+                raiseTo - currentContribution,
+                "Le bot relance.",
+                { raiseTo }
+            );
+
+        }
+
+        // -------------------------------------------------
+        // LE BOT FAIT FACE À UNE MISE
+        // -------------------------------------------------
+
+        const effectiveCall =
+            Math.min(callAmount, stack);
+
+        const potOdds =
+            effectiveCall /
+            Math.max(
+                0.5,
+                pot + effectiveCall
+            );
+
+        /*
+         * Estimation heuristique de la fréquence
+         * de continuation.
+         */
+
+        const showdownAdjustment =
+            (showdownFrequency - 27) * 0.001;
+
+        const continueThreshold =
+            clamp(
+                potOdds +
+                0.07 +
+                showdownAdjustment,
+                0.10,
+                0.78
+            );
+
+        const profileFoldProbability =
+            foldToBet / 100;
+
+        const shouldFold =
+            strength < continueThreshold &&
+            !bluff;
+
+        if (shouldFold) {
+
+            return createDecision(
+                "fold",
+                0,
+                "La force de la main ne justifie pas de continuer."
+            );
+
+        }
+
+        // -------------------------------------------------
+        // ALL-IN EN SUIVANT
+        // -------------------------------------------------
+
+        if (stack <= effectiveCall) {
+
+            return createDecision(
+                "call",
+                stack,
+                "Le bot suit en engageant son tapis.",
+                { allIn: true }
+            );
+
+        }
+
+        // -------------------------------------------------
+        // RELANCE
+        // -------------------------------------------------
+
+        const raiseThreshold =
+            clamp(
+                0.78 - (aggression - 2.5) * 0.035,
+                0.65,
+                0.85
+            );
+
+        const shouldRaise =
+            canRaise &&
+            (
+                strength >= raiseThreshold ||
+                (
+                    bluff &&
+                    strength >= 0.40
+                )
+            );
+
+        if (shouldRaise) {
+
+            const stackAfterCall =
+                stack - effectiveCall;
+
+            const raiseIncrement =
+                calculateBetSize(
+                    {
+                        pot: pot + effectiveCall,
+                        stack: stackAfterCall,
+                        minimum: minRaise
+                    },
+                    strength,
+                    difficulty
+                );
+
+            const maximumRaiseTo =
+                currentContribution + stack;
+
+            const minimumRaiseTo =
+                currentBet + minRaise;
+
+            const raiseTo = Math.min(
+                maximumRaiseTo,
+                Math.max(
+                    minimumRaiseTo,
+                    currentBet + raiseIncrement
+                )
+            );
+
+            if (
+                raiseTo >=
+                maximumRaiseTo - 0.000001
+            ) {
+
+                return createDecision(
+                    "all-in",
+                    stack,
+                    "Le bot engage son tapis en relançant.",
+                    {
+                        allIn: true,
+                        raiseTo
+                    }
+                );
+
+            }
+
+            return createDecision(
+                "raise",
+                raiseTo - currentContribution,
+                bluff
+                    ? "Le bot tente une relance en bluff."
+                    : "Le bot relance pour valoriser sa main.",
+                { raiseTo }
+            );
+
+        }
+
+        // -------------------------------------------------
+        // SUIVI
+        // -------------------------------------------------
+
+        /*
+         * Fold-to-bet influence la propension à abandonner.
+         * Ici, le seuil de continuation a déjà été franchi.
+         * Cette seconde décision introduit une variation
+         * comportementale sans contredire le seuil.
+         */
+
+        if (
+            strength < 0.50 &&
+            Math.random() < profileFoldProbability * 0.15 &&
+            !bluff
+        ) {
+
+            return createDecision(
+                "fold",
+                0,
+                "Le bot abandonne face à la pression."
+            );
+
+        }
+
+        return createDecision(
+            "call",
+            effectiveCall,
+            "Le bot suit avec une main suffisamment intéressante."
+        );
+
+    }
+
+
+    /* =====================================================
+       10. DÉCISION PRINCIPALE
        ===================================================== */
 
     function decide(context = {}) {
-        const profiles = window.PokerLabBotProfiles;
+
+        const profiles =
+            window.PokerLabBotProfiles;
 
         if (!profiles) {
+
             throw new Error(
                 "PokerLabBotProfiles est introuvable. " +
                 "Vérifie le chargement de bot-profiles.js."
             );
+
         }
 
         const profileId =
@@ -388,13 +1331,18 @@
             profiles.getDifficulty(difficultyId);
 
         if (!profile || !difficulty) {
+
             throw new Error(
                 "Profil ou difficulté de bot invalide."
             );
+
         }
 
-        const holeCards = context.holeCards || [];
-        const communityCards = context.communityCards || [];
+        const holeCards =
+            context.holeCards || [];
+
+        const communityCards =
+            context.communityCards || [];
 
         if (
             !Array.isArray(holeCards) ||
@@ -402,9 +1350,11 @@
             !Array.isArray(communityCards) ||
             communityCards.length > 5
         ) {
+
             throw new Error(
                 "Les cartes fournies au bot sont invalides."
             );
+
         }
 
         if (
@@ -413,9 +1363,11 @@
             communityCards.length !== 4 &&
             communityCards.length !== 5
         ) {
+
             throw new Error(
                 "Le nombre de cartes communes est invalide."
             );
+
         }
 
         const pot = Math.max(
@@ -444,8 +1396,13 @@
         );
 
         const minRaise = Math.max(
-            1,
+            CHIP_UNIT,
             toNumber(context.minRaise, 1)
+        );
+
+        const bigBlind = Math.max(
+            CHIP_UNIT,
+            toNumber(context.bigBlind, 1)
         );
 
         const opponentsRemaining = Math.max(
@@ -460,283 +1417,136 @@
             context.street || "preflop";
 
         if (stack === 0) {
+
             return createDecision(
                 "check",
                 0,
                 "Le bot ne possède plus de jetons."
             );
+
         }
 
-        // Vérification de cohérence des montants.
+        if (
+            !["preflop", "flop", "turn", "river"].includes(street)
+        ) {
 
-        const expectedCallAmount = Math.max(
-            0,
-            currentBet - currentContribution
-        );
+            throw new Error(
+                "Phase de jeu invalide pour le bot."
+            );
 
-        const effectiveCallAmount =
-            context.callAmount !== undefined
-                ? Math.min(callAmount, stack)
-                : Math.min(expectedCallAmount, stack);
+        }
 
         // -------------------------------------------------
         // FORCE DE LA MAIN
         // -------------------------------------------------
 
-        const rawStrength = evaluateHand(
-            holeCards,
-            communityCards
-        );
+        const rawStrength =
+            evaluateHand(
+                holeCards,
+                communityCards
+            );
 
         const noise =
             toNumber(difficulty.decisionNoise) / 100;
 
-        const adjustedStrength = clamp(
-            rawStrength +
+        const adjustedStrength =
+            clamp(
+                rawStrength +
                 randomBetween(-noise, noise),
-            0,
-            1
-        );
+                0,
+                1
+            );
 
         const makesMistake =
             Math.random() <
             toNumber(difficulty.mistakeRate) / 100;
 
-        const bluff = shouldBluff(
-            profile,
-            difficulty,
-            {
-                street,
-                opponentsRemaining
-            }
-        );
-
-        const strength = makesMistake
-            ? clamp(
-                adjustedStrength +
+        const strength =
+            makesMistake
+                ? clamp(
+                    adjustedStrength +
                     randomBetween(-0.25, 0.25),
-                0,
-                1
-            )
-            : adjustedStrength;
-
-        const canCheck =
-            effectiveCallAmount === 0;
-
-        // =================================================
-        // CAS 1 : AUCUNE MISE À PAYER
-        // =================================================
-
-        if (canCheck) {
-            const shouldBet =
-                strength >= 0.58 ||
-                (bluff && strength < 0.58);
-
-            if (!shouldBet) {
-                return createDecision(
-                    "check",
                     0,
-                    "La force de la main ne justifie pas une mise."
-                );
-            }
+                    1
+                )
+                : adjustedStrength;
 
-            const betAmount = calculateBetSize(
+        const bluff =
+            shouldBluff(
+                profile,
+                difficulty,
                 {
-                    pot,
-                    stack,
-                    minRaise
-                },
-                strength,
-                difficulty
-            );
-
-            if (betAmount >= stack) {
-                return createDecision(
-                    "all-in",
-                    stack,
-                    "Le bot engage son tapis.",
-                    {
-                        allIn: true
-                    }
-                );
-            }
-
-            return createDecision(
-                "bet",
-                betAmount,
-                bluff
-                    ? "Le bot tente un bluff."
-                    : "Le bot mise pour valoriser sa main."
-            );
-        }
-
-        // =================================================
-        // CAS 2 : LE BOT DOIT FAIRE FACE À UNE MISE
-        // =================================================
-
-        const effectiveCall = Math.min(
-            effectiveCallAmount,
-            stack
-        );
-
-        const potOdds =
-            effectiveCall /
-            Math.max(1, pot + effectiveCall);
-
-        const continueThreshold = clamp(
-            potOdds + 0.08,
-            0.12,
-            0.75
-        );
-
-        // Le stack ne permet pas de suivre entièrement.
-
-        if (stack <= effectiveCall) {
-            if (
-                strength >= continueThreshold ||
-                bluff
-            ) {
-                return createDecision(
-                    "call",
-                    stack,
-                    "Le bot suit en engageant son tapis.",
-                    {
-                        allIn: true
-                    }
-                );
-            }
-
-            return createDecision(
-                "fold",
-                0,
-                "Le bot abandonne face à la mise."
-            );
-        }
-
-        // Main insuffisante.
-
-        if (
-            strength < continueThreshold &&
-            !bluff
-        ) {
-            return createDecision(
-                "fold",
-                0,
-                "La main ne présente pas une rentabilité suffisante."
-            );
-        }
-
-        // =================================================
-        // CAS 3 : RELANCE
-        // =================================================
-
-        const shouldRaise =
-            strength >= 0.78 ||
-            (
-                bluff &&
-                strength >= 0.40
-            );
-
-        // Le bot ne peut pas relancer si son droit
-        // de relance n'a pas été rouvert.
-
-        if (shouldRaise && canRaise) {
-            const stackAfterCall =
-                stack - effectiveCall;
-
-            const raiseIncrement = calculateBetSize(
-                {
-                    pot: pot + effectiveCall,
-                    stack: stackAfterCall,
-                    minRaise
-                },
-                strength,
-                difficulty
-            );
-
-            const minimumFullRaise =
-                minRaise;
-
-            // Le montant supplémentaire nécessaire
-            // pour réaliser une relance complète.
-
-            if (
-                stackAfterCall >= minimumFullRaise &&
-                raiseIncrement >= minimumFullRaise
-            ) {
-                const actualRaiseIncrement = Math.min(
-                    raiseIncrement,
-                    stackAfterCall
-                );
-
-                const totalCommitment =
-                    effectiveCall + actualRaiseIncrement;
-
-                const totalRaiseTo =
-                    currentBet + actualRaiseIncrement;
-
-                if (totalCommitment >= stack) {
-                    return createDecision(
-                        "all-in",
-                        stack,
-                        "Le bot engage son tapis en relançant.",
-                        {
-                            allIn: true,
-                            raiseTo: currentBet + stackAfterCall
-                        }
-                    );
+                    street,
+                    opponentsRemaining
                 }
+            );
 
-                return createDecision(
-                    "raise",
-                    totalCommitment,
-                    bluff
-                        ? "Le bot tente une relance en bluff."
-                        : "Le bot relance pour valoriser sa main.",
-                    {
-                        raiseTo: totalRaiseTo
-                    }
-                );
-            }
+        const effectiveCallAmount =
+            Math.min(callAmount, stack);
 
-            // Le stack restant ne permet qu'une relance
-            // inférieure au minimum : seul le tapis est permis.
+        const decisionContext = {
 
-            if (stackAfterCall > 0) {
-                return createDecision(
-                    "all-in",
-                    stack,
-                    "Le bot engage son tapis avec une relance courte.",
-                    {
-                        allIn: true,
-                        raiseTo: currentBet + stackAfterCall
-                    }
-                );
-            }
+            profile,
+
+            difficulty,
+
+            strength,
+
+            callAmount: effectiveCallAmount,
+
+            stack,
+
+            currentBet,
+
+            currentContribution,
+
+            minRaise,
+
+            bigBlind,
+
+            canRaise,
+
+            pot,
+
+            opponentsRemaining,
+
+            street,
+
+            position: context.position,
+
+            bluff
+
+        };
+
+        if (street === "preflop") {
+
+            return decidePreflop(
+                decisionContext
+            );
+
         }
 
-        // =================================================
-        // CAS 4 : SUIVI
-        // =================================================
-
-        return createDecision(
-            "call",
-            effectiveCall,
-            canRaise
-                ? "Le bot suit avec une main suffisamment intéressante."
-                : "Le droit de relance n'est pas ouvert : le bot suit."
+        return decidePostflop(
+            decisionContext
         );
+
     }
 
+
     /* =====================================================
-       8. API PUBLIQUE
+       11. API PUBLIQUE
        ===================================================== */
 
     window.PokerLabBotEngine = {
+
         decide,
+
         evaluateHand,
+
         evaluatePreflop,
+
         evaluatePostflop
+
     };
 
 })();
