@@ -1405,3 +1405,79 @@ button:disabled {
     #training-actions.pl-action-panel { padding:8px; gap:5px; }
     #training-actions.pl-action-panel button { min-height:33px; padding:6px 10px; font-size:.70rem; }
 }
+
+
+/* Layout v3.1 : tapis, cartes du héros et commandes sur trois zones distinctes. */
+.pl-table-container {
+    height: 700px !important;
+    min-height: 700px !important;
+    max-height: 700px !important;
+    overflow: hidden;
+}
+
+/* Le tapis est remonté et raccourci : il ne passe plus sous le siège du héros. */
+.pl-table-container > .pl-felt {
+    top: 35% !important;
+    height: 40% !important;
+    width: 66% !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+}
+
+/* Les sièges adverses restent autour du tapis ; le héros dispose d'une zone basse dédiée. */
+.pl-table-container .pl-seat-hero {
+    top: 62% !important;
+}
+
+/* Le libellé de la main est placé entre les cartes du héros et les commandes. */
+.pl-table-container > .pl-hand-strength {
+    top: auto !important;
+    bottom: 150px !important;
+    left: 50% !important;
+    z-index: 26 !important;
+    max-width: calc(100% - 24px);
+}
+
+/* Les commandes restent sous le joueur, sans recouvrir ses cartes. */
+.pl-table-container > .pl-hero-actions-mount {
+    bottom: 8px !important;
+    width: min(94%, 720px) !important;
+}
+
+#training-actions.pl-action-panel {
+    max-height: 135px;
+    overflow: visible;
+}
+
+@media (max-width: 600px) {
+    .pl-table-container {
+        height: 700px !important;
+        min-height: 700px !important;
+        max-height: 700px !important;
+    }
+
+    .pl-table-container > .pl-felt {
+        top: 34% !important;
+        width: 76% !important;
+        height: 38% !important;
+    }
+
+    .pl-table-container .pl-seat-hero {
+        top: 61% !important;
+    }
+
+    .pl-table-container > .pl-hand-strength {
+        bottom: 150px !important;
+    }
+
+    .pl-table-container > .pl-hero-actions-mount {
+        bottom: 8px !important;
+        width: calc(100% - 16px) !important;
+    }
+
+    #training-actions.pl-action-panel {
+        max-height: 145px;
+        padding: 7px 8px;
+        gap: 4px;
+    }
+}
