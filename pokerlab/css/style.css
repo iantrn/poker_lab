@@ -1640,3 +1640,59 @@ button:disabled {
     #training-actions .pl-bet-presets { gap: 5px !important; }
     #training-actions .pl-bet-presets button { flex: 1 1 auto; }
 }
+
+
+/* PokerLab v5 — commandes compactes, intégrées au tapis sans encadrement. */
+.pl-table-container > .pl-hero-actions-mount {
+    bottom: 10px !important;
+    width: min(88%, 570px) !important;
+    max-width: 570px !important;
+    align-items: center !important;
+}
+#training-actions.pl-action-panel {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 570px !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 7px 10px !important;
+    gap: 5px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+}
+#training-actions.pl-action-panel h4 { font-size: .82rem !important; }
+#training-actions.pl-action-panel p { font-size: .66rem !important; }
+#training-actions .pl-action-buttons {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    gap: 6px !important;
+}
+#training-actions .pl-action-bet-controls {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    gap: 5px !important;
+}
+#training-actions .pl-bet-slider-row,
+#training-actions .pl-bet-presets { width: 100% !important; min-width: 0 !important; }
+#training-actions .pl-bet-slider { flex: 1 1 auto !important; min-width: 0 !important; max-width: 100% !important; }
+#training-actions .pl-bet-number { width: 105px !important; min-height: 30px !important; }
+#training-actions.pl-action-panel button { min-height: 30px !important; padding: 5px 10px !important; font-size: .70rem !important; }
+#training-actions .pl-bet-submit { width: 100% !important; }
+@media (max-width: 600px) {
+    .pl-table-container > .pl-hero-actions-mount { width: calc(100% - 20px) !important; bottom: 6px !important; }
+    #training-actions.pl-action-panel { padding: 5px 7px !important; gap: 4px !important; }
+    #training-actions.pl-action-panel button { min-height: 28px !important; padding: 4px 8px !important; font-size: .66rem !important; }
+}
