@@ -1,10 +1,10 @@
 /**
- * PokerLab Service Worker - v8
+ * PokerLab Service Worker - v9
  * Gestion du cache offline-first pour GitHub Pages.
  * Version incrémentée pour forcer le rechargement des nouvelles ressources.
  */
 
-const CACHE_NAME = 'pokerlab-cache-v8';
+const CACHE_NAME = 'pokerlab-cache-v9';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -31,12 +31,16 @@ const ASSETS_TO_CACHE = [
     './data/lessons/lessons.json'
 ];
 
+self.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+});
+
 // Installation du Service Worker et mise en cache des assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[Service Worker] Mise en cache des fichiers v8');
+                console.log('[Service Worker] Mise en cache des fichiers v9');
                 return cache.addAll(ASSETS_TO_CACHE);
             })
             .then(() => self.skipWaiting())
