@@ -1,16 +1,16 @@
 
 /* =========================================================
    POKERLAB - SERVICE WORKER
-   Version : 3.0
+   Version : 4.0
    Description : Cache local et fonctionnement hors ligne
    ========================================================= */
 
 "use strict";
 
 const SW_CONFIG = {
-    cacheVersion: "v3",
+    cacheVersion: "v4",
     cachePrefix: "pokerlab-",
-    cacheName: "pokerlab-v3",
+    cacheName: "pokerlab-v4",
 
     localResources: [
         "./",
@@ -49,7 +49,6 @@ const SW_CONFIG = {
     ]
 };
 
-
 /* =========================================================
    1. INSTALLATION
    ========================================================= */
@@ -61,15 +60,12 @@ self.addEventListener("install", event => {
 
             await cache.addAll(SW_CONFIG.localResources);
 
-            console.info(
-                "[PokerLab SW] Cache v3 installé."
-            );
+            console.info("[PokerLab SW] Cache v4 installé.");
 
             await self.skipWaiting();
         })()
     );
 });
-
 
 /* =========================================================
    2. ACTIVATION
@@ -95,12 +91,11 @@ self.addEventListener("activate", event => {
             await self.clients.claim();
 
             console.info(
-                "[PokerLab SW] Cache v3 activé. Anciens caches supprimés."
+                "[PokerLab SW] Cache v4 activé. Anciens caches supprimés."
             );
         })()
     );
 });
-
 
 /* =========================================================
    3. GESTION DES REQUÊTES
@@ -123,9 +118,7 @@ self.addEventListener("fetch", event => {
     if (request.mode === "navigate") {
         event.respondWith(
             (async () => {
-                const cache = await caches.open(
-                    SW_CONFIG.cacheName
-                );
+                const cache = await caches.open(SW_CONFIG.cacheName);
 
                 try {
                     const networkResponse = await fetch(request);
@@ -191,9 +184,7 @@ self.addEventListener("fetch", event => {
     // Autres ressources : cache prioritaire.
     event.respondWith(
         (async () => {
-            const cache = await caches.open(
-                SW_CONFIG.cacheName
-            );
+            const cache = await caches.open(SW_CONFIG.cacheName);
 
             const cachedResponse = await cache.match(request);
 
