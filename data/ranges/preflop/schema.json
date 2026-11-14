@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iantrn.github.io/poker_lab/data/ranges/preflop/schema.json",
+  "title": "PokerLab Preflop Range Dataset",
+  "description": "Format normalisé des ranges préflop. Les fréquences sont des nombres entre 0 et 1.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "status",
+    "game",
+    "spot",
+    "effectiveStackBB",
+    "position",
+    "hands",
+    "source"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "pending-source",
+        "ready",
+        "deprecated"
+      ]
+    },
+    "game": {
+      "const": "cash-6max"
+    },
+    "spot": {
+      "const": "first-in-open"
+    },
+    "effectiveStackBB": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "position": {
+      "enum": [
+        "UTG",
+        "HJ",
+        "CO",
+        "BTN",
+        "SB"
+      ]
+    },
+    "hands": {
+      "type": "object",
+      "description": "Clés normalisées : AA, AKs, AKo, 76s, etc. Valeur = fréquence d'open entre 0 et 1.",
+      "propertyNames": {
+        "pattern": "^(AA|KK|QQ|JJ|TT|99|88|77|66|55|44|33|22|[AKQJT98765432][AKQJT98765432][so])$"
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "source": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "licenseUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "redistributionAllowed": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

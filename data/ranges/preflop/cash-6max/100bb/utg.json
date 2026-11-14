@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "status": "pending-source",
+  "game": "cash-6max",
+  "spot": "first-in-open",
+  "effectiveStackBB": 100,
+  "position": "UTG",
+  "hands": {},
+  "source": null
+}
