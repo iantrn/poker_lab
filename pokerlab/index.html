@@ -30,7 +30,7 @@
     <header class="w-full bg-surface border-b border-white/10">
         <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
 
-            <a href="#home" class="flex items-center gap-3">
+            <a href="#home" data-page="home" class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-xl font-bold">
                     ♠
                 </div>
@@ -42,24 +42,26 @@
             </a>
 
             <nav class="hidden md:flex items-center gap-6 text-sm">
-                <a href="#home" class="text-white hover:text-primaryHover transition">Accueil</a>
-                <a href="#training" class="text-textMuted hover:text-white transition">Entraînement</a>
-                <a href="#tactics" class="text-textMuted hover:text-white transition">Tactiques</a>
-                <a href="#lessons" class="text-textMuted hover:text-white transition">Apprentissage</a>
-                <a href="#review" class="text-textMuted hover:text-white transition">Analyse</a>
+                <a href="#home" data-page="home" class="text-textMuted hover:text-white transition">Accueil</a>
+                <a href="#training" data-page="training" class="text-textMuted hover:text-white transition">Jouer</a>
+                <a href="#tactics" data-page="tactics" class="text-textMuted hover:text-white transition">Tactiques</a>
+                <a href="#lessons" data-page="lessons" class="text-textMuted hover:text-white transition">Apprentissage</a>
+                <a href="#review" data-page="review" class="text-textMuted hover:text-white transition">Game Review</a>
             </nav>
 
             <a href="#settings"
+               data-page="settings"
                class="w-10 h-10 flex items-center justify-center rounded-xl bg-surfaceLight hover:bg-white/10 transition"
                aria-label="Paramètres">⚙</a>
         </div>
     </header>
 
+
     <!-- CONTENU PRINCIPAL -->
     <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-8">
 
         <!-- ACCUEIL -->
-        <section id="home" class="mb-10">
+        <section id="home" data-module="home" class="mb-10">
 
             <div class="mb-8">
                 <p class="text-primaryHover text-sm font-semibold uppercase tracking-widest mb-2">
@@ -76,25 +78,32 @@
                 </p>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- CARTES DE NAVIGATION UNIQUEMENT -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-                <a href="#training" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                <a href="#training"
+                   data-page="training"
+                   class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
                     <div class="text-3xl mb-4">♠</div>
-                    <h3 class="font-bold text-lg mb-2">Entraînement</h3>
+                    <h3 class="font-bold text-lg mb-2">Jouer</h3>
                     <p class="text-sm text-textMuted leading-relaxed">
                         Affronte des intelligences artificielles aux styles variés.
                     </p>
                 </a>
 
-                <a href="#tactics" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                <a href="#tactics"
+                   data-page="tactics"
+                   class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
                     <div class="text-3xl mb-4">🎯</div>
                     <h3 class="font-bold text-lg mb-2">Tactiques</h3>
                     <p class="text-sm text-textMuted leading-relaxed">
-                        Résous des situations stratégiques.
+                        Résous des situations stratégiques et améliore tes décisions.
                     </p>
                 </a>
 
-                <a href="#lessons" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                <a href="#lessons"
+                   data-page="lessons"
+                   class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
                     <div class="text-3xl mb-4">📚</div>
                     <h3 class="font-bold text-lg mb-2">Apprentissage</h3>
                     <p class="text-sm text-textMuted leading-relaxed">
@@ -102,7 +111,9 @@
                     </p>
                 </a>
 
-                <a href="#review" class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                <a href="#review"
+                   data-page="review"
+                   class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
                     <div class="text-3xl mb-4">📊</div>
                     <h3 class="font-bold text-lg mb-2">Game Review</h3>
                     <p class="text-sm text-textMuted leading-relaxed">
@@ -110,11 +121,25 @@
                     </p>
                 </a>
 
+                <a href="#settings"
+                   data-page="settings"
+                   class="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
+                    <div class="text-3xl mb-4">⚙</div>
+                    <h3 class="font-bold text-lg mb-2">Paramètres</h3>
+                    <p class="text-sm text-textMuted leading-relaxed">
+                        Personnalise ton expérience PokerLab.
+                    </p>
+                </a>
+
             </div>
         </section>
 
-        <!-- ENTRAÎNEMENT -->
-        <section id="training" class="mb-10 scroll-mt-6">
+
+        <!-- JOUER / ENTRAÎNEMENT -->
+        <section id="training"
+                 data-module="training"
+                 class="mb-10 scroll-mt-6"
+                 hidden>
 
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
 
@@ -123,7 +148,7 @@
                         Poker contre intelligence artificielle
                     </p>
 
-                    <h2 class="text-2xl font-bold mb-2">Entraînement</h2>
+                    <h2 class="text-2xl font-bold mb-2">Jouer</h2>
 
                     <p class="text-textMuted text-sm">
                         Configure ta partie avant de rejoindre la table.
@@ -135,7 +160,6 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                        <!-- MODE -->
                         <div>
                             <label for="training-mode" class="block text-sm font-semibold mb-2">
                                 Mode de jeu
@@ -149,7 +173,6 @@
                             </select>
                         </div>
 
-                        <!-- NOMBRE DE JOUEURS -->
                         <div>
                             <label for="training-player-count" class="block text-sm font-semibold mb-2">
                                 Nombre de joueurs
@@ -166,7 +189,6 @@
                             </select>
                         </div>
 
-                        <!-- DIFFICULTÉ -->
                         <div>
                             <label for="training-difficulty" class="block text-sm font-semibold mb-2">
                                 Difficulté des bots
@@ -181,7 +203,6 @@
                             </select>
                         </div>
 
-                        <!-- PROFIL -->
                         <div>
                             <label for="training-profile" class="block text-sm font-semibold mb-2">
                                 Style de jeu des bots
@@ -197,7 +218,6 @@
                             </select>
                         </div>
 
-                        <!-- TAPIS -->
                         <div>
                             <label for="training-stack" class="block text-sm font-semibold mb-2">
                                 Tapis de départ
@@ -214,7 +234,6 @@
                             </select>
                         </div>
 
-                        <!-- PETITE BLIND -->
                         <div>
                             <label for="training-small-blind" class="block text-sm font-semibold mb-2">
                                 Petite blind (SB)
@@ -231,7 +250,6 @@
                             </select>
                         </div>
 
-                        <!-- GROSSE BLIND -->
                         <div>
                             <label for="training-big-blind" class="block text-sm font-semibold mb-2">
                                 Grosse blind (BB)
@@ -255,7 +273,7 @@
                         <button type="button"
                                 data-training-action="start"
                                 class="bg-primary hover:bg-primaryHover text-white font-semibold rounded-lg px-6 py-3 transition">
-                            ♠ Créer une partie
+                            ♠ Démarrer une partie
                         </button>
 
                         <button type="button"
@@ -268,13 +286,13 @@
 
                 </div>
 
-                <!-- MESSAGES DU MODULE -->
+                <!-- MESSAGES -->
                 <div id="training-message"
                      class="hidden mt-5 rounded-lg p-4 text-sm"
                      role="status"
                      aria-live="polite"></div>
 
-                <!-- ZONE DE JEU -->
+                <!-- TABLE DE JEU -->
                 <div id="training-game" class="hidden mt-8">
 
                     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -289,83 +307,141 @@
 
                     <div id="training-table" class="w-full"></div>
 
-                    <div id="training-actions" class="mt-6">
-                        <!-- Les commandes de jeu seront ajoutées lors de l'intégration du moteur. -->
-                    </div>
+                    <div id="training-actions" class="mt-6"></div>
 
                 </div>
 
             </div>
         </section>
 
+
         <!-- TACTIQUES -->
-        <section id="tactics" class="mb-10 scroll-mt-6">
+        <section id="tactics"
+                 data-module="tactics"
+                 class="mb-10 scroll-mt-6"
+                 hidden>
+
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                <h2 class="text-xl font-bold mb-2">Tactiques</h2>
+                <h2 class="text-2xl font-bold mb-2">Tactiques</h2>
+
                 <p class="text-textMuted text-sm">
-                    Le module de puzzles tactiques sera développé ici.
+                    Entraîne-toi à prendre les meilleures décisions dans différentes situations de poker.
                 </p>
+
+                <div id="tactics-content" class="mt-6">
+                    <p class="text-textMuted text-sm">
+                        Le module de puzzles tactiques sera développé ici.
+                    </p>
+                </div>
             </div>
         </section>
+
 
         <!-- APPRENTISSAGE -->
-        <section id="lessons" class="mb-10 scroll-mt-6">
+        <section id="lessons"
+                 data-module="lessons"
+                 class="mb-10 scroll-mt-6"
+                 hidden>
+
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                <h2 class="text-xl font-bold mb-2">Apprentissage</h2>
+                <h2 class="text-2xl font-bold mb-2">Apprentissage</h2>
+
                 <p class="text-textMuted text-sm">
-                    Les leçons et la matrice de ranges seront développées ici.
+                    Apprends les concepts du poker et travaille tes ranges de jeu.
                 </p>
+
+                <div id="lessons-content" class="mt-6">
+                    <p class="text-textMuted text-sm">
+                        Les leçons et la matrice de ranges seront développées ici.
+                    </p>
+                </div>
             </div>
         </section>
+
 
         <!-- GAME REVIEW -->
-        <section id="review" class="mb-10 scroll-mt-6">
+        <section id="review"
+                 data-module="review"
+                 class="mb-10 scroll-mt-6"
+                 hidden>
+
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                <h2 class="text-xl font-bold mb-2">Game Review</h2>
+                <h2 class="text-2xl font-bold mb-2">Game Review</h2>
+
                 <p class="text-textMuted text-sm">
-                    Le système d'analyse des parties sera développé ici.
+                    Analyse tes mains et identifie les erreurs dans tes décisions.
                 </p>
+
+                <div id="review-content" class="mt-6">
+                    <p class="text-textMuted text-sm">
+                        Le système d'analyse des parties sera développé ici.
+                    </p>
+                </div>
             </div>
         </section>
 
+
         <!-- PARAMÈTRES -->
-        <section id="settings" class="mb-10 scroll-mt-6">
+        <section id="settings"
+                 data-module="settings"
+                 class="mb-10 scroll-mt-6"
+                 hidden>
+
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
-                <h2 class="text-xl font-bold mb-2">Paramètres</h2>
+                <h2 class="text-2xl font-bold mb-2">Paramètres</h2>
+
                 <p class="text-textMuted text-sm">
-                    Les options de personnalisation seront développées ici.
+                    Personnalise ton expérience PokerLab.
                 </p>
+
+                <div id="settings-content" class="mt-6">
+                    <p class="text-textMuted text-sm">
+                        Les options de personnalisation seront développées ici.
+                    </p>
+                </div>
             </div>
         </section>
 
     </main>
 
+
     <!-- NAVIGATION MOBILE -->
     <nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-white/10 z-50">
         <div class="grid grid-cols-5 max-w-xl mx-auto py-3">
 
-            <a href="#home" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+            <a href="#home"
+               data-page="home"
+               class="flex flex-col items-center gap-1 text-xs text-textMuted">
                 <span class="text-xl">⌂</span>Accueil
             </a>
 
-            <a href="#training" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+            <a href="#training"
+               data-page="training"
+               class="flex flex-col items-center gap-1 text-xs text-textMuted">
                 <span class="text-xl">♠</span>Jouer
             </a>
 
-            <a href="#tactics" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+            <a href="#tactics"
+               data-page="tactics"
+               class="flex flex-col items-center gap-1 text-xs text-textMuted">
                 <span class="text-xl">🎯</span>Tactiques
             </a>
 
-            <a href="#lessons" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+            <a href="#lessons"
+               data-page="lessons"
+               class="flex flex-col items-center gap-1 text-xs text-textMuted">
                 <span class="text-xl">📚</span>Leçons
             </a>
 
-            <a href="#settings" class="flex flex-col items-center gap-1 text-xs text-textMuted">
+            <a href="#settings"
+               data-page="settings"
+               class="flex flex-col items-center gap-1 text-xs text-textMuted">
                 <span class="text-xl">⚙</span>Réglages
             </a>
 
         </div>
     </nav>
+
 
     <!-- PIED DE PAGE -->
     <footer class="hidden md:block border-t border-white/10 bg-surface mt-8">
@@ -377,6 +453,7 @@
     </footer>
 
 </div>
+
 
 <!-- JAVASCRIPT : ORDRE DES DÉPENDANCES -->
 
