@@ -715,20 +715,6 @@ function renderGame(state = null) {
             return;
         }
 
-        actionsElement.appendChild(
-            createElement("h4", "font-bold text-lg mb-3", "À vous de jouer")
-        );
-
-        actionsElement.appendChild(
-            createElement(
-                "p",
-                "text-textMuted text-sm mb-4",
-                actionOptions.callAmount > 0
-                    ? `Vous devez ajouter ${formatChips(actionOptions.callAmount)} jetons pour suivre.`
-                    : "Aucune mise à égaliser : vous pouvez checker."
-            )
-        );
-
         // Les quatre actions sont regroupées sur une seule ligne.
         const buttonsContainer = createElement("div", "pl-action-buttons");
 
@@ -745,7 +731,7 @@ function renderGame(state = null) {
         if (actionOptions.canCall) {
             buttonsContainer.appendChild(
                 createActionButton(
-                    "Suivre",
+                    `Suivre (${formatChips(actionOptions.callAmount)})`,
                     () => executePlayerAction("call"),
                     { className: "pl-action-btn pl-action-btn-call" }
                 )
