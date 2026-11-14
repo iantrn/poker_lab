@@ -1,10 +1,10 @@
 /**
- * PokerLab Service Worker - v6
+ * PokerLab Service Worker - v7
  * Gestion du cache offline-first pour GitHub Pages.
  * Version incrémentée pour forcer le rechargement des nouvelles ressources.
  */
 
-const CACHE_NAME = 'pokerlab-cache-v6';
+const CACHE_NAME = 'pokerlab-cache-v7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
