@@ -1,25 +1,23 @@
 /**
- * PokerLab - Table Component
- * Version avec design de cartes Winamax
+ * PokerLab - Table Component (Design Winamax)
  */
 
 (function() {
     window.PokerLabTable = {
         /**
-         * Rendu initial de la table.
+         * Rendu de la table.
          */
         render(container, gameState) {
             if (!container) return;
 
             const isHeadsUp = gameState.maxPlayers === 2 || (gameState.players && gameState.players.length === 2);
-            const tableClass = isHeadsUp ? 'pl-table-container heads-up' : 'pl-table-container';
 
             container.innerHTML = `
-                <div class="${tableClass}">
+                <div class="pl-table-container">
                     <div class="pl-table-header">
-                        <span class="pl-hand-counter">Main #${gameState.handNumber || 1}</span>
-                        <span class="pl-game-mode">${isHeadsUp ? 'Heads-Up' : '6-Max'}</span>
-                        <span class="pl-stakes">Blinds: 0.5/1 BB</span>
+                        <span>Main #${gameState.handNumber || 1}</span>
+                        <span>${isHeadsUp ? 'Heads-Up' : '6-Max'}</span>
+                        <span>BB: ${gameState.pot || 0}</span>
                     </div>
 
                     <div class="pl-felt">
@@ -40,7 +38,7 @@
         },
 
         /**
-         * Cartes communes (board).
+         * Cartes communes.
          */
         renderCommunityCards(board = []) {
             if (!board || board.length === 0) {
@@ -52,14 +50,14 @@
                 const isRed = card.suit === '♥' || card.suit === '♦';
                 return `
                     <div class="pl-card ${isRed ? 'red' : 'black'}">
-                        <div class="pl-card-corner top-left">
-                            <span class="pl-card-rank">${card.rank}</span>
-                            <span class="pl-card-suit">${card.suit}</span>
+                        <div class="corner-top">
+                            <span class="rank">${card.rank}</span>
+                            <span class="suit">${card.suit}</span>
                         </div>
-                        <div class="pl-card-center">${card.suit}</div>
-                        <div class="pl-card-corner bottom-right">
-                            <span class="pl-card-rank">${card.rank}</span>
-                            <span class="pl-card-suit">${card.suit}</span>
+                        <div class="center">${card.suit}</div>
+                        <div class="corner-bottom">
+                            <span class="rank">${card.rank}</span>
+                            <span class="suit">${card.suit}</span>
                         </div>
                     </div>
                 `;
@@ -75,21 +73,16 @@
             const isHeadsUp = players.length === 2;
 
             return players.map((player, index) => {
-                const seatNumber = index + 1;
                 const isDealer = index === dealerIndex;
                 const isActive = index === activePlayerIndex;
                 const isFolded = player.folded;
                 const isAllIn = player.allIn;
 
-                // Masquer les sièges inutilisés
-                if (isHeadsUp && ![0, 3].includes(index)) {
-                    return '';
-                }
-                if (!isHeadsUp && index >= players.length) {
-                    return '';
-                }
+                // Masquer sièges inutilisés
+                if (isHeadsUp && ![0, 3].includes(index)) return '';
+                if (!isHeadsUp && index >= players.length) return '';
 
-                const seatClass = isHeadsUp && index === 3 ? 'pl-seat-hu-2' : `pl-seat-${seatNumber}`;
+                const seatClass = isHeadsUp && index === 3 ? 'pl-seat-hu-2' : `pl-seat-${index + 1}`;
 
                 return `
                     <div class="pl-seat ${seatClass} ${isActive ? 'active' : ''} ${isFolded ? 'folded' : ''} ${isAllIn ? 'all-in' : ''}"
@@ -117,20 +110,18 @@
             }
 
             return cards.map(card => {
-                if (!isUser) {
-                    return '<div class="pl-card-back">♠</div>';
-                }
+                if (!isUser) return '<div class="pl-card-back">♠</div>';
                 const isRed = card.suit === '♥' || card.suit === '♦';
                 return `
                     <div class="pl-card ${isRed ? 'red' : 'black'}">
-                        <div class="pl-card-corner top-left">
-                            <span class="pl-card-rank">${card.rank}</span>
-                            <span class="pl-card-suit">${card.suit}</span>
+                        <div class="corner-top">
+                            <span class="rank">${card.rank}</span>
+                            <span class="suit">${card.suit}</span>
                         </div>
-                        <div class="pl-card-center">${card.suit}</div>
-                        <div class="pl-card-corner bottom-right">
-                            <span class="pl-card-rank">${card.rank}</span>
-                            <span class="pl-card-suit">${card.suit}</span>
+                        <div class="center">${card.suit}</div>
+                        <div class="corner-bottom">
+                            <span class="rank">${card.rank}</span>
+                            <span class="suit">${card.suit}</span>
                         </div>
                     </div>
                 `;

@@ -609,21 +609,18 @@ window.PokerLabTraining = (function () {
     /**
  * Affiche la table de jeu.
  */
-    function renderGame(state = null) {
+function renderGame(state = null) {
     if (!gameEngine || !tableElement) {
         return;
     }
 
     const gameState = state || gameEngine.getState();
 
-    window.PokerLabTable.render(
-        tableElement,
-        gameState
-    );
+    window.PokerLabTable.render(tableElement, gameState);
 
     renderGameActions(gameState);
 
-    // MASQUER la configuration quand la table est affichée
+    // Masquer la configuration
     if (configurationElement) {
         configurationElement.classList.add('hidden');
     }
