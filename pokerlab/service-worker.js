@@ -4,7 +4,7 @@
  * Version incrémentée pour forcer le rechargement des nouvelles ressources.
  */
 
-const CACHE_NAME = 'pokerlab-cache-v12';
+const CACHE_NAME = 'pokerlab-cache-v13';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
