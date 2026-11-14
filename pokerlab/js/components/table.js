@@ -452,7 +452,7 @@
        7. SIÈGES DES JOUEURS
        ===================================================== */
 
-    function renderSeats(players, dealerIndex, currentPlayerId, handComplete = false) {
+    function renderSeats(players, dealerIndex, currentPlayerId, handComplete = false, revealCards = false) {
 
         const container = createElement(
             "div",
@@ -481,7 +481,7 @@
             const isAllIn = Boolean(player.allIn);
 
             const visibleCards =
-                isHuman || Boolean(player.showCards) || handComplete;
+                (!handComplete && isHuman) || Boolean(player.showCards) || revealCards;
 
             const seat = createElement(
                 "div",
@@ -828,7 +828,8 @@
             players,
             gameState.dealerIndex ?? 0,
             gameState.currentPlayerId,
-            Boolean(gameState.handComplete)
+            Boolean(gameState.handComplete),
+            Boolean(gameState.handComplete && gameState.result && gameState.result.type === "showdown")
         );
 
         // Indicateur de main.
