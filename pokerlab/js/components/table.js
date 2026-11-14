@@ -528,11 +528,22 @@
                 player.name
             );
 
+            const isEliminated = handComplete && Number(player.stack) <= 0;
+            const positionLabel = isEliminated
+                ? "OUT"
+                : (player.position || (isDealer ? "BTN" : ""));
+
             const position = createElement(
                 "span",
-                "pl-player-position",
-                player.position || ""
+                isEliminated
+                    ? "pl-player-position pl-position-out"
+                    : "pl-player-position",
+                positionLabel
             );
+
+            if (positionLabel) {
+                position.dataset.position = positionLabel;
+            }
 
             const stack = createElement(
                 "span",
