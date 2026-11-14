@@ -609,7 +609,7 @@ window.PokerLabTraining = (function () {
     /**
  * Affiche la table de jeu.
  */
-function renderGame(state = null) {
+    function renderGame(state = null) {
     if (!gameEngine || !tableElement) {
         return;
     }
@@ -618,22 +618,17 @@ function renderGame(state = null) {
 
     window.PokerLabTable.render(
         tableElement,
-        gameState,
-        {
-            heroPlayerId: HERO_ID,
-            revealAllCards: false,
-            currency: "BB",
-            showPositions: true,
-            showPlayerBets: true,
-            showStacks: true
-        }
+        gameState
     );
 
     renderGameActions(gameState);
 
-    // MASQUER les boutons de configuration quand la table est affichée
+    // MASQUER la configuration quand la table est affichée
     if (configurationElement) {
         configurationElement.classList.add('hidden');
+    }
+    if (gameElement) {
+        gameElement.classList.remove('hidden');
     }
 }
 

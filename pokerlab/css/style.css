@@ -1,6 +1,6 @@
 /* =================================================================
-   PokerLab - Styles Généraux & Table de Poker (Thème Sombre)
-   Version finale corrigée
+   PokerLab - Styles Généraux & Table de Poker
+   Version finale - Tous les problèmes résolus
    ========================================================================= */
 
 :root {
@@ -9,14 +9,11 @@
     --pl-bg-surface-secondary: #292929;
     --pl-text-primary: #F3F4F6;
     --pl-text-secondary: #9CA3AF;
-    --pl-text-muted: #6B7280;
     --pl-accent-red: #DC2626;
     --pl-accent-red-hover: #EF4444;
     --pl-felt-green: #064E3B;
     --pl-felt-border: #047857;
     --pl-gold: #F59E0B;
-    --pl-primary: #B71C35;
-    --pl-primary-hover: #D32F4A;
 }
 
 /* =================================================================
@@ -54,6 +51,7 @@ body {
     padding: 15px;
     box-sizing: border-box;
     overflow: visible;
+    color: var(--pl-text-primary);
 }
 
 /* =================================================================
@@ -65,14 +63,14 @@ body {
     justify-content: space-between;
     width: 100%;
     font-size: 0.85rem;
-    color: var(--pl-text-secondary);
+    color: var(--pl-text-secondary) !important;
     padding: 0 10px;
     margin-bottom: 10px;
     z-index: 10;
 }
 
 .pl-hand-counter, .pl-game-mode, .pl-stakes {
-    color: var(--pl-text-secondary);
+    color: var(--pl-text-secondary) !important;
     font-size: 0.8rem;
 }
 
@@ -109,12 +107,13 @@ body {
     margin-bottom: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 10;
+    color: var(--pl-text-primary);
 }
 
 .pl-pot-label {
     display: block;
     font-size: 0.7rem;
-    color: var(--pl-text-secondary);
+    color: var(--pl-text-secondary) !important;
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 2px;
@@ -167,7 +166,7 @@ body {
     align-items: center;
     justify-content: center;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
-    color: var(--pl-text-primary);
+    color: var(--pl-text-primary) !important;
 }
 
 .pl-seat.hidden {
@@ -209,13 +208,14 @@ body {
 .pl-player-info {
     width: 100%;
     margin-bottom: 4px;
+    color: var(--pl-text-primary) !important;
 }
 
 .pl-player-name {
     display: block;
     font-size: 0.75rem;
     font-weight: bold;
-    color: var(--pl-text-primary);
+    color: var(--pl-text-primary) !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -274,120 +274,176 @@ body {
 }
 
 /* =================================================================
-   CARTES - SYSTÈME UNIFIÉ
+   CARTES - STYLE WINAMAX
    ================================================================= */
 
 .pl-card {
-    width: 32px;
-    height: 48px;
-    background: #FFFFFF;
-    border-radius: 5px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     position: relative;
+    width: 60px;
+    height: 88px;
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     overflow: hidden;
-    padding: 3px 0;
-    box-sizing: border-box;
-    color: #000;
+    display: inline-flex;
+    margin: 0 2px;
 }
 
+/* Cartes rouges (Cœur ♥, Carreau ♦) */
+.pl-card.red,
 .pl-card--red {
-    color: #DC2626;
+    color: #D32F2F;
 }
 
+/* Cartes noires (Pique ♠, Trèfle ♣) */
+.pl-card.black,
 .pl-card--black {
-    color: #111827;
+    color: #1976D2;
 }
 
-.pl-card--compact {
-    width: 24px;
-    height: 36px;
-    font-size: 0.65rem;
-}
-
-.pl-card--back {
-    width: 32px;
-    height: 48px;
-    background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
-    border: 1px solid #FFFFFF;
-    border-radius: 5px;
-    display: flex;
+/* Dos de carte */
+.pl-card-back {
+    width: 60px;
+    height: 88px;
+    background: linear-gradient(135deg, #1A237E 0%, #283593 100%);
+    border-radius: 8px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.2rem;
+    font-size: 2rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    margin: 0 2px;
 }
 
-.pl-card--board-slot {
-    width: 32px;
-    height: 48px;
+/* Emplacement vide (board) */
+.pl-card-placeholder {
+    width: 60px;
+    height: 88px;
     border: 2px dashed rgba(255, 255, 255, 0.3);
-    border-radius: 5px;
-    display: flex;
+    border-radius: 8px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
-    color: var(--pl-text-secondary);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.7rem;
+    margin: 0 2px;
 }
 
-.pl-card__corner {
+/* Coin supérieur gauche */
+.pl-card-corner {
+    position: absolute;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     line-height: 1;
+    padding: 4px;
 }
 
-.pl-card__corner--top {
-    position: absolute;
-    top: 3px;
-    left: 3px;
+.pl-card-corner.top-left {
+    top: 4px;
+    left: 4px;
 }
 
-.pl-card__corner--bottom {
-    position: absolute;
-    bottom: 3px;
-    right: 3px;
+.pl-card-corner.bottom-right {
+    bottom: 4px;
+    right: 4px;
     transform: rotate(180deg);
 }
 
-.pl-card__rank {
-    font-size: 0.75rem;
+/* Valeur de la carte */
+.pl-card-rank {
     font-weight: bold;
-    line-height: 1;
-}
-
-.pl-card__suit {
     font-size: 0.85rem;
     line-height: 1;
 }
 
-.pl-card__center {
-    font-size: 1.2rem;
+/* Symbole de la carte */
+.pl-card-suit {
+    font-size: 1.1rem;
     line-height: 1;
+    margin-top: 1px;
+}
+
+/* Symbole central */
+.pl-card-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
     opacity: 0.8;
 }
 
-.pl-cards, .pl-hole-cards {
+/* Cartes des joueurs (hole cards) */
+.pl-player-cards {
     display: flex;
-    gap: 3px;
     justify-content: center;
+    gap: 4px;
+    margin-top: 5px;
 }
 
-.pl-board {
+/* Cartes du board */
+.pl-community-cards {
     display: flex;
-    gap: 8px;
-    align-items: center;
+    gap: 6px;
     justify-content: center;
+    margin-top: 10px;
 }
 
 /* =================================================================
-   COMMANDES D'ACTION
+   CARTES - VERSION COMPACTE (pour mobile)
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .pl-card,
+    .pl-card-back,
+    .pl-card-placeholder {
+        width: 48px;
+        height: 70px;
+    }
+
+    .pl-card-rank {
+        font-size: 0.75rem;
+    }
+
+    .pl-card-suit {
+        font-size: 0.9rem;
+    }
+
+    .pl-card-center {
+        font-size: 1.6rem;
+    }
+
+    .pl-card-corner {
+        padding: 3px;
+    }
+}
+
+@media (max-width: 480px) {
+    .pl-card,
+    .pl-card-back,
+    .pl-card-placeholder {
+        width: 40px;
+        height: 58px;
+    }
+
+    .pl-card-rank {
+        font-size: 0.7rem;
+    }
+
+    .pl-card-suit {
+        font-size: 0.8rem;
+    }
+
+    .pl-card-center {
+        font-size: 1.4rem;
+    }
+}
+
+/* =================================================================
+   COMMANDES D'ACTION (DANS LA TABLE)
    ================================================================= */
 
 .pl-action-controls {
@@ -413,7 +469,7 @@ body {
     font-size: 0.85rem;
     transition: all 0.2s ease;
     min-width: 90px;
-    color: white;
+    color: white !important;
 }
 
 .pl-btn:disabled {
@@ -446,16 +502,10 @@ body {
 }
 
 /* =================================================================
-   MODULE TRAINING - MASQUER LES BOUTONS SOUS LA TABLE
+   CORRECTION : MASQUER LES BOUTONS DE CONFIGURATION
    ================================================================= */
 
-#training-game .pl-action-controls {
-    margin-top: 0;
-    padding-top: 0;
-}
-
-/* Masquer les boutons du module training quand la table est affichée */
-#training-configuration {
+#training-game #training-configuration {
     display: none !important;
 }
 
@@ -493,16 +543,12 @@ body {
         height: 42px;
     }
 
-    .pl-card__rank {
-        font-size: 0.7rem;
-    }
-
-    .pl-card__suit {
+    .pl-card-rank {
         font-size: 0.8rem;
     }
 
-    .pl-card__center {
-        font-size: 1rem;
+    .pl-card-suit {
+        font-size: 0.9rem;
     }
 
     .pl-action-controls {
