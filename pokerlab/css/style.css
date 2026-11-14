@@ -1910,3 +1910,9 @@ button:disabled {
 #training-actions .pl-action-btn-allin:hover {
     background: #2D9B5A !important;
 }
+
+
+/* PokerLab v8 — le siège du héros suit le même emplacement calculé que les autres sièges. */
+.pl-table-container .pl-seat-hero {
+    top: var(--seat-y) !important;
+}
