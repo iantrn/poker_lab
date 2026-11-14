@@ -9,6 +9,10 @@
 
 (function () {
 
+    let lastRenderedHandNumber = null;
+    let lastRenderedBoardCount = 0;
+    let lastRenderedHandComplete = false;
+
     const HAND_LABELS = [
         "Carte haute",
         "Paire",
@@ -815,6 +819,32 @@
             gameState.board
         );
 
+        const handNumberValue = gameState.handNumber ?? null;
+        const sameHand = handNumberValue === lastRenderedHandNumber;
+        const previousBoardCount = sameHand ? lastRenderedBoardCount : 0;
+        const boardCount = Array.isArray(gameState.board) ? Math.min(gameState.board.length, 5) : 0;
+        const justReachedShowdown = Boolean(
+            gameState.handComplete &&
+            !(sameHand && lastRenderedHandComplete) &&
+            gameState.result &&
+            gameState.result.type === "showdown"
+        );
+
+        // Révélation du board : flop en cascade, puis turn et river.
+        if (boardCount > previousBoardCount) {
+            const newCards = board.querySelectorAll(":scope > *");
+            for (let index = previousBoardCount; index < boardCount; index++) {
+                const card = newCards[index];
+                if (!card) continue;
+                card.classList.add("pl-card-deal");
+                let delay = 0;
+                if (previousBoardCount === 0 && index < 3) delay = index * 145;
+                else if (previousBoardCount === 0 && index === 3) delay = 620;
+                else if (previousBoardCount === 0 && index === 4) delay = 900;
+                card.style.animationDelay = delay + "ms";
+            }
+        }
+
         center.append(
             pot,
             board
@@ -847,6 +877,15 @@
 
         const actionMount = createElement("div", "pl-hero-actions-mount");
 
+        if (justReachedShowdown) {
+            table.classList.add("pl-showdown-entering");
+            const revealedCards = seats.querySelectorAll(".pl-seat .pl-player-cards > *");
+            revealedCards.forEach((card, index) => {
+                card.classList.add("pl-card-showdown-reveal");
+                card.style.animationDelay = (Math.floor(index / 2) * 90 + (index % 2) * 110) + "ms";
+            });
+        }
+
         table.append(header, felt, seats);
 
         if (handStrength.childNodes.length > 0) {
@@ -859,7 +898,15 @@
 
         table.appendChild(actionMount);
 
+        if (result && justReachedShowdown) {
+            result.classList.add("pl-showdown-result-enter");
+        }
+
         container.replaceChildren(table);
+
+        lastRenderedHandNumber = handNumberValue;
+        lastRenderedBoardCount = boardCount;
+        lastRenderedHandComplete = Boolean(gameState.handComplete);
 
     }
 
