@@ -790,7 +790,8 @@ function renderGame(state = null) {
 
             renderBetControls(
                 buttonsContainer,
-                actionOptions
+                actionOptions,
+                state
             );
 
         }
@@ -815,87 +816,85 @@ function renderGame(state = null) {
     }
 
 
-    function renderBetControls(container, options) {
+    function renderBetControls(container, options, state) {
 
-        const betContainer = createElement(
-            "div",
-            "pl-action-bet-controls"
-        );
+        const betContainer = createElement("div", "pl-action-bet-controls");
+        const actionType = options.canBet ? "bet" : "raise";
+        const minimum = options.canBet ? options.minimumBet : options.minimumRaiseTo;
+        const maximum = options.canBet ? options.maximumBet : options.maximumRaiseTo;
 
-        const amountInput = createElement(
-            "input",
-            "bg-background border border-white/10 rounded-lg px-3 py-3 w-32"
-        );
-
+        const amountInput = createElement("input", "pl-bet-number");
         amountInput.type = "number";
-        amountInput.min = "1";
+        amountInput.min = String(minimum);
+        amountInput.max = String(maximum);
         amountInput.step = "0.5";
         amountInput.inputMode = "decimal";
         amountInput.setAttribute("aria-label", "Montant de la mise");
+        amountInput.value = String(Math.min(maximum, minimum));
 
-        let actionType;
-        let minimum;
-        let maximum;
+        const slider = createElement("input", "pl-bet-slider");
+        slider.type = "range";
+        slider.min = String(minimum);
+        slider.max = String(maximum);
+        slider.step = "0.5";
+        slider.value = amountInput.value;
+        slider.setAttribute("aria-label", "Ajuster le montant de la mise");
 
-        if (options.canBet) {
+        const amountValue = createElement("strong", "pl-bet-current-value", formatChips(Number(amountInput.value)));
+        const label = createElement("span", "pl-bet-label", actionType === "bet" ? "Montant de la mise" : "Relancer à");
 
-            actionType = "bet";
-            minimum = options.minimumBet;
-            maximum = options.maximumBet;
+        const syncAmount = (value) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return;
+            const normalized = Math.min(maximum, Math.max(minimum, parsed));
+            const rounded = Math.round(normalized * 2) / 2;
+            amountInput.value = String(rounded);
+            slider.value = String(rounded);
+            amountValue.textContent = formatChips(rounded);
+        };
 
-        } else {
+        amountInput.addEventListener("input", () => {
+            if (amountInput.value !== "") syncAmount(amountInput.value);
+        });
+        slider.addEventListener("input", () => syncAmount(slider.value));
 
-            actionType = "raise";
-            minimum = options.minimumRaiseTo;
-            maximum = options.maximumRaiseTo;
+        const presets = createElement("div", "pl-bet-presets");
+        [
+            { label: "⅓ pot", fraction: 1 / 3 },
+            { label: "½ pot", fraction: 1 / 2 },
+            { label: "⅔ pot", fraction: 2 / 3 },
+            { label: "Pot", fraction: 1 }
+        ].forEach((preset) => {
+            presets.appendChild(createActionButton(preset.label, () => {
+                const potBasis = Number(state.pot || 0) +
+                    (actionType === "raise" ? Number(options.callAmount || 0) : 0);
+                const target = actionType === "bet"
+                    ? potBasis * preset.fraction
+                    : Number(state.currentBet || 0) + potBasis * preset.fraction;
+                syncAmount(target);
+            }, { className: "pl-bet-preset" }));
+        });
 
-        }
+        presets.appendChild(createActionButton("Tapis", () => syncAmount(maximum), {
+            className: "pl-bet-preset pl-bet-preset-allin"
+        }));
 
-        amountInput.min = String(minimum);
-        amountInput.max = String(maximum);
-        amountInput.value = String(
-            Math.min(maximum, minimum)
-        );
+        const sliderRow = createElement("div", "pl-bet-slider-row");
+        sliderRow.append(slider, amountValue);
 
-        const label = createElement(
-            "span",
-            "text-sm text-textMuted",
-            actionType === "bet"
-                ? "Montant de la mise"
-                : "Relancer à"
-        );
-
-        const submitButton = createActionButton(
-            actionType === "bet" ? "Miser" : "Relancer",
-            () => {
-
-                const amount = Number(amountInput.value);
-
-                if (
-                    !Number.isFinite(amount) ||
-                    amount < minimum ||
-                    amount > maximum
-                ) {
-                    showError([
-                        `Le montant doit être compris entre ${formatChips(minimum)} et ${formatChips(maximum)}.`
-                    ]);
-
-                    return;
-                }
-
-                executePlayerAction(actionType, amount);
-
+        const submitButton = createActionButton(actionType === "bet" ? "Miser" : "Relancer", () => {
+            const amount = Number(amountInput.value);
+            if (!Number.isFinite(amount) || amount < minimum || amount > maximum) {
+                showError([`Le montant doit être compris entre ${formatChips(minimum)} et ${formatChips(maximum)}.`]);
+                return;
             }
-        );
+            executePlayerAction(actionType, amount);
+        });
+        submitButton.classList.add("pl-bet-submit");
 
-        betContainer.appendChild(label);
-        betContainer.appendChild(amountInput);
-        betContainer.appendChild(submitButton);
-
+        betContainer.append(label, sliderRow, amountInput, presets, submitButton);
         container.appendChild(betContainer);
-
     }
-
 
     /* =====================================================
        10. EXÉCUTION DES ACTIONS
