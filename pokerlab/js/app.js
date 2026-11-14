@@ -442,6 +442,18 @@ const PokerLabServiceWorker = {
                     }
                 );
 
+            // Check for deployments whenever the app is opened.
+            this.registration.update().catch(() => {});
+
+            // A newly activated worker takes control with the fresh cache.
+            // Reload once so the current tab also uses the new HTML and scripts.
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener("controllerchange", () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+            });
+
             PokerLabLogger.info(
                 "Service Worker enregistré.",
                 this.registration.scope
