@@ -1,10 +1,10 @@
 /**
- * PokerLab Service Worker - v7
+ * PokerLab Service Worker - v8
  * Gestion du cache offline-first pour GitHub Pages.
  * Version incrémentée pour forcer le rechargement des nouvelles ressources.
  */
 
-const CACHE_NAME = 'pokerlab-cache-v7';
+const CACHE_NAME = 'pokerlab-cache-v8';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -36,7 +36,7 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[Service Worker] Mise en cache des fichiers v6');
+                console.log('[Service Worker] Mise en cache des fichiers v8');
                 return cache.addAll(ASSETS_TO_CACHE);
             })
             .then(() => self.skipWaiting())
@@ -64,37 +64,25 @@ self.addEventListener('activate', (event) => {
 
 // Stratégie Cache-First avec fallback réseau
 self.addEventListener('fetch', (event) => {
-    // Ne pas intercepter les requêtes vers d'autres domaines
-    if (!event.request.url.includes(self.location.origin)) {
-        return;
-    }
+    if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) return;
 
-    event.respondWith(
-        caches.match(event.request)
-            .then((cachedResponse) => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-                return fetch(event.request).then((networkResponse) => {
-                    // Ne pas mettre en cache les requêtes POST ou les erreurs
-                    if (event.request.method !== 'GET' || networkResponse.status !== 200) {
-                        return networkResponse;
-                    }
-
-                    return caches.open(CACHE_NAME).then((cache) => {
-                        // Mettre en cache la nouvelle ressource
-                        cache.put(event.request, networkResponse.clone());
-                        return networkResponse;
-                    });
-                });
-            })
-            .catch(() => {
-                // Fallback pour les pages de navigation
-                if (event.request.mode === 'navigate') {
-                    return caches.match('./index.html');
-                }
-                // Fallback pour les autres ressources
-                return caches.match('./index.html');
-            })
-    );
+    event.respondWith((async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+            // Network-first: deployed HTML/JS/CSS updates are never hidden by stale cache entries.
+            const response = await fetch(event.request);
+            if (response && response.status === 200 && response.type !== 'opaque') {
+                await cache.put(event.request, response.clone());
+            }
+            return response;
+        } catch (error) {
+            const cached = await caches.match(event.request);
+            if (cached) return cached;
+            if (event.request.mode === 'navigate') {
+                const appShell = await caches.match('./index.html');
+                if (appShell) return appShell;
+            }
+            throw error;
+        }
+    })());
 });
