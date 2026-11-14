@@ -79,40 +79,11 @@
 
         const layouts = {
 
-            2: [
-                [50, 82],
-                [50, 17]
-            ],
-
-            3: [
-                [50, 82],
-                [23, 22],
-                [77, 22]
-            ],
-
-            4: [
-                [50, 82],
-                [18, 50],
-                [50, 16],
-                [82, 50]
-            ],
-
-            5: [
-                [50, 82],
-                [17, 62],
-                [27, 19],
-                [73, 19],
-                [83, 62]
-            ],
-
-            6: [
-                [50, 82],
-                [17, 65],
-                [17, 27],
-                [50, 16],
-                [83, 27],
-                [83, 65]
-            ]
+            2: [[50, 67], [50, 20]],
+            3: [[50, 67], [23, 23], [77, 23]],
+            4: [[50, 67], [15, 48], [50, 20], [85, 48]],
+            5: [[50, 67], [15, 59], [28, 21], [72, 21], [85, 59]],
+            6: [[50, 67], [14, 63], [14, 28], [50, 20], [86, 28], [86, 63]]
 
         };
 
@@ -481,7 +452,7 @@
        7. SIÈGES DES JOUEURS
        ===================================================== */
 
-    function renderSeats(players, dealerIndex, currentPlayerId) {
+    function renderSeats(players, dealerIndex, currentPlayerId, handComplete = false) {
 
         const container = createElement(
             "div",
@@ -510,7 +481,7 @@
             const isAllIn = Boolean(player.allIn);
 
             const visibleCards =
-                isHuman || Boolean(player.showCards);
+                isHuman || Boolean(player.showCards) || handComplete;
 
             const seat = createElement(
                 "div",
@@ -539,15 +510,10 @@
 
             seat.dataset.playerId = player.id;
 
-            seat.style.setProperty(
-                "--seat-x",
-                `${x}%`
-            );
-
-            seat.style.setProperty(
-                "--seat-y",
-                `${y}%`
-            );
+            seat.style.setProperty("--seat-x", `${x}%`);
+            seat.style.setProperty("--seat-y", `${y}%`);
+            seat.style.left = `${x}%`;
+            seat.style.top = `${y}%`;
 
             // Informations du joueur.
 
@@ -696,7 +662,7 @@
        9. RÉSULTAT DE LA MAIN
        ===================================================== */
 
-    function renderResult(result) {
+    function renderResult(result, players = []) {
 
         if (!result) {
             return null;
@@ -845,7 +811,8 @@
         const seats = renderSeats(
             players,
             gameState.dealerIndex ?? 0,
-            gameState.currentPlayerId
+            gameState.currentPlayerId,
+            Boolean(gameState.handComplete)
         );
 
         // Indicateur de main.
@@ -858,14 +825,12 @@
         // Résultat éventuel.
 
         const result = gameState.handComplete
-            ? renderResult(gameState.result)
+            ? renderResult(gameState.result, players)
             : null;
 
-        table.append(
-            header,
-            felt,
-            seats
-        );
+        const actionMount = createElement("div", "pl-hero-actions-mount");
+
+        table.append(header, felt, seats);
 
         if (handStrength.childNodes.length > 0) {
             table.appendChild(handStrength);
@@ -874,6 +839,8 @@
         if (result) {
             table.appendChild(result);
         }
+
+        table.appendChild(actionMount);
 
         container.replaceChildren(table);
 
