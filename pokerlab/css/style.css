@@ -1573,3 +1573,70 @@ button:disabled {
         min-height: 28px; padding: 4px 8px; font-size: .64rem;
     }
 }
+
+
+/* PokerLab v4 — panneau d'action sous la table, sans découpage ni débordement. */
+#training-actions.pl-action-panel {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: min(100%, 900px) !important;
+    max-width: 900px !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 16px auto 24px !important;
+    padding: 14px 18px !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+#training-actions .pl-action-buttons {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 10px !important;
+}
+#training-actions .pl-action-bet-controls {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    gap: 9px !important;
+}
+#training-actions .pl-bet-slider-row,
+#training-actions .pl-bet-presets {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+#training-actions .pl-bet-slider {
+    display: block !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+#training-actions .pl-bet-number {
+    width: min(100%, 160px) !important;
+    max-width: 160px !important;
+    align-self: flex-end !important;
+    box-sizing: border-box !important;
+}
+#training-actions .pl-bet-submit {
+    align-self: stretch !important;
+    width: 100% !important;
+}
+@media (max-width: 600px) {
+    #training-actions.pl-action-panel {
+        width: calc(100% - 16px) !important;
+        margin: 12px auto 20px !important;
+        padding: 12px !important;
+    }
+    #training-actions .pl-bet-presets { gap: 5px !important; }
+    #training-actions .pl-bet-presets button { flex: 1 1 auto; }
+}
