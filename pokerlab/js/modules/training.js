@@ -1,9 +1,8 @@
 
 /* =========================================================
    POKERLAB - TRAINING MODULE
-   Version : 1.0.0
-   Description : Configuration et gestion des sessions
-                 d'entraînement contre des bots
+   Version : 2.0.0
+   Description : Parties Texas Hold'em contre des bots
    ========================================================= */
 
 "use strict";
@@ -24,31 +23,20 @@ window.PokerLabTraining = (function () {
         bigBlind: 1
     };
 
-    const VALID_MODES = [
-        "heads-up",
-        "6max"
-    ];
-
-    const VALID_DIFFICULTIES = [
-        "easy",
-        "medium",
-        "hard"
-    ];
-
-    const VALID_PROFILES = [
-        "nit",
-        "tag",
-        "lag",
-        "balanced"
-    ];
+    const VALID_MODES = ["heads-up", "6max"];
+    const VALID_DIFFICULTIES = ["easy", "medium", "hard"];
+    const VALID_PROFILES = ["nit", "tag", "lag", "balanced"];
 
     const MIN_STACK = 20;
     const MAX_STACK = 10000;
 
+    const HERO_ID = "hero";
+
     const EVENTS = {
         CONFIG_CHANGED: "pokerlab:training-config-changed",
         SESSION_STARTED: "pokerlab:training-started",
-        SESSION_STOPPED: "pokerlab:training-stopped"
+        SESSION_STOPPED: "pokerlab:training-stopped",
+        ERROR: "pokerlab:training-error"
     };
 
 
@@ -63,19 +51,31 @@ window.PokerLabTraining = (function () {
     };
 
     let currentSession = null;
+    let gameEngine = null;
+
+    let configurationElement = null;
+    let gameElement = null;
+    let tableElement = null;
+    let actionsElement = null;
+    let messageElement = null;
 
 
     /* =====================================================
-       3. OUTILS
+       3. OUTILS GÉNÉRAUX
        ===================================================== */
 
     function dispatch(eventName, detail = {}) {
 
         window.dispatchEvent(
-            new CustomEvent(eventName, {
-                detail
-            })
+            new CustomEvent(eventName, { detail })
         );
+
+    }
+
+
+    function getConfig() {
+
+        return { ...currentConfig };
 
     }
 
@@ -90,18 +90,80 @@ window.PokerLabTraining = (function () {
     }
 
 
-    function cloneConfig(config) {
+    function formatChips(amount) {
 
-        return {
-            ...config
-        };
+        return Number(amount).toLocaleString("fr-FR");
 
     }
 
 
-    function getConfig() {
+    function createElement(tag, className, text) {
 
-        return cloneConfig(currentConfig);
+        const element = document.createElement(tag);
+
+        if (className) {
+            element.className = className;
+        }
+
+        if (text !== undefined && text !== null) {
+            element.textContent = String(text);
+        }
+
+        return element;
+
+    }
+
+
+    function showMessage(message, type = "info") {
+
+        if (!messageElement) {
+            return;
+        }
+
+        messageElement.textContent = message;
+
+        messageElement.classList.remove("hidden");
+
+        messageElement.classList.remove(
+            "text-red-400",
+            "text-green-400",
+            "text-textMuted"
+        );
+
+        if (type === "error") {
+            messageElement.classList.add("text-red-400");
+        } else if (type === "success") {
+            messageElement.classList.add("text-green-400");
+        } else {
+            messageElement.classList.add("text-textMuted");
+        }
+
+    }
+
+
+    function showError(errors) {
+
+        const message = Array.isArray(errors)
+            ? errors.join(" ")
+            : String(errors);
+
+        showMessage(message, "error");
+
+        dispatch(EVENTS.ERROR, {
+            errors: Array.isArray(errors) ? errors : [message]
+        });
+
+    }
+
+
+    function hideMessage() {
+
+        if (!messageElement) {
+            return;
+        }
+
+        messageElement.textContent = "";
+        messageElement.classList.add("hidden");
 
     }
 
@@ -134,15 +196,6 @@ window.PokerLabTraining = (function () {
         ) {
             errors.push(
                 "Le mode Heads-up nécessite exactement 2 joueurs."
-            );
-        }
-
-        if (
-            config.gameMode === "6max" &&
-            config.playerCount < 2
-        ) {
-            errors.push(
-                "Le mode 6-max nécessite au moins 2 joueurs."
             );
         }
 
@@ -201,30 +254,22 @@ window.PokerLabTraining = (function () {
     }
 
 
-    /* =====================================================
-       5. MODIFICATION DE LA CONFIGURATION
-       ===================================================== */
-
     function updateConfig(changes = {}) {
 
         if (!changes || typeof changes !== "object") {
-
             return {
                 success: false,
                 errors: ["Configuration invalide."]
             };
-
         }
 
         if (currentSession) {
-
             return {
                 success: false,
                 errors: [
-                    "Impossible de modifier la configuration pendant une session."
+                    "Impossible de modifier la configuration pendant une partie."
                 ]
             };
-
         }
 
         const proposedConfig = {
@@ -235,12 +280,10 @@ window.PokerLabTraining = (function () {
         const validation = validateConfig(proposedConfig);
 
         if (!validation.valid) {
-
             return {
                 success: false,
                 errors: validation.errors
             };
-
         }
 
         currentConfig = proposedConfig;
@@ -267,18 +310,18 @@ window.PokerLabTraining = (function () {
             ...DEFAULT_CONFIG
         };
 
+        synchronizeConfigurationInputs();
+
         dispatch(EVENTS.CONFIG_CHANGED, {
             config: getConfig()
         });
+
+        hideMessage();
 
         return true;
 
     }
 
-
-    /* =====================================================
-       6. GESTION DU MODE DE JEU
-       ===================================================== */
 
     function setGameMode(mode) {
 
@@ -289,65 +332,113 @@ window.PokerLabTraining = (function () {
             };
         }
 
-        const playerCount =
-            mode === "heads-up" ? 2 : 6;
+        const playerCount = mode === "heads-up"
+            ? 2
+            : 6;
 
-        return updateConfig({
+        const result = updateConfig({
             gameMode: mode,
             playerCount
         });
+
+        if (result.success) {
+            synchronizeConfigurationInputs();
+        }
+
+        return result;
 
     }
 
 
     /* =====================================================
-       7. CRÉATION D'UNE SESSION
+       5. CONFIGURATION DE L'INTERFACE
        ===================================================== */
 
-    function createSession() {
+    function synchronizeConfigurationInputs() {
 
-        if (currentSession) {
+        const inputs = document.querySelectorAll(
+            "[data-training-setting]"
+        );
 
-            return {
-                success: false,
-                errors: [
-                    "Une session est déjà en cours."
-                ]
-            };
+        inputs.forEach(input => {
 
-        }
+            const setting = input.dataset.trainingSetting;
 
-        const validation = validateConfig(currentConfig);
+            if (Object.prototype.hasOwnProperty.call(
+                currentConfig,
+                setting
+            )) {
+                input.value = String(currentConfig[setting]);
+            }
 
-        if (!validation.valid) {
-
-            return {
-                success: false,
-                errors: validation.errors
-            };
-
-        }
-
-        const session = {
-            id: createSessionId(),
-            status: "active",
-            startedAt: new Date().toISOString(),
-            config: getConfig()
-        };
-
-        currentSession = session;
-
-        dispatch(EVENTS.SESSION_STARTED, {
-            session: getSession()
         });
-
-        return {
-            success: true,
-            session: getSession()
-        };
 
     }
 
+
+    function bindConfigurationInputs() {
+
+        const inputs = document.querySelectorAll(
+            "[data-training-setting]"
+        );
+
+        inputs.forEach(input => {
+
+            input.addEventListener("change", () => {
+
+                const setting = input.dataset.trainingSetting;
+
+                if (setting === "gameMode") {
+
+                    const result = setGameMode(input.value);
+
+                    if (!result.success) {
+                        showError(result.errors);
+                    }
+
+                    return;
+
+                }
+
+                let value = input.value;
+
+                if (
+                    setting === "playerCount" ||
+                    setting === "startingStack" ||
+                    setting === "smallBlind" ||
+                    setting === "bigBlind"
+                ) {
+                    value = Number(value);
+                }
+
+                const result = updateConfig({
+                    [setting]: value
+                });
+
+                if (!result.success) {
+
+                    input.value = String(currentConfig[setting]);
+
+                    showError(result.errors);
+
+                } else {
+
+                    hideMessage();
+
+                }
+
+            });
+
+        });
+
+        synchronizeConfigurationInputs();
+
+    }
+
+
+    /* =====================================================
+       6. CRÉATION DE LA SESSION
+       ===================================================== */
 
     function createSessionId() {
 
@@ -367,8 +458,593 @@ window.PokerLabTraining = (function () {
     }
 
 
+    function createPlayers(config) {
+
+        const players = [];
+
+        players.push({
+            id: HERO_ID,
+            name: "Vous",
+            stack: config.startingStack,
+            isHuman: true,
+            isBot: false
+        });
+
+        for (let i = 1; i < config.playerCount; i++) {
+
+            players.push({
+                id: `bot_${i}`,
+                name: `Bot ${i}`,
+                stack: config.startingStack,
+                isHuman: false,
+                isBot: true,
+                botProfile: config.botProfile,
+                botDifficulty: config.difficulty
+            });
+
+        }
+
+        return players;
+
+    }
+
+
+    function createSession() {
+
+        if (currentSession) {
+            return {
+                success: false,
+                errors: ["Une partie est déjà en cours."]
+            };
+        }
+
+        const validation = validateConfig(currentConfig);
+
+        if (!validation.valid) {
+            return {
+                success: false,
+                errors: validation.errors
+            };
+        }
+
+        try {
+
+            gameEngine = new window.PokerLabGameEngine({
+                players: createPlayers(currentConfig),
+                smallBlind: currentConfig.smallBlind,
+                bigBlind: currentConfig.bigBlind,
+                dealerIndex: 0
+            });
+
+            currentSession = {
+                id: createSessionId(),
+                status: "active",
+                startedAt: new Date().toISOString(),
+                config: getConfig()
+            };
+
+            if (configurationElement) {
+                configurationElement.classList.add("hidden");
+            }
+
+            if (gameElement) {
+                gameElement.classList.remove("hidden");
+            }
+
+            hideMessage();
+
+            const state = gameEngine.startHand();
+
+            renderGame(state);
+
+            processBotTurns();
+
+            dispatch(EVENTS.SESSION_STARTED, {
+                session: getSession()
+            });
+
+            return {
+                success: true,
+                session: getSession()
+            };
+
+        } catch (error) {
+
+            gameEngine = null;
+            currentSession = null;
+
+            return {
+                success: false,
+                errors: [error.message]
+            };
+
+        }
+
+    }
+
+
     /* =====================================================
-       8. ARRÊT D'UNE SESSION
+       7. AFFICHAGE DE LA TABLE
+       ===================================================== */
+
+    function renderGame(state = null) {
+
+        if (!gameEngine || !tableElement) {
+            return;
+        }
+
+        const gameState = state || gameEngine.getState();
+
+        window.PokerLabTable.render(
+            tableElement,
+            gameState,
+            {
+                heroPlayerId: HERO_ID,
+                revealAllCards: false,
+                currency: "jetons",
+                showPositions: true,
+                showPlayerBets: true,
+                showStacks: true
+            }
+        );
+
+        renderGameActions(gameState);
+
+    }
+
+
+    /* =====================================================
+       8. AFFICHAGE DES COMMANDES DU JOUEUR
+       ===================================================== */
+
+    function createActionButton(label, action, options = {}) {
+
+        const button = createElement(
+            "button",
+            options.className ||
+                "bg-primary hover:bg-primaryHover text-white font-semibold rounded-lg px-5 py-3 transition",
+            label
+        );
+
+        button.type = "button";
+
+        button.addEventListener("click", action);
+
+        return button;
+
+    }
+
+
+    function renderGameActions(state) {
+
+        if (!actionsElement) {
+            return;
+        }
+
+        actionsElement.replaceChildren();
+
+        if (state.handComplete) {
+
+            renderHandResult(state);
+
+            const playersWithChips = state.players.filter(
+                player => player.stack > 0
+            );
+
+            if (playersWithChips.length >= 2) {
+
+                const nextHandButton = createActionButton(
+                    "Main suivante",
+                    startNextHand
+                );
+
+                actionsElement.appendChild(nextHandButton);
+
+            } else {
+
+                const endMessage = createElement(
+                    "p",
+                    "text-yellow-400 font-semibold",
+                    "La partie est terminée : il ne reste plus assez de joueurs avec des jetons."
+                );
+
+                actionsElement.appendChild(endMessage);
+
+            }
+
+            return;
+
+        }
+
+        const currentPlayer = state.players.find(
+            player => player.id === state.currentPlayerId
+        );
+
+        if (!currentPlayer) {
+            return;
+        }
+
+        if (!currentPlayer.isHuman) {
+
+            const waiting = createElement(
+                "p",
+                "text-textMuted text-sm",
+                `Au tour de ${currentPlayer.name}...`
+            );
+
+            actionsElement.appendChild(waiting);
+
+            return;
+
+        }
+
+        const actionOptions = currentPlayer.actionOptions;
+
+        if (!actionOptions) {
+            return;
+        }
+
+        const heading = createElement(
+            "h4",
+            "font-bold text-lg mb-3",
+            "À vous de jouer"
+        );
+
+        actionsElement.appendChild(heading);
+
+        const information = createElement(
+            "p",
+            "text-textMuted text-sm mb-4",
+            actionOptions.callAmount > 0
+                ? `Vous devez ajouter ${formatChips(actionOptions.callAmount)} jetons pour suivre.`
+                : "Aucune mise à égaliser : vous pouvez checker."
+        );
+
+        actionsElement.appendChild(information);
+
+        const buttonsContainer = createElement(
+            "div",
+            "flex flex-wrap gap-3"
+        );
+
+        if (actionOptions.canFold) {
+
+            buttonsContainer.appendChild(
+                createActionButton(
+                    "Se coucher",
+                    () => executePlayerAction("fold"),
+                    {
+                        className:
+                            "bg-red-700 hover:bg-red-600 text-white font-semibold rounded-lg px-5 py-3 transition"
+                    }
+                )
+            );
+
+        }
+
+        if (actionOptions.canCheck) {
+
+            buttonsContainer.appendChild(
+                createActionButton(
+                    "Checker",
+                    () => executePlayerAction("check")
+                )
+            );
+
+        }
+
+        if (actionOptions.canCall) {
+
+            buttonsContainer.appendChild(
+                createActionButton(
+                    `Suivre (${formatChips(actionOptions.callAmount)})`,
+                    () => executePlayerAction("call")
+                )
+            );
+
+        }
+
+        if (actionOptions.canBet || actionOptions.canRaise) {
+
+            renderBetControls(
+                buttonsContainer,
+                actionOptions,
+                currentPlayer
+            );
+
+        }
+
+        if (actionOptions.isAllIn) {
+
+            buttonsContainer.appendChild(
+                createActionButton(
+                    "All-in",
+                    () => executePlayerAction("all-in"),
+                    {
+                        className:
+                            "bg-yellow-600 hover:bg-yellow-500 text-white font-semibold rounded-lg px-5 py-3 transition"
+                    }
+                )
+            );
+
+        }
+
+        actionsElement.appendChild(buttonsContainer);
+
+    }
+
+
+    function renderBetControls(container, options, player) {
+
+        const betContainer = createElement(
+            "div",
+            "flex flex-wrap items-center gap-2 w-full mt-3"
+        );
+
+        const amountInput = createElement(
+            "input",
+            "bg-background border border-white/10 rounded-lg px-3 py-3 w-32"
+        );
+
+        amountInput.type = "number";
+        amountInput.min = "1";
+        amountInput.step = "0.5";
+        amountInput.inputMode = "decimal";
+        amountInput.setAttribute("aria-label", "Montant de la mise");
+
+        let actionType;
+        let minimum;
+        let maximum;
+
+        if (options.canBet) {
+
+            actionType = "bet";
+            minimum = options.minimumBet;
+            maximum = options.maximumBet;
+
+        } else {
+
+            actionType = "raise";
+            minimum = options.minimumRaiseTo;
+            maximum = options.maximumRaiseTo;
+
+        }
+
+        amountInput.min = String(minimum);
+        amountInput.max = String(maximum);
+        amountInput.value = String(
+            Math.min(maximum, minimum)
+        );
+
+        const label = createElement(
+            "span",
+            "text-sm text-textMuted",
+            actionType === "bet"
+                ? "Montant de la mise"
+                : "Relancer à"
+        );
+
+        const submitButton = createActionButton(
+            actionType === "bet" ? "Miser" : "Relancer",
+            () => {
+
+                const amount = Number(amountInput.value);
+
+                if (
+                    !Number.isFinite(amount) ||
+                    amount < minimum ||
+                    amount > maximum
+                ) {
+                    showError([
+                        `Le montant doit être compris entre ${formatChips(minimum)} et ${formatChips(maximum)}.`
+                    ]);
+
+                    return;
+                }
+
+                executePlayerAction(actionType, amount);
+
+            }
+        );
+
+        betContainer.appendChild(label);
+        betContainer.appendChild(amountInput);
+        betContainer.appendChild(submitButton);
+
+        container.appendChild(betContainer);
+
+    }
+
+
+    /* =====================================================
+       9. EXÉCUTION DES ACTIONS
+       ===================================================== */
+
+    function executePlayerAction(action, amount = null) {
+
+        if (!gameEngine || !currentSession) {
+            return;
+        }
+
+        try {
+
+            gameEngine.act(
+                action,
+                amount,
+                HERO_ID
+            );
+
+            hideMessage();
+
+            renderGame();
+
+            processBotTurns();
+
+        } catch (error) {
+
+            showError([error.message]);
+
+        }
+
+    }
+
+
+    /* =====================================================
+       10. TOUR AUTOMATIQUE DES BOTS
+       ===================================================== */
+
+    function processBotTurns() {
+
+        if (!gameEngine || !currentSession) {
+            return;
+        }
+
+        let state = gameEngine.getState();
+
+        let safetyCounter = 0;
+
+        try {
+
+            while (
+                !state.handComplete &&
+                state.currentPlayerId &&
+                safetyCounter < 100
+            ) {
+
+                const currentPlayer = gameEngine.players.find(
+                    player => player.id === state.currentPlayerId
+                );
+
+                if (!currentPlayer || !currentPlayer.isBot) {
+                    break;
+                }
+
+                gameEngine.playBotTurn(currentPlayer.id);
+
+                state = gameEngine.getState();
+
+                safetyCounter++;
+
+            }
+
+            if (safetyCounter >= 100) {
+                throw new Error(
+                    "La progression automatique des bots a été interrompue."
+                );
+            }
+
+            renderGame(state);
+
+        } catch (error) {
+
+            showError([
+                "Erreur pendant le tour des bots : " + error.message
+            ]);
+
+        }
+
+    }
+
+
+    /* =====================================================
+       11. RÉSULTAT DE LA MAIN
+       ===================================================== */
+
+    function renderHandResult(state) {
+
+        if (!state.result) {
+            return;
+        }
+
+        const result = state.result;
+
+        const resultContainer = createElement(
+            "div",
+            "bg-background border border-white/10 rounded-xl p-4 mb-4"
+        );
+
+        const title = createElement(
+            "h4",
+            "font-bold text-lg mb-2",
+            "Résultat de la main"
+        );
+
+        resultContainer.appendChild(title);
+
+        const winners = state.players.filter(
+            player => result.winnerIds.includes(player.id)
+        );
+
+        const winnerNames = winners.map(
+            player => player.name
+        );
+
+        const winnerText = createElement(
+            "p",
+            "text-green-400 font-semibold mb-2",
+            winnerNames.length > 0
+                ? `Gagnant${winnerNames.length > 1 ? "s" : ""} : ${winnerNames.join(", ")}`
+                : "Main terminée"
+        );
+
+        resultContainer.appendChild(winnerText);
+
+        const potText = createElement(
+            "p",
+            "text-textMuted text-sm",
+            `Pot remporté : ${formatChips(result.totalPot)} jetons`
+        );
+
+        resultContainer.appendChild(potText);
+
+        if (result.type === "showdown") {
+
+            const showdownText = createElement(
+                "p",
+                "text-textMuted text-sm mt-2",
+                "Les cartes ont été révélées à l'abattage."
+            );
+
+            resultContainer.appendChild(showdownText);
+
+        }
+
+        actionsElement.appendChild(resultContainer);
+
+    }
+
+
+    /* =====================================================
+       12. MAIN SUIVANTE
+       ===================================================== */
+
+    function startNextHand() {
+
+        if (!gameEngine || !currentSession) {
+            return;
+        }
+
+        try {
+
+            const state = gameEngine.nextHand();
+
+            hideMessage();
+
+            renderGame(state);
+
+            processBotTurns();
+
+        } catch (error) {
+
+            showError([error.message]);
+
+        }
+
+    }
+
+
+    /* =====================================================
+       13. ARRÊT DE LA SESSION
        ===================================================== */
 
     function stopSession() {
@@ -384,6 +1060,25 @@ window.PokerLabTraining = (function () {
         };
 
         currentSession = null;
+        gameEngine = null;
+
+        if (configurationElement) {
+            configurationElement.classList.remove("hidden");
+        }
+
+        if (gameElement) {
+            gameElement.classList.add("hidden");
+        }
+
+        if (tableElement) {
+            tableElement.replaceChildren();
+        }
+
+        if (actionsElement) {
+            actionsElement.replaceChildren();
+        }
+
+        hideMessage();
 
         dispatch(EVENTS.SESSION_STOPPED, {
             session: stoppedSession
@@ -402,7 +1097,7 @@ window.PokerLabTraining = (function () {
 
         return {
             ...currentSession,
-            config: cloneConfig(currentSession.config)
+            config: { ...currentSession.config }
         };
 
     }
@@ -416,52 +1111,8 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       9. LIAISON AVEC L'INTERFACE
+       14. LIAISON DES BOUTONS
        ===================================================== */
-
-    function bindConfigurationInputs() {
-
-        const inputs = document.querySelectorAll(
-            "[data-training-setting]"
-        );
-
-        inputs.forEach(input => {
-
-            input.addEventListener("change", () => {
-
-                const setting = input.dataset.trainingSetting;
-
-                let value = input.value;
-
-                if (
-                    setting === "playerCount" ||
-                    setting === "startingStack" ||
-                    setting === "smallBlind" ||
-                    setting === "bigBlind"
-                ) {
-                    value = Number(value);
-                }
-
-                const result = updateConfig({
-                    [setting]: value
-                });
-
-                if (!result.success) {
-
-                    input.value = currentConfig[setting];
-
-                    dispatch("pokerlab:training-error", {
-                        errors: result.errors
-                    });
-
-                }
-
-            });
-
-        });
-
-    }
-
 
     function bindActionButtons() {
 
@@ -480,24 +1131,24 @@ window.PokerLabTraining = (function () {
                     const result = createSession();
 
                     if (!result.success) {
-
-                        dispatch("pokerlab:training-error", {
-                            errors: result.errors
-                        });
-
+                        showError(result.errors);
                     }
 
                 }
 
                 if (action === "stop") {
-
                     stopSession();
-
                 }
 
                 if (action === "reset") {
 
-                    resetConfig();
+                    const success = resetConfig();
+
+                    if (!success) {
+                        showError([
+                            "Impossible de réinitialiser pendant une partie."
+                        ]);
+                    }
 
                 }
 
@@ -509,7 +1160,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       10. INITIALISATION
+       15. INITIALISATION
        ===================================================== */
 
     function init() {
@@ -518,16 +1169,66 @@ window.PokerLabTraining = (function () {
             return;
         }
 
+        configurationElement = document.getElementById(
+            "training-configuration"
+        );
+
+        gameElement = document.getElementById(
+            "training-game"
+        );
+
+        tableElement = document.getElementById(
+            "training-table"
+        );
+
+        actionsElement = document.getElementById(
+            "training-actions"
+        );
+
+        messageElement = document.getElementById(
+            "training-message"
+        );
+
+        if (
+            !configurationElement ||
+            !gameElement ||
+            !tableElement ||
+            !actionsElement ||
+            !messageElement
+        ) {
+            console.error(
+                "[PokerLab] Interface d'entraînement introuvable."
+            );
+
+            return;
+        }
+
+        if (
+            !window.PokerLabGameEngine ||
+            !window.PokerLabTable ||
+            !window.PokerLabBotEngine
+        ) {
+            console.error(
+                "[PokerLab] Un ou plusieurs modules nécessaires au jeu ne sont pas chargés."
+            );
+
+            return;
+        }
+
         bindConfigurationInputs();
         bindActionButtons();
 
         initialized = true;
 
+        console.info(
+            "[PokerLab] Module d'entraînement initialisé."
+        );
+
     }
 
 
     /* =====================================================
-       11. EXPORT PUBLIC
+       16. EXPORT PUBLIC
        ===================================================== */
 
     return {
@@ -552,8 +1253,32 @@ window.PokerLabTraining = (function () {
 
         isSessionActive,
 
+        getGameState() {
+            return gameEngine
+                ? gameEngine.getState()
+                : null;
+        },
+
+        getHandHistory() {
+            return gameEngine
+                ? gameEngine.getHandHistory()
+                : [];
+        },
+
         EVENTS
 
     };
 
 })();
+
+
+/* =========================================================
+   17. INITIALISATION AUTOMATIQUE
+   ========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        window.PokerLabTraining.init();
+    }
+);
