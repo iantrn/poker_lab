@@ -606,35 +606,36 @@ window.PokerLabTraining = (function () {
     }
 
 
-    /* =====================================================
-       8. AFFICHAGE DE LA TABLE
-       ===================================================== */
-
-    function renderGame(state = null) {
-
-        if (!gameEngine || !tableElement) {
-            return;
-        }
-
-        const gameState = state || gameEngine.getState();
-
-        window.PokerLabTable.render(
-            tableElement,
-            gameState,
-            {
-                heroPlayerId: HERO_ID,
-                revealAllCards: false,
-                currency: "jetons",
-                showPositions: true,
-                showPlayerBets: true,
-                showStacks: true
-            }
-        );
-
-        renderGameActions(gameState);
-
+    /**
+ * Affiche la table de jeu.
+ */
+function renderGame(state = null) {
+    if (!gameEngine || !tableElement) {
+        return;
     }
 
+    const gameState = state || gameEngine.getState();
+
+    window.PokerLabTable.render(
+        tableElement,
+        gameState,
+        {
+            heroPlayerId: HERO_ID,
+            revealAllCards: false,
+            currency: "BB",
+            showPositions: true,
+            showPlayerBets: true,
+            showStacks: true
+        }
+    );
+
+    renderGameActions(gameState);
+
+    // MASQUER les boutons de configuration quand la table est affichée
+    if (configurationElement) {
+        configurationElement.classList.add('hidden');
+    }
+}
 
     /* =====================================================
        9. AFFICHAGE DES COMMANDES DU JOUEUR

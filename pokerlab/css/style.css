@@ -1,5 +1,6 @@
 /* =================================================================
    PokerLab - Styles Généraux & Table de Poker (Thème Sombre)
+   Version finale corrigée
    ========================================================================= */
 
 :root {
@@ -8,11 +9,14 @@
     --pl-bg-surface-secondary: #292929;
     --pl-text-primary: #F3F4F6;
     --pl-text-secondary: #9CA3AF;
+    --pl-text-muted: #6B7280;
     --pl-accent-red: #DC2626;
     --pl-accent-red-hover: #EF4444;
     --pl-felt-green: #064E3B;
     --pl-felt-border: #047857;
     --pl-gold: #F59E0B;
+    --pl-primary: #B71C35;
+    --pl-primary-hover: #D32F4A;
 }
 
 /* =================================================================
@@ -35,10 +39,10 @@ body {
 .pl-table-container {
     position: relative;
     width: 100%;
-    max-width: 1000px;
+    max-width: 900px;
     min-height: 500px;
-    height: 65vh;
-    max-height: 700px;
+    height: 60vh;
+    max-height: 650px;
     margin: 20px auto;
     background-color: var(--pl-bg-surface);
     border-radius: 16px;
@@ -47,9 +51,9 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    padding: 20px;
+    padding: 15px;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* =================================================================
@@ -60,14 +64,16 @@ body {
     display: flex;
     justify-content: space-between;
     width: 100%;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--pl-text-secondary);
     padding: 0 10px;
+    margin-bottom: 10px;
     z-index: 10;
 }
 
 .pl-hand-counter, .pl-game-mode, .pl-stakes {
-    font-size: 0.85rem;
+    color: var(--pl-text-secondary);
+    font-size: 0.8rem;
 }
 
 /* =================================================================
@@ -76,11 +82,12 @@ body {
 
 .pl-felt {
     position: relative;
-    width: 80%;
-    height: 60%;
-    min-height: 250px;
+    width: 75%;
+    height: 55%;
+    min-width: 250px;
+    min-height: 200px;
     background: radial-gradient(circle, #065F46 0%, var(--pl-felt-green) 100%);
-    border: 6px solid #064E3B;
+    border: 6px solid var(--pl-felt-border);
     border-radius: 180px;
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
     display: flex;
@@ -96,17 +103,17 @@ body {
 
 .pl-pot-display {
     text-align: center;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.5);
     padding: 8px 20px;
     border-radius: 20px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 10;
 }
 
 .pl-pot-label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--pl-text-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -114,7 +121,7 @@ body {
 }
 
 .pl-pot-amount {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: bold;
     color: var(--pl-gold);
 }
@@ -125,8 +132,8 @@ body {
 
 .pl-community-cards {
     display: flex;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 8px;
     z-index: 10;
 }
 
@@ -148,10 +155,10 @@ body {
     position: absolute;
     background: var(--pl-bg-surface-secondary);
     border: 2px solid #374151;
-    border-radius: 10px;
-    padding: 10px 12px;
-    width: 130px;
-    min-height: 60px;
+    border-radius: 8px;
+    padding: 6px 8px;
+    width: 100px;
+    min-height: 45px;
     text-align: center;
     pointer-events: auto;
     transition: all 0.2s ease;
@@ -159,7 +166,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+    color: var(--pl-text-primary);
 }
 
 .pl-seat.hidden {
@@ -168,8 +176,8 @@ body {
 
 .pl-seat.active {
     border-color: var(--pl-accent-red);
-    box-shadow: 0 0 15px rgba(220, 38, 38, 0.5);
-    background: rgba(220, 38, 38, 0.1);
+    box-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+    background: rgba(220, 38, 38, 0.15);
 }
 
 .pl-seat.folded {
@@ -179,20 +187,20 @@ body {
 
 .pl-seat.all-in {
     border-color: var(--pl-gold);
-    box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
 }
 
 /* Positionnement des sièges pour 6-max */
-.pl-seat-1 { bottom: 20px; left: 50%; transform: translateX(-50%); }
-.pl-seat-2 { bottom: 100px; left: 10%; }
-.pl-seat-3 { top: 100px; left: 10%; }
-.pl-seat-4 { top: 20px; left: 50%; transform: translateX(-50%); }
-.pl-seat-5 { top: 100px; right: 10%; }
-.pl-seat-6 { bottom: 100px; right: 10%; }
+.pl-seat-1 { bottom: 15px; left: 50%; transform: translateX(-50%); }
+.pl-seat-2 { bottom: 85px; left: 15px; }
+.pl-seat-3 { top: 85px; left: 15px; }
+.pl-seat-4 { top: 15px; left: 50%; transform: translateX(-50%); }
+.pl-seat-5 { top: 85px; right: 15px; }
+.pl-seat-6 { bottom: 85px; right: 15px; }
 
 /* Positionnement pour Heads-Up (2 joueurs) */
-.pl-seat-hu-1 { bottom: 20px; left: 50%; transform: translateX(-50%); }
-.pl-seat-hu-2 { top: 20px; left: 50%; transform: translateX(-50%); }
+.pl-seat-hu-1 { bottom: 15px; left: 50%; transform: translateX(-50%); }
+.pl-seat-hu-2 { top: 15px; left: 50%; transform: translateX(-50%); }
 
 /* =================================================================
    INFOS DU JOUEUR AU SIÈGE
@@ -200,30 +208,32 @@ body {
 
 .pl-player-info {
     width: 100%;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
 .pl-player-name {
     display: block;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: bold;
     color: var(--pl-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 2px;
+    line-height: 1.2;
 }
 
 .pl-player-stack {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--pl-gold);
+    line-height: 1.2;
 }
 
 .pl-player-cards {
     display: flex;
     justify-content: center;
-    gap: 5px;
-    margin-top: 5px;
+    gap: 3px;
+    margin-top: 3px;
 }
 
 /* =================================================================
@@ -232,19 +242,19 @@ body {
 
 .pl-dealer-button {
     position: absolute;
-    top: -12px;
-    right: -12px;
+    top: -10px;
+    right: -10px;
     background: #FFFFFF;
     color: #000000;
     font-weight: bold;
-    font-size: 0.75rem;
-    width: 24px;
-    height: 24px;
+    font-size: 0.65rem;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
     z-index: 5;
 }
 
@@ -256,33 +266,34 @@ body {
     background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
     color: #1a1a1a;
     font-weight: bold;
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    border-radius: 15px;
-    margin-top: 5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    border-radius: 12px;
+    margin-top: 3px;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.3);
 }
 
 /* =================================================================
-   CARTES - SYSTÈME UNIFIÉ (compatible avec cards.js)
+   CARTES - SYSTÈME UNIFIÉ
    ================================================================= */
 
 .pl-card {
-    width: 40px;
-    height: 60px;
+    width: 32px;
+    height: 48px;
     background: #FFFFFF;
-    border-radius: 6px;
+    border-radius: 5px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: bold;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     position: relative;
     overflow: hidden;
-    padding: 4px 0;
+    padding: 3px 0;
     box-sizing: border-box;
+    color: #000;
 }
 
 .pl-card--red {
@@ -294,43 +305,33 @@ body {
 }
 
 .pl-card--compact {
-    width: 28px;
-    height: 40px;
-    font-size: 0.7rem;
-}
-
-.pl-card--selected {
-    box-shadow: 0 0 0 2px var(--pl-accent-red);
-    transform: scale(1.05);
-}
-
-.pl-card--empty {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px dashed rgba(255, 255, 255, 0.3);
+    width: 24px;
+    height: 36px;
+    font-size: 0.65rem;
 }
 
 .pl-card--back {
-    width: 40px;
-    height: 60px;
+    width: 32px;
+    height: 48px;
     background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
     border: 1px solid #FFFFFF;
-    border-radius: 6px;
+    border-radius: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
 }
 
 .pl-card--board-slot {
-    width: 40px;
-    height: 60px;
+    width: 32px;
+    height: 48px;
     border: 2px dashed rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
+    border-radius: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--pl-text-secondary);
 }
 
@@ -338,53 +339,49 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     line-height: 1;
 }
 
 .pl-card__corner--top {
     position: absolute;
-    top: 4px;
-    left: 4px;
+    top: 3px;
+    left: 3px;
 }
 
 .pl-card__corner--bottom {
     position: absolute;
-    bottom: 4px;
-    right: 4px;
+    bottom: 3px;
+    right: 3px;
     transform: rotate(180deg);
 }
 
 .pl-card__rank {
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     font-weight: bold;
+    line-height: 1;
 }
 
 .pl-card__suit {
-    font-size: 1rem;
+    font-size: 0.85rem;
     line-height: 1;
 }
 
 .pl-card__center {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     line-height: 1;
     opacity: 0.8;
 }
 
-.pl-cards {
+.pl-cards, .pl-hole-cards {
     display: flex;
-    gap: 5px;
-}
-
-.pl-hole-cards {
-    display: flex;
-    gap: 5px;
+    gap: 3px;
     justify-content: center;
 }
 
 .pl-board {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     justify-content: center;
 }
@@ -396,25 +393,27 @@ body {
 .pl-action-controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
     justify-content: center;
-    margin-top: 20px;
-    padding: 15px;
+    margin-top: 15px;
+    padding: 12px;
     background: var(--pl-bg-surface-secondary);
-    border-radius: 12px;
-    z-index: 10;
+    border-radius: 10px;
+    z-index: 20;
+    max-width: 500px;
 }
 
 .pl-btn {
-    padding: 12px 24px;
+    padding: 10px 20px;
     border: none;
-    border-radius: 8px;
+    border-radius: 7px;
     font-weight: bold;
     cursor: pointer;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     transition: all 0.2s ease;
-    min-width: 100px;
+    min-width: 90px;
+    color: white;
 }
 
 .pl-btn:disabled {
@@ -423,17 +422,15 @@ body {
 }
 
 .pl-btn-fold {
-    background: #374151;
-    color: #FFF;
+    background: #4B5563;
 }
 
 .pl-btn-fold:hover:not(:disabled) {
-    background: #4B5563;
+    background: #6B7280;
 }
 
 .pl-btn-check, .pl-btn-call {
     background: #2563EB;
-    color: #FFF;
 }
 
 .pl-btn-check:hover:not(:disabled), .pl-btn-call:hover:not(:disabled) {
@@ -442,11 +439,24 @@ body {
 
 .pl-btn-raise, .pl-btn-bet {
     background: var(--pl-accent-red);
-    color: #FFF;
 }
 
 .pl-btn-raise:hover:not(:disabled), .pl-btn-bet:hover:not(:disabled) {
     background: var(--pl-accent-red-hover);
+}
+
+/* =================================================================
+   MODULE TRAINING - MASQUER LES BOUTONS SOUS LA TABLE
+   ================================================================= */
+
+#training-game .pl-action-controls {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Masquer les boutons du module training quand la table est affichée */
+#training-configuration {
+    display: none !important;
 }
 
 /* =================================================================
@@ -455,68 +465,84 @@ body {
 
 @media (max-width: 768px) {
     .pl-table-container {
-        height: 70vh;
-        max-height: 600px;
+        height: 65vh;
+        max-height: 550px;
         padding: 10px;
     }
 
     .pl-felt {
-        width: 90%;
-        height: 65%;
+        width: 85%;
+        height: 60%;
     }
 
     .pl-seat {
-        width: 110px;
-        min-height: 50px;
-        padding: 8px 10px;
+        width: 90px;
+        min-height: 40px;
+        padding: 5px 7px;
     }
 
     .pl-seat-1 { bottom: 10px; left: 50%; transform: translateX(-50%); }
-    .pl-seat-2 { bottom: 80px; left: 5%; }
-    .pl-seat-3 { top: 80px; left: 5%; }
+    .pl-seat-2 { bottom: 75px; left: 5px; }
+    .pl-seat-3 { top: 75px; left: 5px; }
     .pl-seat-4 { top: 10px; left: 50%; transform: translateX(-50%); }
-    .pl-seat-5 { top: 80px; right: 5%; }
-    .pl-seat-6 { bottom: 80px; right: 5%; }
+    .pl-seat-5 { top: 75px; right: 5px; }
+    .pl-seat-6 { bottom: 75px; right: 5px; }
 
     .pl-card {
-        width: 30px;
-        height: 45px;
-        font-size: 0.7rem;
+        width: 28px;
+        height: 42px;
     }
 
     .pl-card__rank {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
     }
 
     .pl-card__suit {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
 
     .pl-card__center {
-        font-size: 1.2rem;
+        font-size: 1rem;
+    }
+
+    .pl-action-controls {
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .pl-btn {
+        padding: 8px 16px;
+        font-size: 0.8rem;
+        min-width: 80px;
     }
 }
 
 @media (max-width: 480px) {
     .pl-table-container {
-        height: 65vh;
-        max-height: 500px;
+        height: 60vh;
+        max-height: 450px;
     }
 
     .pl-seat {
-        width: 90px;
-        min-height: 45px;
-        padding: 6px 8px;
-        font-size: 0.8rem;
+        width: 80px;
+        min-height: 35px;
+        padding: 4px 6px;
+        font-size: 0.75rem;
     }
 
-    .pl-seat-2 { bottom: 70px; left: 2%; }
-    .pl-seat-3 { top: 70px; left: 2%; }
-    .pl-seat-5 { top: 70px; right: 2%; }
-    .pl-seat-6 { bottom: 70px; right: 2%; }
+    .pl-seat-2 { bottom: 65px; left: 2px; }
+    .pl-seat-3 { top: 65px; left: 2px; }
+    .pl-seat-5 { top: 65px; right: 2px; }
+    .pl-seat-6 { bottom: 65px; right: 2px; }
 
     .pl-card {
-        width: 25px;
-        height: 38px;
+        width: 24px;
+        height: 36px;
+    }
+
+    .pl-btn {
+        padding: 7px 14px;
+        min-width: 70px;
+        font-size: 0.75rem;
     }
 }
