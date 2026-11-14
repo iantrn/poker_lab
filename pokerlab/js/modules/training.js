@@ -674,28 +674,20 @@ function renderGame(state = null) {
             );
 
             if (playersWithChips.length >= 2) {
-
-                const nextHandButton = createActionButton(
-                    "Main suivante",
-                    startNextHand
+                actionsElement.appendChild(
+                    createActionButton("Main suivante", startNextHand)
                 );
-
-                actionsElement.appendChild(nextHandButton);
-
             } else {
-
-                const endMessage = createElement(
-                    "p",
-                    "text-yellow-400 font-semibold",
-                    "La partie est terminée : il ne reste plus assez de joueurs avec des jetons."
+                actionsElement.appendChild(
+                    createElement(
+                        "p",
+                        "text-yellow-400 font-semibold",
+                        "La partie est terminée : il ne reste plus assez de joueurs avec des jetons."
+                    )
                 );
-
-                actionsElement.appendChild(endMessage);
-
             }
 
             return;
-
         }
 
         const currentPlayer = state.players.find(
@@ -707,17 +699,14 @@ function renderGame(state = null) {
         }
 
         if (!currentPlayer.isHuman) {
-
-            const waiting = createElement(
-                "p",
-                "text-textMuted text-sm",
-                `Au tour de ${currentPlayer.name}...`
+            actionsElement.appendChild(
+                createElement(
+                    "p",
+                    "text-textMuted text-sm",
+                    `Au tour de ${currentPlayer.name}...`
+                )
             );
-
-            actionsElement.appendChild(waiting);
-
             return;
-
         }
 
         const actionOptions = currentPlayer.actionOptions;
@@ -726,97 +715,86 @@ function renderGame(state = null) {
             return;
         }
 
-        const heading = createElement(
-            "h4",
-            "font-bold text-lg mb-3",
-            "À vous de jouer"
+        actionsElement.appendChild(
+            createElement("h4", "font-bold text-lg mb-3", "À vous de jouer")
         );
 
-        actionsElement.appendChild(heading);
-
-        const information = createElement(
-            "p",
-            "text-textMuted text-sm mb-4",
-            actionOptions.callAmount > 0
-                ? `Vous devez ajouter ${formatChips(actionOptions.callAmount)} jetons pour suivre.`
-                : "Aucune mise à égaliser : vous pouvez checker."
+        actionsElement.appendChild(
+            createElement(
+                "p",
+                "text-textMuted text-sm mb-4",
+                actionOptions.callAmount > 0
+                    ? `Vous devez ajouter ${formatChips(actionOptions.callAmount)} jetons pour suivre.`
+                    : "Aucune mise à égaliser : vous pouvez checker."
+            )
         );
 
-        actionsElement.appendChild(information);
-
-        const buttonsContainer = createElement(
-            "div",
-            "pl-action-buttons"
-        );
+        // Les quatre actions sont regroupées sur une seule ligne.
+        const buttonsContainer = createElement("div", "pl-action-buttons");
 
         if (actionOptions.canFold) {
-
             buttonsContainer.appendChild(
                 createActionButton(
                     "Se coucher",
                     () => executePlayerAction("fold"),
-                    {
-                        className:
-                            "bg-red-700 hover:bg-red-600 text-white font-semibold rounded-lg px-5 py-3 transition"
-                    }
+                    { className: "pl-action-btn pl-action-btn-fold" }
                 )
             );
-
-        }
-
-        if (actionOptions.canCheck) {
-
-            buttonsContainer.appendChild(
-                createActionButton(
-                    "Checker",
-                    () => executePlayerAction("check")
-                )
-            );
-
         }
 
         if (actionOptions.canCall) {
+            buttonsContainer.appendChild(
+                createActionButton(
+                    "Suivre",
+                    () => executePlayerAction("call"),
+                    { className: "pl-action-btn pl-action-btn-call" }
+                )
+            );
+        } else if (actionOptions.canCheck) {
+            buttonsContainer.appendChild(
+                createActionButton(
+                    "Checker",
+                    () => executePlayerAction("check"),
+                    { className: "pl-action-btn pl-action-btn-check" }
+                )
+            );
+        }
+
+        let betControls = null;
+
+        if (actionOptions.canBet || actionOptions.canRaise) {
+            betControls = renderBetControls(actionOptions, state);
 
             buttonsContainer.appendChild(
                 createActionButton(
-                    `Suivre (${formatChips(actionOptions.callAmount)})`,
-                    () => executePlayerAction("call")
+                    "Relance",
+                    betControls.submit,
+                    { className: "pl-action-btn pl-action-btn-raise" }
                 )
             );
-
-        }
-
-        if (actionOptions.canBet || actionOptions.canRaise) {
-
-            renderBetControls(
-                buttonsContainer,
-                actionOptions,
-                state
-            );
-
         }
 
         if (actionOptions.isAllIn) {
-
             buttonsContainer.appendChild(
                 createActionButton(
-                    "All-in",
+                    "Tapis",
                     () => executePlayerAction("all-in"),
-                    {
-                        className:
-                            "bg-yellow-600 hover:bg-yellow-500 text-white font-semibold rounded-lg px-5 py-3 transition"
-                    }
+                    { className: "pl-action-btn pl-action-btn-allin" }
                 )
             );
-
         }
 
         actionsElement.appendChild(buttonsContainer);
 
+        // Le réglage du montant se trouve immédiatement sous la ligne de boutons.
+        if (betControls) {
+            actionsElement.appendChild(betControls.element);
+        }
+
     }
 
 
-    function renderBetControls(container, options, state) {
+    function renderBetControls(options, state) {
 
         const betContainer = createElement("div", "pl-action-bet-controls");
         const actionType = options.canBet ? "bet" : "raise";
@@ -829,7 +807,7 @@ function renderGame(state = null) {
         amountInput.max = String(maximum);
         amountInput.step = "0.5";
         amountInput.inputMode = "decimal";
-        amountInput.setAttribute("aria-label", "Montant de la mise");
+        amountInput.setAttribute("aria-label", "Montant de la relance");
         amountInput.value = String(Math.min(maximum, minimum));
 
         const slider = createElement("input", "pl-bet-slider");
@@ -838,62 +816,60 @@ function renderGame(state = null) {
         slider.max = String(maximum);
         slider.step = "0.5";
         slider.value = amountInput.value;
-        slider.setAttribute("aria-label", "Ajuster le montant de la mise");
+        slider.setAttribute("aria-label", "Ajuster le montant de la relance");
 
-        const amountValue = createElement("strong", "pl-bet-current-value", formatChips(Number(amountInput.value)));
-        const label = createElement("span", "pl-bet-label", actionType === "bet" ? "Montant de la mise" : "Relancer à");
+        const amountValue = createElement(
+            "strong",
+            "pl-bet-current-value",
+            `${formatChips(Number(amountInput.value))} BB`
+        );
+
+        const label = createElement(
+            "span",
+            "pl-bet-label",
+            actionType === "bet" ? "Montant de la mise" : "Montant de la relance"
+        );
 
         const syncAmount = (value) => {
             const parsed = Number(value);
             if (!Number.isFinite(parsed)) return;
+
             const normalized = Math.min(maximum, Math.max(minimum, parsed));
             const rounded = Math.round(normalized * 2) / 2;
+
             amountInput.value = String(rounded);
             slider.value = String(rounded);
-            amountValue.textContent = formatChips(rounded);
+            amountValue.textContent = `${formatChips(rounded)} BB`;
         };
 
         amountInput.addEventListener("input", () => {
-            if (amountInput.value !== "") syncAmount(amountInput.value);
+            if (amountInput.value !== "") {
+                syncAmount(amountInput.value);
+            }
         });
+
         slider.addEventListener("input", () => syncAmount(slider.value));
-
-        const presets = createElement("div", "pl-bet-presets");
-        [
-            { label: "⅓ pot", fraction: 1 / 3 },
-            { label: "½ pot", fraction: 1 / 2 },
-            { label: "⅔ pot", fraction: 2 / 3 },
-            { label: "Pot", fraction: 1 }
-        ].forEach((preset) => {
-            presets.appendChild(createActionButton(preset.label, () => {
-                const potBasis = Number(state.pot || 0) +
-                    (actionType === "raise" ? Number(options.callAmount || 0) : 0);
-                const target = actionType === "bet"
-                    ? potBasis * preset.fraction
-                    : Number(state.currentBet || 0) + potBasis * preset.fraction;
-                syncAmount(target);
-            }, { className: "pl-bet-preset" }));
-        });
-
-        presets.appendChild(createActionButton("Tapis", () => syncAmount(maximum), {
-            className: "pl-bet-preset pl-bet-preset-allin"
-        }));
 
         const sliderRow = createElement("div", "pl-bet-slider-row");
         sliderRow.append(slider, amountValue);
 
-        const submitButton = createActionButton(actionType === "bet" ? "Miser" : "Relancer", () => {
-            const amount = Number(amountInput.value);
-            if (!Number.isFinite(amount) || amount < minimum || amount > maximum) {
-                showError([`Le montant doit être compris entre ${formatChips(minimum)} et ${formatChips(maximum)}.`]);
-                return;
-            }
-            executePlayerAction(actionType, amount);
-        });
-        submitButton.classList.add("pl-bet-submit");
+        betContainer.append(label, sliderRow, amountInput);
 
-        betContainer.append(label, sliderRow, amountInput, presets, submitButton);
-        container.appendChild(betContainer);
+        return {
+            element: betContainer,
+            submit() {
+                const amount = Number(amountInput.value);
+
+                if (!Number.isFinite(amount) || amount < minimum || amount > maximum) {
+                    showError([
+                        `Le montant doit être compris entre ${formatChips(minimum)} et ${formatChips(maximum)}.`
+                    ]);
+                    return;
+                }
+
+                executePlayerAction(actionType, amount);
+            }
+        };
     }
 
     /* =====================================================
