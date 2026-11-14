@@ -1354,3 +1354,54 @@ button:disabled {
     outline: 2px solid var(--accent-red);
     outline-offset: 3px;
 }
+
+
+/* Player seats and centered action panel */
+.pl-table-container > .pl-seats {
+    display:block !important; position:absolute !important; inset:0 !important;
+    z-index:20 !important; visibility:visible !important; pointer-events:none;
+}
+.pl-table-container .pl-seat {
+    display:flex !important; position:absolute !important;
+    left:var(--seat-x) !important; top:var(--seat-y) !important;
+    z-index:21 !important; transform:translate(-50%,-50%) !important;
+    visibility:visible !important; width:clamp(112px,13vw,148px);
+    min-height:82px; pointer-events:auto;
+}
+.pl-table-container .pl-seat-hero { z-index:23 !important; width:clamp(132px,15vw,164px); }
+.pl-table-container .pl-seat-hero .pl-player-cards { min-height:63px; }
+.pl-table-container .pl-hand-strength {
+    z-index:25; bottom:92px; left:50%; max-width:min(94%,560px);
+    white-space:normal; flex-wrap:wrap;
+}
+.pl-hero-actions-mount {
+    position:absolute; z-index:30; left:50%; bottom:10px;
+    transform:translateX(-50%); width:min(94%,720px);
+    display:flex; justify-content:center; align-items:center;
+}
+#training-actions.pl-action-panel {
+    width:100%; max-width:720px; margin:0 auto; padding:10px 14px;
+    display:flex; flex-direction:column; align-items:center; gap:7px;
+    border:1px solid rgba(255,255,255,.13); border-radius:9px;
+    background:rgba(13,17,19,.94); box-shadow:0 5px 18px rgba(0,0,0,.38);
+    text-align:center;
+}
+#training-actions.pl-action-panel h4 { margin:0; color:#fff; font-size:.92rem; line-height:1.2; }
+#training-actions.pl-action-panel p { margin:0; color:var(--text-secondary); font-size:.72rem; line-height:1.35; }
+.pl-action-buttons,.pl-action-bet-controls {
+    width:100%; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px;
+}
+.pl-action-bet-controls { margin-top:2px; }
+#training-actions.pl-action-panel button { min-height:36px; padding:7px 14px; font-size:.76rem; }
+#training-actions.pl-action-panel input { width:100px; min-height:36px; padding:6px 8px; }
+#training-actions.pl-action-panel .pl-action-bet-controls span { font-size:.72rem; }
+@media (max-width:600px) {
+    .pl-table-container { height:650px; min-height:650px; }
+    .pl-table-container .pl-seat { width:106px; min-height:76px; padding:6px; }
+    .pl-table-container .pl-seat-hero { width:126px; }
+    .pl-table-container .pl-seat:not(.pl-seat-hero) .pl-player-cards { min-height:38px; }
+    .pl-table-container .pl-hand-strength { bottom:105px; gap:5px; padding:6px 9px; }
+    .pl-hero-actions-mount { bottom:8px; width:calc(100% - 16px); }
+    #training-actions.pl-action-panel { padding:8px; gap:5px; }
+    #training-actions.pl-action-panel button { min-height:33px; padding:6px 10px; font-size:.70rem; }
+}
