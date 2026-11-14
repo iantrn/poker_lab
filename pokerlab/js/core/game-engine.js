@@ -1,16 +1,12 @@
 
 /* =========================================================
    POKERLAB - GAME ENGINE
-   Version : 1.0.0
-   Description : Moteur de jeu Texas Hold'em No-Limit
+   Version : 2.0.0
+   Description : Moteur Texas Hold'em No-Limit
    ========================================================= */
 
 "use strict";
 
-
-/* =========================================================
-   1. CLASSE PRINCIPALE
-   ========================================================= */
 
 class PokerLabGameEngine {
 
@@ -34,27 +30,20 @@ class PokerLabGameEngine {
             throw new Error("La liste des joueurs est invalide.");
         }
 
-        if (
-            options.players.length < 2 ||
-            options.players.length > 6
-        ) {
-            throw new Error(
-                "Une partie doit contenir entre 2 et 6 joueurs."
-            );
+        if (options.players.length < 2 || options.players.length > 6) {
+            throw new Error("Une partie doit contenir entre 2 et 6 joueurs.");
         }
-
-        // Configuration des blinds.
 
         this.blinds = window.PokerLabRules.blinds.create(
             options.smallBlind ?? 1,
             options.bigBlind ?? 2
         );
 
-        // Initialisation des joueurs.
-
         this.players = this.createPlayers(options.players);
 
-        // Configuration générale.
+        if (this.getPlayersWithChips().length < 2) {
+            throw new Error("Il faut au moins deux joueurs avec des jetons.");
+        }
 
         this.dealerIndex = options.dealerIndex ?? 0;
 
@@ -66,39 +55,42 @@ class PokerLabGameEngine {
             throw new Error("Position du bouton invalide.");
         }
 
-        // État initial de la partie.
+        if (this.players[this.dealerIndex].stack <= 0) {
+            this.dealerIndex = this.getNextOccupiedSeat(
+                (this.dealerIndex + 1) % this.players.length
+            );
+        }
+
+        // État de la partie.
 
         this.deck = null;
-
         this.board = [];
-
         this.street = "waiting";
 
         this.currentBet = 0;
-
         this.lastFullRaise = this.blinds.bigBlind;
 
         this.pendingPlayers = [];
-
-        this.actedSinceFullRaise = new Set();
-
         this.currentPlayerId = null;
 
         this.handNumber = 0;
-
         this.handComplete = true;
+        this.handStarted = false;
 
         this.handHistory = [];
-
         this.lastResult = null;
 
-        this.handStarted = false;
+        // Les sièges et positions sont figés au début
+        // de chaque main, même si un joueur devient all-in.
+
+        this.handSeatIndices = [];
+        this.handPositions = [];
 
     }
 
 
     /* =====================================================
-       2. CRÉATION DES JOUEURS
+       1. CRÉATION DES JOUEURS
        ===================================================== */
 
     createPlayers(players) {
@@ -108,8 +100,9 @@ class PokerLabGameEngine {
         return players.map((player, index) => {
 
             if (
+                !player ||
                 !Number.isFinite(player.stack) ||
-                player.stack <= 0
+                player.stack < 0
             ) {
                 throw new Error(
                     `Stack invalide pour le joueur ${index + 1}.`
@@ -119,9 +112,7 @@ class PokerLabGameEngine {
             const id = player.id ?? `player_${index + 1}`;
 
             if (identifiers.has(id)) {
-                throw new Error(
-                    "Deux joueurs possèdent le même identifiant."
-                );
+                throw new Error("Deux joueurs possèdent le même identifiant.");
             }
 
             identifiers.add(id);
@@ -129,26 +120,31 @@ class PokerLabGameEngine {
             return {
 
                 id,
-
                 name: player.name ?? `Joueur ${index + 1}`,
 
                 stack: player.stack,
 
                 isHuman: player.isHuman ?? false,
-
                 isBot: player.isBot ?? false,
+
+                botProfile: player.botProfile ?? player.profile ?? "balanced",
+                botDifficulty: player.botDifficulty ?? player.difficulty ?? "medium",
 
                 holeCards: [],
 
                 streetBet: 0,
-
                 totalContribution: 0,
 
                 folded: false,
-
                 allIn: false,
 
                 hasActed: false,
+
+                // Montant de la mise à laquelle le joueur
+                // avait fait face lors de sa dernière action.
+                // Sert à gérer les relances courtes cumulatives.
+
+                lastActedBet: 0,
 
                 position: null
 
@@ -160,7 +156,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       3. OUTILS SUR LES JOUEURS
+       2. OUTILS SUR LES JOUEURS
        ===================================================== */
 
     getPlayer(playerId) {
@@ -181,7 +177,9 @@ class PokerLabGameEngine {
     getPlayersInHand() {
 
         return this.players.filter(
-            (player) => !player.folded && player.holeCards.length === 2
+            (player) =>
+                !player.folded &&
+                player.holeCards.length === 2
         );
 
     }
@@ -246,22 +244,41 @@ class PokerLabGameEngine {
 
     getActiveSeatIndices() {
 
+        if (this.handSeatIndices.length > 0) {
+            return [...this.handSeatIndices];
+        }
+
         return this.players
-            .filter((player) => player.stack > 0)
-            .map((player) => this.players.indexOf(player));
+            .map((player, index) => ({
+                player,
+                index
+            }))
+            .filter((item) => item.player.stack > 0)
+            .map((item) => item.index);
 
     }
 
 
+    /* =====================================================
+       3. POSITIONS À LA TABLE
+       ===================================================== */
+
     getActivePositions() {
 
-        const activeSeats = this.getActiveSeatIndices();
+        if (this.handPositions.length > 0) {
+            return this.handPositions.map(
+                (position) => ({ ...position })
+            );
+        }
 
-        const dealerPosition =
-            activeSeats.indexOf(this.dealerIndex);
+        const activeSeats = this.getClockwiseOrder(
+            this.dealerIndex
+        ).filter(
+            (seatIndex) => this.players[seatIndex].stack > 0
+        );
 
-        if (dealerPosition === -1) {
-            throw new Error("Le bouton doit être occupé.");
+        if (activeSeats.length < 2) {
+            throw new Error("Il faut au moins deux joueurs actifs.");
         }
 
         const positionNames =
@@ -269,22 +286,33 @@ class PokerLabGameEngine {
                 activeSeats.length
             );
 
-        return activeSeats.map((seatIndex, index) => ({
+        // À quatre joueurs, le joueur après la BB
+        // est UTG.
 
-            seatIndex,
+        if (activeSeats.length === 4) {
+            positionNames[3] = "UTG";
+        }
 
-            position: positionNames[index],
+        return activeSeats.map((seatIndex, index) => {
 
-            isDealer: index === 0,
+            const position = positionNames[index];
 
-            isSmallBlind:
-                positionNames[index] === "SB" ||
-                positionNames[index] === "BTN/SB",
+            return {
 
-            isBigBlind:
-                positionNames[index] === "BB"
+                seatIndex,
+                position,
 
-        }));
+                isDealer: index === 0,
+
+                isSmallBlind:
+                    position === "SB" ||
+                    position === "BTN/SB",
+
+                isBigBlind: position === "BB"
+
+            };
+
+        });
 
     }
 
@@ -301,8 +329,6 @@ class PokerLabGameEngine {
             );
         }
 
-        // Le bouton doit être occupé.
-
         if (this.players[this.dealerIndex].stack <= 0) {
 
             this.dealerIndex = this.getNextOccupiedSeat(
@@ -311,31 +337,29 @@ class PokerLabGameEngine {
 
         }
 
-        // Réinitialisation de la main.
+        if (this.dealerIndex === -1) {
+            throw new Error("Aucun joueur ne peut recevoir le bouton.");
+        }
 
         this.handNumber++;
+
+        this.handHistory = [];
 
         this.deck = new window.PokerLabDeck();
 
         this.board = [];
-
         this.street = "preflop";
 
         this.currentBet = 0;
-
         this.lastFullRaise = this.blinds.bigBlind;
 
         this.pendingPlayers = [];
-
-        this.actedSinceFullRaise.clear();
-
         this.currentPlayerId = null;
 
         this.handComplete = false;
+        this.handStarted = true;
 
         this.lastResult = null;
-
-        this.handStarted = true;
 
         // Réinitialisation des joueurs.
 
@@ -344,43 +368,69 @@ class PokerLabGameEngine {
             player.holeCards = [];
 
             player.streetBet = 0;
-
             player.totalContribution = 0;
 
             player.folded = player.stack <= 0;
-
             player.allIn = false;
 
             player.hasActed = false;
+            player.lastActedBet = 0;
 
             player.position = null;
 
         }
 
-        // Attribution des positions.
+        // Fixation des sièges occupés pour cette main.
 
-        const positions = this.getActivePositions();
+        this.handSeatIndices = this.getClockwiseOrder(
+            this.dealerIndex
+        ).filter(
+            (seatIndex) => this.players[seatIndex].stack > 0
+        );
 
-        for (const position of positions) {
-
-            this.players[position.seatIndex].position =
-                position.position;
-
+        if (this.handSeatIndices.length < 2) {
+            throw new Error("Nombre de joueurs actifs insuffisant.");
         }
 
-        // Distribution des cartes privatives.
+        // Attribution des positions une seule fois.
+
+        const positionNames =
+            window.PokerLabRules.positions.getPositionNames(
+                this.handSeatIndices.length
+            );
+
+        if (this.handSeatIndices.length === 4) {
+            positionNames[3] = "UTG";
+        }
+
+        this.handPositions = this.handSeatIndices.map(
+            (seatIndex, index) => {
+
+                const position = positionNames[index];
+
+                return {
+
+                    seatIndex,
+                    position,
+
+                    isDealer: index === 0,
+
+                    isSmallBlind:
+                        position === "SB" ||
+                        position === "BTN/SB",
+
+                    isBigBlind: position === "BB"
+
+                };
+
+            }
+        );
 
         this.dealHoleCards();
 
-        // Placement des blinds.
-
         this.postBlinds();
 
-        // Détermination du premier joueur.
-
         this.initializePreflopAction();
-
-        this.handHistory = [];
 
         this.recordEvent("hand_started", {
 
@@ -388,7 +438,14 @@ class PokerLabGameEngine {
 
             dealerIndex: this.dealerIndex,
 
-            blinds: { ...this.blinds }
+            blinds: { ...this.blinds },
+
+            positions: this.handPositions.map(
+                (item) => ({
+                    seatIndex: item.seatIndex,
+                    position: item.position
+                })
+            )
 
         });
 
@@ -405,23 +462,30 @@ class PokerLabGameEngine {
 
     dealHoleCards() {
 
-        const activeSeats = this.getActiveSeatIndices();
+        const positions = this.getActivePositions();
 
-        const order = this.getClockwiseOrder(
-            (this.dealerIndex + 1) % this.players.length
-        ).filter(
-            (seatIndex) => activeSeats.includes(seatIndex)
+        // Heads-up : le bouton reçoit la première carte.
+        // À plusieurs : la distribution commence par la SB.
+
+        let firstSeat;
+
+        if (positions.length === 2) {
+            firstSeat = this.dealerIndex;
+        } else {
+            firstSeat = positions.find(
+                (position) => position.isSmallBlind
+            ).seatIndex;
+        }
+
+        const order = this.getClockwiseOrder(firstSeat).filter(
+            (seatIndex) => this.handSeatIndices.includes(seatIndex)
         );
-
-        // Distribution en deux tours.
 
         for (let round = 0; round < 2; round++) {
 
             for (const seatIndex of order) {
 
-                const player = this.players[seatIndex];
-
-                player.holeCards.push(
+                this.players[seatIndex].holeCards.push(
                     this.deck.drawOne()
                 );
 
@@ -458,15 +522,18 @@ class PokerLabGameEngine {
         const bigBlindPlayer =
             this.players[bigBlindPosition.seatIndex];
 
-        this.commitChips(
+        const smallBlindPaid = this.commitChips(
             smallBlindPlayer,
             this.blinds.smallBlind
         );
 
-        this.commitChips(
+        const bigBlindPaid = this.commitChips(
             bigBlindPlayer,
             this.blinds.bigBlind
         );
+
+        // On utilise les montants réellement payés.
+        // Les positions ne sont pas recalculées après les blinds.
 
         this.currentBet = Math.max(
             smallBlindPlayer.streetBet,
@@ -476,8 +543,10 @@ class PokerLabGameEngine {
         this.recordEvent("blinds_posted", {
 
             smallBlind: smallBlindPlayer.id,
+            smallBlindAmount: smallBlindPaid,
 
-            bigBlind: bigBlindPlayer.id
+            bigBlind: bigBlindPlayer.id,
+            bigBlindAmount: bigBlindPaid
 
         });
 
@@ -485,36 +554,36 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       7. INITIALISATION DU TOUR PRÉFLOP
+       7. ORDRE DE PAROLE PRÉFLOP
        ===================================================== */
 
     initializePreflopAction() {
 
         const positions = this.getActivePositions();
 
-        let firstPosition;
+        let firstSeat;
 
         if (positions.length === 2) {
 
-            // En heads-up, le bouton parle en premier.
-
-            firstPosition = positions[0].seatIndex;
+            firstSeat = this.dealerIndex;
 
         } else {
-
-            // En 3-max et plus, UTG parle en premier.
 
             const bigBlindPosition = positions.find(
                 (position) => position.isBigBlind
             );
 
-            firstPosition =
+            if (!bigBlindPosition) {
+                throw new Error("Big Blind introuvable.");
+            }
+
+            firstSeat =
                 (bigBlindPosition.seatIndex + 1) %
                 this.players.length;
 
         }
 
-        const order = this.getClockwiseOrder(firstPosition);
+        const order = this.getClockwiseOrder(firstSeat);
 
         this.pendingPlayers = order.filter(
             (seatIndex) => {
@@ -522,6 +591,7 @@ class PokerLabGameEngine {
                 const player = this.players[seatIndex];
 
                 return (
+                    this.handSeatIndices.includes(seatIndex) &&
                     !player.folded &&
                     !player.allIn &&
                     player.stack > 0
@@ -543,15 +613,13 @@ class PokerLabGameEngine {
 
         if (
             !Number.isFinite(amount) ||
-            amount < 0
+            amount < 0 ||
+            amount > player.stack
         ) {
             throw new Error("Montant de jetons invalide.");
         }
 
-        const paidAmount = Math.min(
-            amount,
-            player.stack
-        );
+        const paidAmount = amount;
 
         player.stack -= paidAmount;
 
@@ -560,9 +628,7 @@ class PokerLabGameEngine {
         player.totalContribution += paidAmount;
 
         if (player.stack === 0) {
-
             player.allIn = true;
-
         }
 
         return paidAmount;
@@ -591,8 +657,101 @@ class PokerLabGameEngine {
     }
 
 
+    getMinimumRaiseTo() {
+
+        return this.currentBet + this.lastFullRaise;
+
+    }
+
+
     /* =====================================================
-       9. GESTION DU JOUEUR ACTUEL
+       9. DROIT DE RELANCE
+       ===================================================== */
+
+    canPlayerRaise(player) {
+
+        if (
+            player.folded ||
+            player.allIn ||
+            player.stack <= 0
+        ) {
+            return false;
+        }
+
+        const actionablePlayers =
+            this.getActionablePlayers();
+
+        if (actionablePlayers.length < 2) {
+            return false;
+        }
+
+        // Un joueur qui n'a pas encore agi conserve
+        // son droit de relance.
+
+        if (!player.hasActed) {
+            return true;
+        }
+
+        // Plusieurs relances courtes peuvent se cumuler.
+        // Le droit de relance est rouvert lorsque
+        // l'augmentation depuis la dernière action
+        // atteint la dernière relance complète.
+
+        return (
+            this.currentBet - player.lastActedBet >=
+            this.lastFullRaise
+        );
+
+    }
+
+
+    getPlayerActionOptions(playerId) {
+
+        const player = this.getPlayer(playerId);
+
+        const callAmount = this.getAmountToCall(player);
+
+        const actionablePlayers =
+            this.getActionablePlayers();
+
+        const canRaise = this.canPlayerRaise(player);
+
+        const canBet =
+            this.currentBet === 0 &&
+            actionablePlayers.length >= 2;
+
+        return {
+
+            canFold: true,
+
+            canCheck: callAmount === 0,
+
+            canCall: callAmount > 0,
+
+            callAmount,
+
+            canBet,
+
+            minimumBet: this.blinds.bigBlind,
+
+            maximumBet: player.stack,
+
+            canRaise,
+
+            minimumRaiseTo: this.getMinimumRaiseTo(),
+
+            maximumRaiseTo:
+                player.streetBet + player.stack,
+
+            isAllIn: player.stack > 0
+
+        };
+
+    }
+
+
+    /* =====================================================
+       10. JOUEUR ACTUEL
        ===================================================== */
 
     updateCurrentPlayer() {
@@ -624,8 +783,12 @@ class PokerLabGameEngine {
 
         const player = this.getPlayer(activeId);
 
-        if (player.folded || player.allIn) {
-            throw new Error("Ce joueur ne peut plus agir.");
+        if (
+            player.folded ||
+            player.allIn ||
+            player.stack <= 0
+        ) {
+            throw new Error("Ce joueur ne peut pas agir.");
         }
 
         return player;
@@ -634,7 +797,20 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       10. GESTION DES ACTIONS
+       11. ENREGISTREMENT D'UNE ACTION
+       ===================================================== */
+
+    markPlayerActed(player) {
+
+        player.hasActed = true;
+
+        player.lastActedBet = player.streetBet;
+
+    }
+
+
+    /* =====================================================
+       12. EXÉCUTION DES ACTIONS
        ===================================================== */
 
     act(action, amount = null, playerId = null) {
@@ -646,50 +822,34 @@ class PokerLabGameEngine {
         switch (action) {
 
             case "fold":
-
                 result = this.fold(player);
-
                 break;
 
             case "check":
-
                 result = this.check(player);
-
                 break;
 
             case "call":
-
                 result = this.call(player);
-
                 break;
 
             case "bet":
-
                 result = this.bet(player, amount);
-
                 break;
 
             case "raise":
-
             case "raiseTo":
-
                 result = this.raiseTo(player, amount);
-
                 break;
 
             case "allIn":
-
             case "all-in":
-
+            case "all_in":
                 result = this.allIn(player);
-
                 break;
 
             default:
-
-                throw new Error(
-                    "Action inconnue : " + action
-                );
+                throw new Error("Action inconnue : " + action);
 
         }
 
@@ -701,16 +861,14 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       11. FOLD
+       13. FOLD
        ===================================================== */
 
     fold(player) {
 
         player.folded = true;
 
-        player.hasActed = true;
-
-        this.actedSinceFullRaise.add(player.id);
+        this.markPlayerActed(player);
 
         this.removeFromPending(player);
 
@@ -725,22 +883,18 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       12. CHECK
+       14. CHECK
        ===================================================== */
 
     check(player) {
 
         if (this.getAmountToCall(player) > 0) {
-
             throw new Error(
                 "Impossible de checker : une mise doit être égalisée."
             );
-
         }
 
-        player.hasActed = true;
-
-        this.actedSinceFullRaise.add(player.id);
+        this.markPlayerActed(player);
 
         this.removeFromPending(player);
 
@@ -755,7 +909,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       13. CALL
+       15. CALL
        ===================================================== */
 
     call(player) {
@@ -764,34 +918,25 @@ class PokerLabGameEngine {
             this.getAmountToCall(player);
 
         if (amountToCall <= 0) {
-
             throw new Error(
                 "Aucune mise à égaliser. Utilisez check."
             );
-
         }
 
         const paidAmount = this.commitChips(
             player,
-            amountToCall
+            Math.min(amountToCall, player.stack)
         );
 
-        player.hasActed = true;
-
-        this.actedSinceFullRaise.add(player.id);
+        this.markPlayerActed(player);
 
         this.removeFromPending(player);
 
-        this.recordAction(
-            player,
-            "call",
-            paidAmount
-        );
+        this.recordAction(player, "call", paidAmount);
 
         return {
 
             action: "call",
-
             playerId: player.id,
 
             amount: paidAmount,
@@ -804,72 +949,69 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       14. BET
+       16. BET
        ===================================================== */
 
     bet(player, amount) {
 
         if (this.currentBet > 0) {
-
             throw new Error(
                 "Une mise existe déjà : utilisez raiseTo."
             );
-
         }
 
         if (
             !Number.isFinite(amount) ||
-            amount <= 0
+            amount <= 0 ||
+            amount > player.stack
         ) {
             throw new Error("Montant de mise invalide.");
         }
 
-        if (amount > player.stack) {
-            throw new Error("Stack insuffisant.");
+        if (this.getActionablePlayers().length < 2) {
+            throw new Error(
+                "Impossible de miser : aucun adversaire ne peut répondre."
+            );
         }
 
         const isAllIn = amount === player.stack;
 
         const minimumBet =
-            this.blinds.bigBlind;
+            window.PokerLabRules.betting.getMinimumOpeningBet(
+                this.blinds.bigBlind
+            );
 
-        if (
-            amount < minimumBet &&
-            !isAllIn
-        ) {
-
+        if (amount < minimumBet && !isAllIn) {
             throw new Error(
                 "La mise minimale est égale à une Big Blind."
             );
-
         }
 
-        const paidAmount = this.commitChips(
-            player,
-            amount
-        );
+        const paidAmount = this.commitChips(player, amount);
 
         this.currentBet = player.streetBet;
 
-        this.lastFullRaise = paidAmount;
+        const isFullOpening = paidAmount >= minimumBet;
 
-        player.hasActed = true;
+        if (isFullOpening) {
+            this.lastFullRaise = paidAmount;
+        }
 
-        this.actedSinceFullRaise.clear();
+        this.markPlayerActed(player);
 
-        this.actedSinceFullRaise.add(player.id);
-
-        this.rebuildPendingAfterFullRaise(player);
+        this.rebuildPendingAfterAggression(player);
 
         this.recordAction(
             player,
-            "bet",
+            isFullOpening ? "bet" : "short_all_in_bet",
             paidAmount
         );
 
         return {
 
-            action: "bet",
+            action: isFullOpening
+                ? "bet"
+                : "short_all_in_bet",
 
             playerId: player.id,
 
@@ -883,7 +1025,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       15. RAISE TO
+       17. RAISE TO
        ===================================================== */
 
     raiseTo(player, raiseToAmount) {
@@ -892,22 +1034,26 @@ class PokerLabGameEngine {
             !Number.isFinite(raiseToAmount) ||
             raiseToAmount <= this.currentBet
         ) {
-
             throw new Error(
                 "Le montant de relance doit dépasser la mise actuelle."
             );
+        }
 
+        if (!this.canPlayerRaise(player)) {
+            throw new Error(
+                "Les enchères ne sont pas réouvertes pour ce joueur."
+            );
         }
 
         const additionalAmount =
             raiseToAmount - player.streetBet;
 
         if (additionalAmount > player.stack) {
+            throw new Error("Stack insuffisant pour cette relance.");
+        }
 
-            throw new Error(
-                "Stack insuffisant pour cette relance."
-            );
-
+        if (additionalAmount <= 0) {
+            throw new Error("Montant de relance invalide.");
         }
 
         const isAllIn =
@@ -920,11 +1066,9 @@ class PokerLabGameEngine {
             raiseSize >= this.lastFullRaise;
 
         if (!isFullRaise && !isAllIn) {
-
             throw new Error(
                 "Cette relance est inférieure au minimum autorisé."
             );
-
         }
 
         const paidAmount = this.commitChips(
@@ -934,28 +1078,13 @@ class PokerLabGameEngine {
 
         this.currentBet = player.streetBet;
 
-        player.hasActed = true;
-
         if (isFullRaise) {
-
             this.lastFullRaise = raiseSize;
-
-            this.actedSinceFullRaise.clear();
-
-            this.actedSinceFullRaise.add(player.id);
-
-            this.rebuildPendingAfterFullRaise(player);
-
-        } else {
-
-            // Une relance à tapis insuffisante ne rouvre
-            // pas automatiquement les enchères.
-
-            this.actedSinceFullRaise.add(player.id);
-
-            this.rebuildPendingAfterShortRaise(player);
-
         }
+
+        this.markPlayerActed(player);
+
+        this.rebuildPendingAfterAggression(player);
 
         this.recordAction(
             player,
@@ -965,13 +1094,17 @@ class PokerLabGameEngine {
 
         return {
 
-            action: isFullRaise ? "raise" : "short_raise",
+            action: isFullRaise
+                ? "raise"
+                : "short_raise",
 
             playerId: player.id,
 
             amount: paidAmount,
 
             raiseTo: player.streetBet,
+
+            raiseSize,
 
             allIn: player.allIn
 
@@ -981,17 +1114,13 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       16. ALL-IN
+       18. ALL-IN
        ===================================================== */
 
     allIn(player) {
 
         if (player.stack <= 0) {
-
-            throw new Error(
-                "Ce joueur ne possède plus de jetons."
-            );
-
+            throw new Error("Ce joueur ne possède plus de jetons.");
         }
 
         const amount = player.stack;
@@ -999,42 +1128,25 @@ class PokerLabGameEngine {
         const resultingBet =
             player.streetBet + amount;
 
-        // Un tapis qui dépasse la mise actuelle
-        // constitue une mise ou une relance.
-
         if (resultingBet > this.currentBet) {
 
             if (this.currentBet === 0) {
-
                 return this.bet(player, amount);
-
             }
 
-            return this.raiseTo(
-                player,
-                resultingBet
-            );
+            return this.raiseTo(player, resultingBet);
 
         }
 
-        // Sinon, le tapis correspond à un call incomplet.
+        // Tapis inférieur ou égal à la mise à égaliser.
 
-        const paidAmount = this.commitChips(
-            player,
-            amount
-        );
+        const paidAmount = this.commitChips(player, amount);
 
-        player.hasActed = true;
-
-        this.actedSinceFullRaise.add(player.id);
+        this.markPlayerActed(player);
 
         this.removeFromPending(player);
 
-        this.recordAction(
-            player,
-            "all_in_call",
-            paidAmount
-        );
+        this.recordAction(player, "all_in_call", paidAmount);
 
         return {
 
@@ -1052,7 +1164,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       17. GESTION DES JOUEURS EN ATTENTE
+       19. GESTION DE LA FILE D'ATTENTE
        ===================================================== */
 
     removeFromPending(player) {
@@ -1068,35 +1180,7 @@ class PokerLabGameEngine {
     }
 
 
-    rebuildPendingAfterFullRaise(player) {
-
-        const nextSeat =
-            (this.players.indexOf(player) + 1) %
-            this.players.length;
-
-        this.pendingPlayers =
-            this.getClockwiseOrder(nextSeat).filter(
-                (seatIndex) => {
-
-                    const candidate =
-                        this.players[seatIndex];
-
-                    return (
-                        candidate.id !== player.id &&
-                        !candidate.folded &&
-                        !candidate.allIn &&
-                        candidate.stack > 0
-                    );
-
-                }
-            );
-
-        this.updateCurrentPlayer();
-
-    }
-
-
-    rebuildPendingAfterShortRaise(player) {
+    rebuildPendingAfterAggression(player) {
 
         const nextSeat =
             (this.players.indexOf(player) + 1) %
@@ -1109,14 +1193,14 @@ class PokerLabGameEngine {
 
         for (const seatIndex of this.getClockwiseOrder(nextSeat)) {
 
-            const candidate =
-                this.players[seatIndex];
+            const candidate = this.players[seatIndex];
 
             if (
                 candidate.id === player.id ||
                 candidate.folded ||
                 candidate.allIn ||
-                candidate.stack <= 0
+                candidate.stack <= 0 ||
+                candidate.holeCards.length !== 2
             ) {
                 continue;
             }
@@ -1128,9 +1212,7 @@ class PokerLabGameEngine {
                 existingPending.has(seatIndex) ||
                 mustRespond
             ) {
-
                 newPending.push(seatIndex);
-
             }
 
         }
@@ -1143,7 +1225,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       18. RÉSOLUTION AUTOMATIQUE DU JEU
+       20. RÉSOLUTION AUTOMATIQUE
        ===================================================== */
 
     resolveAutomaticProgress() {
@@ -1152,29 +1234,55 @@ class PokerLabGameEngine {
             return;
         }
 
-        // Un seul joueur reste dans la main.
+        const playersInHand =
+            this.getPlayersInHand();
 
-        if (this.getPlayersInHand().length === 1) {
-
+        if (playersInHand.length === 1) {
             this.awardUncontestedPot();
+            return;
+        }
+
+        const actionablePlayers =
+            this.getActionablePlayers();
+
+        // Aucun joueur ne peut encore agir.
+
+        if (actionablePlayers.length === 0) {
+            this.runoutBoard();
+            return;
+        }
+
+        // Un seul joueur peut encore agir.
+        // Il peut devoir égaliser une mise existante,
+        // mais ne peut pas miser contre des joueurs à tapis.
+
+        if (actionablePlayers.length === 1) {
+
+            const solePlayer = actionablePlayers[0];
+
+            if (
+                this.pendingPlayers.length === 0 ||
+                (
+                    this.pendingPlayers.length === 1 &&
+                    this.getAmountToCall(solePlayer) === 0
+                )
+            ) {
+                this.runoutBoard();
+            }
 
             return;
 
         }
 
-        // Tous les joueurs pouvant agir ont terminé.
-
         if (this.pendingPlayers.length === 0) {
-
             this.endBettingRound();
-
         }
 
     }
 
 
     /* =====================================================
-       19. FIN D'UN TOUR D'ENCHÈRES
+       21. FIN D'UN TOUR D'ENCHÈRES
        ===================================================== */
 
     endBettingRound() {
@@ -1183,21 +1291,10 @@ class PokerLabGameEngine {
             return;
         }
 
-        const actionablePlayers =
-            this.getActionablePlayers();
-
-        // S'il ne reste qu'un seul joueur capable de miser,
-        // aucun autre adversaire ne peut suivre ses mises.
-
-        if (actionablePlayers.length <= 1) {
-
+        if (this.getActionablePlayers().length <= 1) {
             this.runoutBoard();
-
             return;
-
         }
-
-        // Passage à la phase suivante.
 
         this.advanceStreet();
 
@@ -1205,42 +1302,26 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       20. PASSAGE À LA PHASE SUIVANTE
+       22. PASSAGE À LA PHASE SUIVANTE
        ===================================================== */
 
     advanceStreet() {
 
         const nextStreet =
-            window.PokerLabRules.streets.getNext(
-                this.street
-            );
+            window.PokerLabRules.streets.getNext(this.street);
 
-        if (!nextStreet) {
+        if (!nextStreet || nextStreet === "showdown") {
             this.showdown();
             return;
         }
 
         this.street = nextStreet;
 
-        if (this.street === "showdown") {
-
-            this.showdown();
-
-            return;
-
-        }
-
-        // Distribution des cartes communes.
-
         this.dealCommunityCards();
-
-        // Réinitialisation des mises de la phase.
 
         this.currentBet = 0;
 
         this.lastFullRaise = this.blinds.bigBlind;
-
-        this.actedSinceFullRaise.clear();
 
         for (const player of this.players) {
 
@@ -1248,9 +1329,9 @@ class PokerLabGameEngine {
 
             player.hasActed = false;
 
-        }
+            player.lastActedBet = 0;
 
-        // Premier joueur après le bouton.
+        }
 
         this.initializePostflopAction();
 
@@ -1262,23 +1343,18 @@ class PokerLabGameEngine {
 
         });
 
-        // Si les joueurs encore actifs ne peuvent plus
-        // réellement miser, déroulement automatique.
-
         this.resolveAutomaticProgress();
 
     }
 
 
     /* =====================================================
-       21. DISTRIBUTION DU BOARD
+       23. DISTRIBUTION DU BOARD
        ===================================================== */
 
     dealCommunityCards() {
 
         if (this.street === "flop") {
-
-            // Carte brûlée.
 
             this.deck.drawOne();
 
@@ -1290,8 +1366,6 @@ class PokerLabGameEngine {
             this.street === "turn" ||
             this.street === "river"
         ) {
-
-            // Carte brûlée.
 
             this.deck.drawOne();
 
@@ -1305,7 +1379,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       22. INITIALISATION POSTFLOP
+       24. ORDRE DE PAROLE POSTFLOP
        ===================================================== */
 
     initializePostflopAction() {
@@ -1314,22 +1388,21 @@ class PokerLabGameEngine {
             (this.dealerIndex + 1) %
             this.players.length;
 
-        const order =
-            this.getClockwiseOrder(nextSeat);
+        this.pendingPlayers =
+            this.getClockwiseOrder(nextSeat).filter(
+                (seatIndex) => {
 
-        this.pendingPlayers = order.filter(
-            (seatIndex) => {
+                    const player = this.players[seatIndex];
 
-                const player = this.players[seatIndex];
+                    return (
+                        this.handSeatIndices.includes(seatIndex) &&
+                        !player.folded &&
+                        !player.allIn &&
+                        player.stack > 0
+                    );
 
-                return (
-                    !player.folded &&
-                    !player.allIn &&
-                    player.stack > 0
-                );
-
-            }
-        );
+                }
+            );
 
         this.updateCurrentPlayer();
 
@@ -1337,7 +1410,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       23. DÉROULEMENT AUTOMATIQUE DU BOARD
+       25. DISTRIBUTION AUTOMATIQUE DU BOARD
        ===================================================== */
 
     runoutBoard() {
@@ -1384,7 +1457,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       24. CONSTRUCTION DES POTS SECONDAIRES
+       26. CONSTRUCTION DES POTS SECONDAIRES
        ===================================================== */
 
     buildSidePots() {
@@ -1412,11 +1485,26 @@ class PokerLabGameEngine {
                 (level - previousLevel) *
                 contributors.length;
 
-            const eligiblePlayers = contributors.filter(
+            let eligiblePlayers = contributors.filter(
                 (player) => !player.folded
             );
 
+            // Les contributions des joueurs couchés restent
+            // dans le pot. Si une couche ne possède plus de
+            // contributeur vivant, elle revient aux joueurs
+            // encore dans la main.
+
+            if (eligiblePlayers.length === 0) {
+                eligiblePlayers = this.getPlayersInHand();
+            }
+
             if (amount > 0) {
+
+                if (eligiblePlayers.length === 0) {
+                    throw new Error(
+                        "Un pot secondaire ne possède aucun joueur éligible."
+                    );
+                }
 
                 pots.push({
 
@@ -1445,7 +1533,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       25. ÉVALUATION DES JOUEURS
+       27. ÉVALUATION DES JOUEURS
        ===================================================== */
 
     evaluatePlayer(player) {
@@ -1462,7 +1550,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       26. GESTION DES ÉGALITÉS ET JETONS IMPAIRS
+       28. ORDRE DES JETONS IMPAIRS
        ===================================================== */
 
     getOddChipOrder(winners) {
@@ -1482,6 +1570,10 @@ class PokerLabGameEngine {
     }
 
 
+    /* =====================================================
+       29. DISTRIBUTION D'UN POT
+       ===================================================== */
+
     distributePot(pot, evaluations) {
 
         const eligiblePlayers =
@@ -1493,11 +1585,7 @@ class PokerLabGameEngine {
             );
 
         if (eligiblePlayers.length === 0) {
-
-            throw new Error(
-                "Aucun joueur ne peut remporter ce pot."
-            );
-
+            throw new Error("Aucun joueur ne peut remporter ce pot.");
         }
 
         let bestScore = null;
@@ -1534,13 +1622,8 @@ class PokerLabGameEngine {
             pot.amount % winners.length;
 
         for (const winner of winners) {
-
             winner.stack += share;
-
         }
-
-        // Le jeton impair revient au premier gagnant
-        // situé à gauche du bouton.
 
         const oddChipOrder =
             this.getOddChipOrder(winners);
@@ -1561,6 +1644,11 @@ class PokerLabGameEngine {
 
         }
 
+        const winningEvaluation =
+            eligiblePlayers.find(
+                (item) => winners.includes(item.player)
+            ).evaluation;
+
         return {
 
             amount: pot.amount,
@@ -1575,10 +1663,7 @@ class PokerLabGameEngine {
 
             oddChipRecipients,
 
-            category: eligiblePlayers.find(
-                (item) =>
-                    winners.includes(item.player)
-            ).evaluation.categoryLabel
+            category: winningEvaluation.categoryLabel
 
         };
 
@@ -1586,7 +1671,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       27. SHOWDOWN
+       30. SHOWDOWN
        ===================================================== */
 
     showdown() {
@@ -1596,15 +1681,21 @@ class PokerLabGameEngine {
         }
 
         if (this.board.length !== 5) {
-
             throw new Error(
                 "Le board doit contenir cinq cartes au showdown."
             );
-
         }
 
         const playersInHand =
             this.getPlayersInHand();
+
+        if (playersInHand.length === 0) {
+            throw new Error("Aucun joueur ne reste dans la main.");
+        }
+
+        if (playersInHand.length === 1) {
+            return this.awardUncontestedPot();
+        }
 
         const evaluations = playersInHand.map(
             (player) => ({
@@ -1622,12 +1713,9 @@ class PokerLabGameEngine {
 
         for (const pot of sidePots) {
 
-            const result = this.distributePot(
-                pot,
-                evaluations
+            distributedPots.push(
+                this.distributePot(pot, evaluations)
             );
-
-            distributedPots.push(result);
 
         }
 
@@ -1690,7 +1778,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       28. POT NON CONTESTÉ
+       31. POT NON CONTESTÉ
        ===================================================== */
 
     awardUncontestedPot() {
@@ -1746,7 +1834,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       29. FIN DE LA MAIN
+       32. FIN DE LA MAIN
        ===================================================== */
 
     finishHand() {
@@ -1769,7 +1857,7 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       30. HISTORIQUE DES ACTIONS
+       33. HISTORIQUE
        ===================================================== */
 
     recordAction(player, action, amount) {
@@ -1812,13 +1900,143 @@ class PokerLabGameEngine {
 
     getHandHistory() {
 
-        return [...this.handHistory];
+        return JSON.parse(
+            JSON.stringify(this.handHistory)
+        );
 
     }
 
 
     /* =====================================================
-       31. ÉTAT PUBLIC DE LA PARTIE
+       34. INTÉGRATION DES BOTS
+       ===================================================== */
+
+    getBotContext(playerId) {
+
+        const player = this.getPlayer(playerId);
+
+        if (!player.isBot) {
+            throw new Error("Ce joueur n'est pas un bot.");
+        }
+
+        if (player.id !== this.currentPlayerId) {
+            throw new Error("Ce n'est pas le tour de ce bot.");
+        }
+
+        const opponentsRemaining =
+            this.getPlayersInHand().filter(
+                (opponent) => opponent.id !== player.id
+            ).length;
+
+        return {
+
+            holeCards: [...player.holeCards],
+
+            communityCards: [...this.board],
+
+            pot: this.getPot(),
+
+            callAmount: this.getAmountToCall(player),
+
+            currentBet: this.currentBet,
+
+            currentContribution: player.streetBet,
+
+            minRaise: this.lastFullRaise,
+
+            stack: player.stack,
+
+            street: this.street,
+
+            position: player.position,
+
+            opponentsRemaining,
+
+            canRaise: this.canPlayerRaise(player),
+
+            profile: player.botProfile,
+
+            difficulty: player.botDifficulty
+
+        };
+
+    }
+
+
+    decideBotTurn(playerId) {
+
+        if (!window.PokerLabBotEngine) {
+            throw new Error("PokerLabBotEngine n'est pas chargé.");
+        }
+
+        const context = this.getBotContext(playerId);
+
+        return window.PokerLabBotEngine.decide(context);
+
+    }
+
+
+    playBotTurn(playerId = this.currentPlayerId) {
+
+        const player = this.getPlayer(playerId);
+
+        if (!player.isBot) {
+            throw new Error("Le joueur actuel n'est pas un bot.");
+        }
+
+        const decision = this.decideBotTurn(playerId);
+
+        let result;
+
+        switch (decision.action) {
+
+            case "fold":
+                result = this.act("fold", null, playerId);
+                break;
+
+            case "check":
+                result = this.act("check", null, playerId);
+                break;
+
+            case "call":
+                result = this.act("call", null, playerId);
+                break;
+
+            case "bet":
+                result = this.act("bet", decision.amount, playerId);
+                break;
+
+            case "raise":
+                result = this.act("raise", decision.raiseTo, playerId);
+                break;
+
+            case "all-in":
+            case "allIn":
+                result = this.act("all-in", null, playerId);
+                break;
+
+            default:
+                throw new Error(
+                    "Décision du bot inconnue : " + decision.action
+                );
+
+        }
+
+        return {
+
+            decision,
+
+            result,
+
+            state: this.getState()
+
+        };
+
+    }
+
+
+    /* =====================================================
+       35. ÉTAT PUBLIC DE LA PARTIE
        ===================================================== */
 
     getState() {
@@ -1837,6 +2055,8 @@ class PokerLabGameEngine {
 
             lastFullRaise: this.lastFullRaise,
 
+            minimumRaiseTo: this.getMinimumRaiseTo(),
+
             dealerIndex: this.dealerIndex,
 
             currentPlayerId: this.currentPlayerId,
@@ -1848,40 +2068,59 @@ class PokerLabGameEngine {
             handComplete: this.handComplete,
 
             players: this.players.map(
-                (player) => ({
+                (player) => {
 
-                    id: player.id,
+                    const actionOptions =
+                        player.id === this.currentPlayerId
+                            ? this.getPlayerActionOptions(player.id)
+                            : null;
 
-                    name: player.name,
+                    return {
 
-                    stack: player.stack,
+                        id: player.id,
 
-                    isHuman: player.isHuman,
+                        name: player.name,
 
-                    isBot: player.isBot,
+                        stack: player.stack,
 
-                    holeCards:
-                        this.handComplete || player.isHuman
-                            ? [...player.holeCards]
+                        isHuman: player.isHuman,
+
+                        isBot: player.isBot,
+
+                        botProfile: player.isBot
+                            ? player.botProfile
                             : null,
 
-                    streetBet: player.streetBet,
+                        botDifficulty: player.isBot
+                            ? player.botDifficulty
+                            : null,
 
-                    totalContribution:
-                        player.totalContribution,
+                        holeCards:
+                            this.handComplete || player.isHuman
+                                ? [...player.holeCards]
+                                : null,
 
-                    folded: player.folded,
+                        streetBet: player.streetBet,
 
-                    allIn: player.allIn,
+                        totalContribution:
+                            player.totalContribution,
 
-                    hasActed: player.hasActed,
+                        folded: player.folded,
 
-                    position: player.position,
+                        allIn: player.allIn,
 
-                    amountToCall:
-                        this.getAmountToCall(player)
+                        hasActed: player.hasActed,
 
-                })
+                        position: player.position,
+
+                        amountToCall:
+                            this.getAmountToCall(player),
+
+                        actionOptions
+
+                    };
+
+                }
             ),
 
             result: this.lastResult
@@ -1892,17 +2131,19 @@ class PokerLabGameEngine {
 
 
     /* =====================================================
-       32. PASSAGE AU JOUEUR SUIVANT POUR LA MAIN SUIVANTE
+       36. MAIN SUIVANTE
        ===================================================== */
 
     nextHand() {
 
         if (!this.handComplete) {
+            throw new Error("La main actuelle n'est pas terminée.");
+        }
 
+        if (this.getPlayersWithChips().length < 2) {
             throw new Error(
-                "La main actuelle n'est pas terminée."
+                "Il ne reste pas suffisamment de joueurs avec des jetons."
             );
-
         }
 
         const nextDealer =
@@ -1912,14 +2153,13 @@ class PokerLabGameEngine {
             );
 
         if (nextDealer === -1) {
-
-            throw new Error(
-                "Aucun joueur ne possède de jetons."
-            );
-
+            throw new Error("Aucun joueur ne possède de jetons.");
         }
 
         this.dealerIndex = nextDealer;
+
+        this.handSeatIndices = [];
+        this.handPositions = [];
 
         return this.startHand();
 
@@ -1929,7 +2169,7 @@ class PokerLabGameEngine {
 
 
 /* =========================================================
-   33. EXPORT DU MODULE
+   37. EXPORT DU MODULE
    ========================================================= */
 
 window.PokerLabGameEngine = PokerLabGameEngine;
