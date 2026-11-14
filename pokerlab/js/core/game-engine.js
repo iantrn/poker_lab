@@ -475,7 +475,9 @@ class PokerLabGameEngine {
         this.handPositions = this.handSeatIndices.map(
             (seatIndex, index) => {
 
-                const position = positionNames[index];
+this.players[seatIndex].position = position;
+
+                            const position = positionNames[index];
 
                 return {
 
