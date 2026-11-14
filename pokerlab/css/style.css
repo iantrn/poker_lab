@@ -1696,3 +1696,182 @@ button:disabled {
     #training-actions.pl-action-panel { padding: 5px 7px !important; gap: 4px !important; }
     #training-actions.pl-action-panel button { min-height: 28px !important; padding: 4px 8px !important; font-size: .66rem !important; }
 }
+
+
+
+/* PokerLab v6 — séparation du siège héros et commandes compactes. */
+.pl-table-container .pl-seat-hero {
+    top: 52% !important;
+}
+
+.pl-table-container > .pl-hand-strength {
+    bottom: 145px !important;
+    z-index: 26 !important;
+}
+
+.pl-table-container > .pl-hero-actions-mount {
+    bottom: 8px !important;
+    width: min(88%, 570px) !important;
+    max-width: 570px !important;
+    align-items: center !important;
+}
+
+#training-actions.pl-action-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    width: 100% !important;
+    max-width: 570px !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 4px 6px !important;
+    gap: 4px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+}
+
+#training-actions.pl-action-panel h4 {
+    margin: 0 !important;
+    font-size: .78rem !important;
+    line-height: 1.1 !important;
+}
+
+#training-actions.pl-action-panel p {
+    margin: 0 !important;
+    font-size: .63rem !important;
+    line-height: 1.15 !important;
+}
+
+#training-actions .pl-action-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+}
+
+#training-actions .pl-action-buttons button {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    min-height: 32px !important;
+    width: 100% !important;
+    padding: 5px 4px !important;
+    border-radius: 5px !important;
+    font-size: .68rem !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+}
+
+#training-actions .pl-action-btn-fold { background: #A92735 !important; }
+#training-actions .pl-action-btn-call { background: #1769AA !important; }
+#training-actions .pl-action-btn-check { background: #343D43 !important; }
+#training-actions .pl-action-btn-raise { background: #B52A37 !important; }
+#training-actions .pl-action-btn-allin {
+    background: #8B6A16 !important;
+    color: #fff !important;
+}
+
+#training-actions .pl-action-bet-controls {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+        "label label"
+        "slider amount" !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    gap: 3px 9px !important;
+}
+
+#training-actions .pl-bet-label {
+    grid-area: label !important;
+    text-align: left !important;
+    font-size: .62rem !important;
+    line-height: 1.1 !important;
+}
+
+#training-actions .pl-bet-slider-row {
+    grid-area: slider !important;
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    gap: 7px !important;
+}
+
+#training-actions .pl-bet-slider {
+    display: block !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 6px !important;
+    margin: 0 !important;
+}
+
+#training-actions .pl-bet-current-value {
+    min-width: 52px !important;
+    font-size: .68rem !important;
+    white-space: nowrap !important;
+}
+
+#training-actions .pl-bet-number {
+    grid-area: amount !important;
+    width: 76px !important;
+    max-width: 76px !important;
+    min-height: 28px !important;
+    padding: 4px 6px !important;
+    font-size: .68rem !important;
+    text-align: center !important;
+}
+
+@media (max-width: 600px) {
+    .pl-table-container .pl-seat-hero {
+        top: 52% !important;
+    }
+
+    .pl-table-container > .pl-hand-strength {
+        bottom: 145px !important;
+    }
+
+    .pl-table-container > .pl-hero-actions-mount {
+        width: calc(100% - 16px) !important;
+        bottom: 5px !important;
+    }
+
+    #training-actions.pl-action-panel {
+        padding: 3px 2px !important;
+        gap: 3px !important;
+    }
+
+    #training-actions .pl-action-buttons {
+        gap: 4px !important;
+    }
+
+    #training-actions .pl-action-buttons button {
+        min-height: 29px !important;
+        padding: 4px 2px !important;
+        font-size: .60rem !important;
+    }
+
+    #training-actions .pl-action-bet-controls {
+        gap: 2px 6px !important;
+    }
+
+    #training-actions .pl-bet-number {
+        width: 66px !important;
+        max-width: 66px !important;
+    }
+}
