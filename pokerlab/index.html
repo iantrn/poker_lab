@@ -78,7 +78,6 @@
                 </p>
             </div>
 
-            <!-- CARTES DE NAVIGATION UNIQUEMENT -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
                 <a href="#training"
@@ -204,82 +203,54 @@
                         </div>
 
                         <div>
-                            <label for="training-profile" class="block text-sm font-semibold mb-2">
-                                Style de jeu des bots
-                            </label>
-
-                            <select id="training-profile"
-                                    data-training-setting="botProfile"
-                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
-                                <option value="balanced" selected>Balanced — équilibré</option>
-                                <option value="nit">Nit — très serré</option>
-                                <option value="tag">TAG — serré-agressif</option>
-                                <option value="lag">LAG — large-agressif</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label for="training-stack" class="block text-sm font-semibold mb-2">
+                            <label for="training-stack-bb" class="block text-sm font-semibold mb-2">
                                 Tapis de départ
                             </label>
 
-                            <select id="training-stack"
-                                    data-training-setting="startingStack"
+                            <select id="training-stack-bb"
+                                    data-training-setting="startingStackBB"
                                     class="w-full bg-background border border-white/10 rounded-lg p-3">
-                                <option value="50">50 jetons</option>
-                                <option value="100" selected>100 jetons</option>
-                                <option value="200">200 jetons</option>
-                                <option value="500">500 jetons</option>
-                                <option value="1000">1 000 jetons</option>
+                                <option value="20">20 BB</option>
+                                <option value="40">40 BB</option>
+                                <option value="50">50 BB</option>
+                                <option value="100" selected>100 BB</option>
+                                <option value="200">200 BB</option>
                             </select>
                         </div>
 
-                        <div>
-                            <label for="training-small-blind" class="block text-sm font-semibold mb-2">
-                                Petite blind (SB)
-                            </label>
+                    </div>
 
-                            <select id="training-small-blind"
-                                    data-training-setting="smallBlind"
-                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
-                                <option value="0.5" selected>0,5</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="5">5</option>
-                                <option value="10">10</option>
-                            </select>
-                        </div>
+                    <div class="mt-5 p-4 rounded-xl bg-background border border-white/5">
+                        <p class="text-sm font-semibold mb-1">Structure des blinds</p>
+                        <p class="text-sm text-textMuted">
+                            SB : 0,5 jeton · BB : 1 jeton
+                        </p>
+                        <p class="text-xs text-textMuted mt-2">
+                            1 BB correspond à 1 jeton. Ton tapis est directement exprimé en grosses blinds.
+                        </p>
+                    </div>
 
-                        <div>
-                            <label for="training-big-blind" class="block text-sm font-semibold mb-2">
-                                Grosse blind (BB)
-                            </label>
-
-                            <select id="training-big-blind"
-                                    data-training-setting="bigBlind"
-                                    class="w-full bg-background border border-white/10 rounded-lg p-3">
-                                <option value="1" selected>1</option>
-                                <option value="2">2</option>
-                                <option value="4">4</option>
-                                <option value="10">10</option>
-                                <option value="20">20</option>
-                            </select>
-                        </div>
-
+                    <div class="mt-4 p-4 rounded-xl bg-background border border-white/5">
+                        <p class="text-sm font-semibold mb-1">Profils des adversaires</p>
+                        <p class="text-sm text-textMuted">
+                            Chaque bot reçoit aléatoirement un style de jeu : Nit, TAG, LAG ou Balanced.
+                        </p>
                     </div>
 
                     <div class="flex flex-wrap gap-3 mt-6">
 
                         <button type="button"
                                 data-training-action="start"
-                                class="bg-primary hover:bg-primaryHover text-white font-semibold rounded-lg px-6 py-3 transition">
-                            ♠ Démarrer une partie
+                                class="group bg-primary hover:bg-primaryHover text-white font-bold rounded-xl px-7 py-4 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl">
+                            <span class="mr-2">♠</span>
+                            Démarrer une partie
+                            <span class="ml-2 inline-block transition-transform group-hover:translate-x-1">→</span>
                         </button>
 
                         <button type="button"
                                 data-training-action="reset"
-                                class="bg-background border border-white/10 hover:bg-white/5 rounded-lg px-5 py-3 transition">
-                            Réinitialiser
+                                class="bg-transparent border border-white/20 hover:border-white/40 hover:bg-white/5 text-textMuted hover:text-white font-semibold rounded-xl px-5 py-4 transition">
+                            ↺ Réinitialiser
                         </button>
 
                     </div>

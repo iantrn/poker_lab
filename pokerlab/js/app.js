@@ -1,7 +1,7 @@
 
 /* =========================================================
    POKERLAB - APPLICATION PRINCIPALE
-   Version : 1.0.0
+   Version : 1.1.0
    ========================================================= */
 
 "use strict";
@@ -15,7 +15,7 @@ const APP_CONFIG = {
 
     name: "PokerLab",
 
-    version: "1.0.0",
+    version: "1.1.0",
 
     storagePrefix: "pokerlab_",
 
@@ -168,92 +168,92 @@ const PokerLabLogger = {
 
 const PokerLabNavigation = {
 
-    currentPage: APP_CONFIG.defaultPage,
+    initialized: false,
 
 
     init() {
 
-        this.currentPage =
-            window.location.hash.replace("#", "") ||
-            APP_CONFIG.defaultPage;
+        if (this.initialized) {
+            return true;
+        }
 
-        this.updateNavigation();
+        if (
+            !window.PokerLabNavigation ||
+            typeof window.PokerLabNavigation.init !== "function"
+        ) {
 
-        window.addEventListener(
-            "hashchange",
-            () => {
+            PokerLabLogger.error(
+                "Le composant de navigation est introuvable."
+            );
 
-                this.currentPage =
-                    window.location.hash.replace("#", "") ||
-                    APP_CONFIG.defaultPage;
+            return false;
 
-                this.updateNavigation();
+        }
 
-            }
+        window.PokerLabNavigation.init();
+
+        this.initialized = true;
+
+        const currentPage =
+            window.PokerLabNavigation.getCurrentPage();
+
+        PokerLabStorage.save(
+            "lastPage",
+            currentPage
         );
 
         window.addEventListener(
-            "popstate",
-            () => {
+            "pokerlab:navigate",
+            event => {
 
-                this.currentPage =
-                    window.location.hash.replace("#", "") ||
-                    APP_CONFIG.defaultPage;
+                const page = event.detail?.page;
 
-                this.updateNavigation();
+                if (page) {
+
+                    PokerLabStorage.save(
+                        "lastPage",
+                        page
+                    );
+
+                }
 
             }
         );
 
         PokerLabLogger.info(
-            "Navigation initialisée."
+            "Navigation initialisée.",
+            currentPage
         );
 
-    },
-
-
-    updateNavigation() {
-
-        const navigationLinks =
-            document.querySelectorAll(
-                "nav a[href^='#']"
-            );
-
-        navigationLinks.forEach((link) => {
-
-            const targetPage =
-                link.getAttribute("href").replace("#", "");
-
-            const isActive =
-                targetPage === this.currentPage;
-
-            link.classList.toggle(
-                "text-white",
-                isActive
-            );
-
-            link.classList.toggle(
-                "text-textMuted",
-                !isActive
-            );
-
-        });
-
-        PokerLabStorage.save(
-            "lastPage",
-            this.currentPage
-        );
+        return true;
 
     },
 
 
     navigateTo(page) {
 
-        if (!page) {
-            return;
+        if (
+            !window.PokerLabNavigation ||
+            typeof window.PokerLabNavigation.navigateTo !== "function"
+        ) {
+            return false;
         }
 
-        window.location.hash = page;
+        return window.PokerLabNavigation.navigateTo(page);
+
+    },
+
+
+    getCurrentPage() {
+
+        if (
+            !window.PokerLabNavigation ||
+            typeof window.PokerLabNavigation.getCurrentPage !== "function"
+        ) {
+            return APP_CONFIG.defaultPage;
+        }
+
+        return window.PokerLabNavigation.getCurrentPage();
 
     }
 
@@ -370,7 +370,7 @@ const PokerLabErrors = {
 
         window.addEventListener(
             "error",
-            (event) => {
+            event => {
 
                 PokerLabLogger.error(
                     "Erreur JavaScript détectée.",
@@ -382,7 +382,7 @@ const PokerLabErrors = {
 
         window.addEventListener(
             "unhandledrejection",
-            (event) => {
+            event => {
 
                 PokerLabLogger.error(
                     "Erreur de promesse non gérée.",
@@ -412,8 +412,6 @@ const PokerLabServiceWorker = {
 
     async init() {
 
-        // Vérifier la prise en charge des Service Workers.
-
         if (!("serviceWorker" in navigator)) {
 
             PokerLabLogger.warn(
@@ -423,8 +421,6 @@ const PokerLabServiceWorker = {
             return false;
 
         }
-
-        // Vérifier que l'application utilise un contexte sécurisé.
 
         if (!window.isSecureContext) {
 
@@ -438,8 +434,6 @@ const PokerLabServiceWorker = {
 
         try {
 
-            // Enregistrement du Service Worker.
-
             this.registration =
                 await navigator.serviceWorker.register(
                     "./service-worker.js",
@@ -452,8 +446,6 @@ const PokerLabServiceWorker = {
                 "Service Worker enregistré.",
                 this.registration.scope
             );
-
-            // Détecter les nouvelles versions.
 
             this.registration.addEventListener(
                 "updatefound",
@@ -524,19 +516,11 @@ const PokerLabApp = {
             "Démarrage de PokerLab..."
         );
 
-        // Initialisation de la gestion des erreurs.
-
         PokerLabErrors.init();
-
-        // Chargement des paramètres utilisateur.
 
         PokerLabSettings.init();
 
-        // Initialisation de la navigation.
-
         PokerLabNavigation.init();
-
-        // Enregistrement du Service Worker.
 
         await PokerLabServiceWorker.init();
 
@@ -553,21 +537,7 @@ const PokerLabApp = {
 
 
 /* =========================================================
-   9. DÉMARRAGE AUTOMATIQUE
-   ========================================================= */
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        PokerLabApp.init();
-
-    }
-);
-
-
-/* =========================================================
-   10. EXPOSITION DES MODULES
+   9. EXPOSITION DES MODULES
    ========================================================= */
 
 window.PokerLab = {
@@ -584,6 +554,33 @@ window.PokerLab = {
 
     logger: PokerLabLogger,
 
-    serviceWorker: PokerLabServiceWorker
+    serviceWorker: PokerLabServiceWorker,
+
+    errors: PokerLabErrors
 
 };
+
+
+/* =========================================================
+   10. DÉMARRAGE AUTOMATIQUE
+   ========================================================= */
+
+function initializePokerLabApp() {
+
+    PokerLabApp.init();
+
+}
+
+if (document.readyState === "loading") {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializePokerLabApp,
+        { once: true }
+    );
+
+} else {
+
+    initializePokerLabApp();
+
+}

@@ -1,7 +1,7 @@
 
 /* =========================================================
    POKERLAB - TRAINING MODULE
-   Version : 2.0.0
+   Version : 2.2.0
    Description : Parties Texas Hold'em contre des bots
    ========================================================= */
 
@@ -17,18 +17,16 @@ window.PokerLabTraining = (function () {
         gameMode: "6max",
         playerCount: 6,
         difficulty: "medium",
-        botProfile: "balanced",
-        startingStack: 100,
-        smallBlind: 0.5,
-        bigBlind: 1
+        startingStackBB: 100
     };
 
     const VALID_MODES = ["heads-up", "6max"];
     const VALID_DIFFICULTIES = ["easy", "medium", "hard"];
     const VALID_PROFILES = ["nit", "tag", "lag", "balanced"];
+    const VALID_STACKS_BB = [20, 40, 50, 100, 200];
 
-    const MIN_STACK = 20;
-    const MAX_STACK = 10000;
+    const SMALL_BLIND = 0.5;
+    const BIG_BLIND = 1;
 
     const HERO_ID = "hero";
 
@@ -80,12 +78,9 @@ window.PokerLabTraining = (function () {
     }
 
 
-    function isValidNumber(value) {
+    function getStartingStack(config = currentConfig) {
 
-        return (
-            typeof value === "number" &&
-            Number.isFinite(value)
-        );
+        return config.startingStackBB;
 
     }
 
@@ -121,7 +116,6 @@ window.PokerLabTraining = (function () {
         }
 
         messageElement.textContent = message;
-
         messageElement.classList.remove("hidden");
 
         messageElement.classList.remove(
@@ -199,50 +193,22 @@ window.PokerLabTraining = (function () {
             );
         }
 
+        if (
+            config.gameMode === "6max" &&
+            (config.playerCount < 2 || config.playerCount > 6)
+        ) {
+            errors.push(
+                "Le mode 6-max accepte entre 2 et 6 joueurs."
+            );
+        }
+
         if (!VALID_DIFFICULTIES.includes(config.difficulty)) {
             errors.push("Difficulté invalide.");
         }
 
-        if (!VALID_PROFILES.includes(config.botProfile)) {
-            errors.push("Profil de bot invalide.");
-        }
-
-        if (
-            !isValidNumber(config.startingStack) ||
-            config.startingStack < MIN_STACK ||
-            config.startingStack > MAX_STACK
-        ) {
+        if (!VALID_STACKS_BB.includes(config.startingStackBB)) {
             errors.push(
-                `Le tapis doit être compris entre ${MIN_STACK} et ${MAX_STACK}.`
-            );
-        }
-
-        if (
-            !isValidNumber(config.smallBlind) ||
-            config.smallBlind <= 0
-        ) {
-            errors.push("La petite blind doit être positive.");
-        }
-
-        if (
-            !isValidNumber(config.bigBlind) ||
-            config.bigBlind <= 0
-        ) {
-            errors.push("La grosse blind doit être positive.");
-        }
-
-        if (config.bigBlind < config.smallBlind) {
-            errors.push(
-                "La grosse blind doit être supérieure ou égale à la petite blind."
-            );
-        }
-
-        if (
-            config.startingStack <
-            config.bigBlind * 10
-        ) {
-            errors.push(
-                "Le tapis de départ doit représenter au moins 10 grosses blinds."
+                "Le tapis doit être de 20, 40, 50, 100 ou 200 BB."
             );
         }
 
@@ -289,7 +255,10 @@ window.PokerLabTraining = (function () {
         currentConfig = proposedConfig;
 
         dispatch(EVENTS.CONFIG_CHANGED, {
-            config: getConfig()
+            config: getConfig(),
+            startingStack: getStartingStack(),
+            smallBlind: SMALL_BLIND,
+            bigBlind: BIG_BLIND
         });
 
         return {
@@ -313,7 +282,10 @@ window.PokerLabTraining = (function () {
         synchronizeConfigurationInputs();
 
         dispatch(EVENTS.CONFIG_CHANGED, {
-            config: getConfig()
+            config: getConfig(),
+            startingStack: getStartingStack(),
+            smallBlind: SMALL_BLIND,
+            bigBlind: BIG_BLIND
         });
 
         hideMessage();
@@ -394,6 +366,8 @@ window.PokerLabTraining = (function () {
 
                     if (!result.success) {
                         showError(result.errors);
+                    } else {
+                        hideMessage();
                     }
 
                     return;
@@ -404,9 +378,7 @@ window.PokerLabTraining = (function () {
 
                 if (
                     setting === "playerCount" ||
-                    setting === "startingStack" ||
-                    setting === "smallBlind" ||
-                    setting === "bigBlind"
+                    setting === "startingStackBB"
                 ) {
                     value = Number(value);
                 }
@@ -437,7 +409,53 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       6. CRÉATION DE LA SESSION
+       6. ATTRIBUTION ALÉATOIRE DES PROFILS
+       ===================================================== */
+
+    function shuffleArray(array) {
+
+        const shuffled = [...array];
+
+        for (let i = shuffled.length - 1; i > 0; i--) {
+
+            const randomIndex = Math.floor(
+                Math.random() * (i + 1)
+            );
+
+            [
+                shuffled[i],
+                shuffled[randomIndex]
+            ] = [
+                shuffled[randomIndex],
+                shuffled[i]
+            ];
+
+        }
+
+        return shuffled;
+
+    }
+
+
+    function assignBotProfiles(botCount) {
+
+        const assignments = [];
+
+        while (assignments.length < botCount) {
+
+            const shuffledProfiles = shuffleArray(VALID_PROFILES);
+
+            assignments.push(...shuffledProfiles);
+
+        }
+
+        return assignments.slice(0, botCount);
+
+    }
+
+
+    /* =====================================================
+       7. CRÉATION DE LA SESSION
        ===================================================== */
 
     function createSessionId() {
@@ -462,10 +480,15 @@ window.PokerLabTraining = (function () {
 
         const players = [];
 
+        const startingStack = getStartingStack(config);
+
+        const botCount = config.playerCount - 1;
+        const botProfiles = assignBotProfiles(botCount);
+
         players.push({
             id: HERO_ID,
             name: "Vous",
-            stack: config.startingStack,
+            stack: startingStack,
             isHuman: true,
             isBot: false
         });
@@ -475,10 +498,10 @@ window.PokerLabTraining = (function () {
             players.push({
                 id: `bot_${i}`,
                 name: `Bot ${i}`,
-                stack: config.startingStack,
+                stack: startingStack,
                 isHuman: false,
                 isBot: true,
-                botProfile: config.botProfile,
+                botProfile: botProfiles[i - 1],
                 botDifficulty: config.difficulty
             });
 
@@ -509,10 +532,12 @@ window.PokerLabTraining = (function () {
 
         try {
 
+            const players = createPlayers(currentConfig);
+
             gameEngine = new window.PokerLabGameEngine({
-                players: createPlayers(currentConfig),
-                smallBlind: currentConfig.smallBlind,
-                bigBlind: currentConfig.bigBlind,
+                players,
+                smallBlind: SMALL_BLIND,
+                bigBlind: BIG_BLIND,
                 dealerIndex: 0
             });
 
@@ -520,7 +545,18 @@ window.PokerLabTraining = (function () {
                 id: createSessionId(),
                 status: "active",
                 startedAt: new Date().toISOString(),
-                config: getConfig()
+                config: {
+                    ...getConfig(),
+                    startingStack: getStartingStack(),
+                    smallBlind: SMALL_BLIND,
+                    bigBlind: BIG_BLIND
+                },
+                botProfiles: players
+                    .filter(player => player.isBot)
+                    .map(player => ({
+                        playerId: player.id,
+                        profile: player.botProfile
+                    }))
             };
 
             if (configurationElement) {
@@ -536,7 +572,6 @@ window.PokerLabTraining = (function () {
             const state = gameEngine.startHand();
 
             renderGame(state);
-
             processBotTurns();
 
             dispatch(EVENTS.SESSION_STARTED, {
@@ -553,6 +588,14 @@ window.PokerLabTraining = (function () {
             gameEngine = null;
             currentSession = null;
 
+            if (configurationElement) {
+                configurationElement.classList.remove("hidden");
+            }
+
+            if (gameElement) {
+                gameElement.classList.add("hidden");
+            }
+
             return {
                 success: false,
                 errors: [error.message]
@@ -564,7 +607,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       7. AFFICHAGE DE LA TABLE
+       8. AFFICHAGE DE LA TABLE
        ===================================================== */
 
     function renderGame(state = null) {
@@ -594,7 +637,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       8. AFFICHAGE DES COMMANDES DU JOUEUR
+       9. AFFICHAGE DES COMMANDES DU JOUEUR
        ===================================================== */
 
     function createActionButton(label, action, options = {}) {
@@ -607,7 +650,6 @@ window.PokerLabTraining = (function () {
         );
 
         button.type = "button";
-
         button.addEventListener("click", action);
 
         return button;
@@ -748,8 +790,7 @@ window.PokerLabTraining = (function () {
 
             renderBetControls(
                 buttonsContainer,
-                actionOptions,
-                currentPlayer
+                actionOptions
             );
 
         }
@@ -774,7 +815,7 @@ window.PokerLabTraining = (function () {
     }
 
 
-    function renderBetControls(container, options, player) {
+    function renderBetControls(container, options) {
 
         const betContainer = createElement(
             "div",
@@ -857,7 +898,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       9. EXÉCUTION DES ACTIONS
+       10. EXÉCUTION DES ACTIONS
        ===================================================== */
 
     function executePlayerAction(action, amount = null) {
@@ -875,9 +916,7 @@ window.PokerLabTraining = (function () {
             );
 
             hideMessage();
-
             renderGame();
-
             processBotTurns();
 
         } catch (error) {
@@ -890,7 +929,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       10. TOUR AUTOMATIQUE DES BOTS
+       11. TOUR AUTOMATIQUE DES BOTS
        ===================================================== */
 
     function processBotTurns() {
@@ -900,7 +939,6 @@ window.PokerLabTraining = (function () {
         }
 
         let state = gameEngine.getState();
-
         let safetyCounter = 0;
 
         try {
@@ -922,7 +960,6 @@ window.PokerLabTraining = (function () {
                 gameEngine.playBotTurn(currentPlayer.id);
 
                 state = gameEngine.getState();
-
                 safetyCounter++;
 
             }
@@ -947,7 +984,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       11. RÉSULTAT DE LA MAIN
+       12. RÉSULTAT DE LA MAIN
        ===================================================== */
 
     function renderHandResult(state) {
@@ -1015,7 +1052,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       12. MAIN SUIVANTE
+       13. MAIN SUIVANTE
        ===================================================== */
 
     function startNextHand() {
@@ -1029,9 +1066,7 @@ window.PokerLabTraining = (function () {
             const state = gameEngine.nextHand();
 
             hideMessage();
-
             renderGame(state);
-
             processBotTurns();
 
         } catch (error) {
@@ -1044,7 +1079,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       13. ARRÊT DE LA SESSION
+       14. ARRÊT DE LA SESSION
        ===================================================== */
 
     function stopSession() {
@@ -1097,7 +1132,10 @@ window.PokerLabTraining = (function () {
 
         return {
             ...currentSession,
-            config: { ...currentSession.config }
+            config: { ...currentSession.config },
+            botProfiles: currentSession.botProfiles
+                ? currentSession.botProfiles.map(profile => ({ ...profile }))
+                : []
         };
 
     }
@@ -1111,7 +1149,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       14. LIAISON DES BOUTONS
+       15. LIAISON DES BOUTONS
        ===================================================== */
 
     function bindActionButtons() {
@@ -1160,7 +1198,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       15. INITIALISATION
+       16. INITIALISATION
        ===================================================== */
 
     function init() {
@@ -1228,7 +1266,7 @@ window.PokerLabTraining = (function () {
 
 
     /* =====================================================
-       16. EXPORT PUBLIC
+       17. EXPORT PUBLIC
        ===================================================== */
 
     return {
@@ -1236,6 +1274,8 @@ window.PokerLabTraining = (function () {
         init,
 
         getConfig,
+
+        getStartingStack,
 
         updateConfig,
 
@@ -1273,12 +1313,25 @@ window.PokerLabTraining = (function () {
 
 
 /* =========================================================
-   17. INITIALISATION AUTOMATIQUE
+   18. INITIALISATION AUTOMATIQUE
    ========================================================= */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-        window.PokerLabTraining.init();
-    }
-);
+function initializePokerLabTraining() {
+
+    window.PokerLabTraining.init();
+
+}
+
+if (document.readyState === "loading") {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializePokerLabTraining,
+        { once: true }
+    );
+
+} else {
+
+    initializePokerLabTraining();
+
+}
