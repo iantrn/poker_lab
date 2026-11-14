@@ -681,9 +681,14 @@
                 : "Showdown"
         );
 
-        const winnerNames = Array.isArray(result.winnerIds)
+        const winnerIds = Array.isArray(result.winnerIds)
             ? result.winnerIds
             : [];
+
+        const winnerNames = winnerIds.map(id => {
+            const player = players.find(item => item.id === id);
+            return player ? player.name : id;
+        });
 
         const description = createElement(
             "span",
