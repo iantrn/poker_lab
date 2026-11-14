@@ -618,10 +618,11 @@ function renderGame(state = null) {
 
     window.PokerLabTable.render(tableElement, gameState);
 
-    // Place the controls inside the table, directly below the hero seat.
-    const actionMount = tableElement.querySelector(".pl-hero-actions-mount");
-    if (actionMount) {
-        actionMount.appendChild(actionsElement);
+    // Keep controls below the table in normal document flow so the complete
+    // action panel (including the bet slider) remains inside its own frame.
+    const gameContainer = tableElement.parentElement;
+    if (gameContainer && actionsElement.parentElement !== gameContainer) {
+        gameContainer.appendChild(actionsElement);
     }
 
     renderGameActions(gameState);
