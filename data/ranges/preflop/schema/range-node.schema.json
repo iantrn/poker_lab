@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iantrn.github.io/poker_lab/data/ranges/preflop/schema/range-node.schema.json",
+  "title": "PokerLab Preflop Range Node",
+  "description": "Un nœud de stratégie préflop. Les fréquences détaillées sont conservées par combinaison physique ; les 169 classes sont dérivées.",
+  "type": "object",
+  "required": ["schemaVersion", "recordType", "status", "game", "spot", "range", "provenance", "parse"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "recordType": { "const": "preflop-range-node" },
+    "status": { "enum": ["unreviewed", "validated", "ready", "deprecated"] },
+    "game": {
+      "type": "object",
+      "required": ["format", "tableSize", "effectiveStackBB"],
+      "properties": {
+        "format": { "type": "string" },
+        "tableSize": { "type": ["integer", "null"], "minimum": 2, "maximum": 10 },
+        "effectiveStackBB": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "spot": {
+      "type": "object",
+      "required": ["id", "originalFilename", "folderPosition", "actorCode", "actorPositionRecognized", "actionCode", "filenameTokens"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "originalFilename": { "type": "string" },
+        "folderPosition": { "type": ["string", "null"] },
+        "actorCode": { "type": ["string", "null"] },
+        "actorPositionRecognized": { "type": "boolean" },
+        "actionCode": { "type": ["string", "null"] },
+        "filenameTokens": { "type": "array", "items": { "type": "string" } },
+        "sequenceKey": { "type": ["string", "null"] },
+        "sequence": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
+    "range": {
+      "type": "object",
+      "required": ["encoding", "frequencyUnit", "defaultFrequency", "untaggedComboFrequency", "comboFrequencies", "classFrequencies"],
+      "properties": {
+        "encoding": { "const": "sparse-physical-combo-frequency" },
+        "frequencyUnit": { "const": "fraction" },
+        "defaultFrequency": { "type": "number", "const": 0 },
+        "untaggedComboFrequency": { "type": "number", "const": 1 },
+        "comboFrequencies": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[2-9TJQKA][cdhs][2-9TJQKA][cdhs]$" },
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 },
+          "maxProperties": 1326
+        },
+        "classFrequencies": {
+          "type": "object",
+          "propertyNames": { "pattern": "^(AA|KK|QQ|JJ|TT|99|88|77|66|55|44|33|22|[AKQJT98765432][AKQJT98765432][so])$" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["frequency", "min", "max", "availableCombos", "possibleCombos", "nonZeroCombos"],
+            "properties": {
+              "frequency": { "type": "number", "minimum": 0, "maximum": 1 },
+              "min": { "type": "number", "minimum": 0, "maximum": 1 },
+              "max": { "type": "number", "minimum": 0, "maximum": 1 },
+              "availableCombos": { "type": "integer", "minimum": 0 },
+              "possibleCombos": { "type": "integer", "minimum": 4, "maximum": 12 },
+              "nonZeroCombos": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["sourceId", "sourceName", "sourceFile", "sourceTermsStatus", "redistributionAllowed", "notes"],
+      "properties": {
+        "sourceId": { "type": "string" },
+        "sourceName": { "type": ["string", "null"] },
+        "sourceFile": { "type": "string" },
+        "sourceTermsStatus": { "type": "string" },
+        "redistributionAllowed": { "type": ["boolean", "null"] },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "parse": {
+      "type": "object",
+      "required": ["taggedBlocks", "listedCombos", "untaggedCombosAssumed100Percent", "emptyRange", "missingCombos"],
+      "properties": {
+        "taggedBlocks": { "type": "integer", "minimum": 0 },
+        "listedCombos": { "type": "integer", "minimum": 0, "maximum": 1326 },
+        "untaggedCombosAssumed100Percent": { "type": "integer", "minimum": 0 },
+        "emptyRange": { "type": "boolean" },
+        "missingCombos": { "type": "integer", "minimum": 0, "maximum": 1326 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

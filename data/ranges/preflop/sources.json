@@ -1,5 +1,17 @@
 {
-  "status": "no-source-approved",
-  "policy": "Record source provenance and redistribution permission before importing any range data.",
-  "sources": []
+  "status": "no-source-approved-for-deployment",
+  "policy": "Every dataset must retain source provenance and an explicit usage/redistribution decision. A private repository or personal project does not by itself change a third-party licence.",
+  "sources": [
+    {
+      "id": "artgto-personal-archive",
+      "name": "ART/GTO preflop ranges",
+      "termsFileObserved": "ranges/LICENCE.txt",
+      "termsSummary": "The supplied licence states that the ranges are free for personal study and play, prohibits commercial use without written permission, and directs permission requests to ART/GTO support.",
+      "personalStudyAndPlay": "stated-as-allowed",
+      "integrationIntoPersonalSoftware": "not-explicitly-confirmed",
+      "redistributionAllowed": false,
+      "deploymentStatus": "blocked-pending-written-clarification",
+      "notes": "Do not publish or deploy these source ranges. Confirm with ART/GTO whether local integration into PokerLab for personal use is covered."
+    }
+  ]
 }

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iantrn.github.io/poker_lab/data/ranges/preflop/catalog/schema.json",
+  "title": "PokerLab Preflop Range Catalog",
+  "type": "object",
+  "required": ["schemaVersion", "status", "datasets"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "status": { "enum": ["empty-awaiting-datasets", "pending-review", "ready"] },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "file", "game", "spot", "sourceId"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "enum": ["pending-review", "ready", "disabled"] },
+          "file": { "type": "string" },
+          "game": { "type": "object" },
+          "spot": { "type": "object" },
+          "sourceId": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

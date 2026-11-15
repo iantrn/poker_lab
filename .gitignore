@@ -1,0 +1,5 @@
+# Données de ranges personnelles / sources tierces : ne jamais pousser dans le dépôt public
+/private-source/
+/private-ranges/
+/artgto-viewer.zip
+/ranges.zip
