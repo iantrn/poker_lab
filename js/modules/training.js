@@ -786,23 +786,26 @@ function renderGame(state = null) {
         const actionType = options.canBet ? "bet" : "raise";
         const minimum = options.canBet ? options.minimumBet : options.minimumRaiseTo;
         const maximum = options.canBet ? options.maximumBet : options.maximumRaiseTo;
+        const isPreflop = state.street === "preflop";
+        const currentBet = Number(state.currentBet) || 0;
+        const isPreflopOpenRaise = isPreflop && currentBet <= BIG_BLIND;
 
         const amountInput = createElement("input", "pl-bet-number");
         amountInput.type = "number";
         amountInput.min = String(minimum);
         amountInput.max = String(maximum);
-        amountInput.step = "0.5";
+        amountInput.step = "0.1";
         amountInput.inputMode = "decimal";
-        amountInput.setAttribute("aria-label", "Montant de la relance");
-        amountInput.value = String(Math.min(maximum, minimum));
+        amountInput.setAttribute("aria-label", "Montant de la mise ou de la relance");
+        amountInput.value = String(Math.min(maximum, Math.max(minimum, minimum)));
 
         const slider = createElement("input", "pl-bet-slider");
         slider.type = "range";
         slider.min = String(minimum);
         slider.max = String(maximum);
-        slider.step = "0.5";
+        slider.step = "0.1";
         slider.value = amountInput.value;
-        slider.setAttribute("aria-label", "Ajuster le montant de la relance");
+        slider.setAttribute("aria-label", "Ajuster le montant de la mise ou de la relance");
 
         const amountValue = createElement(
             "strong",
@@ -816,17 +819,88 @@ function renderGame(state = null) {
             actionType === "bet" ? "Montant de la mise" : "Montant de la relance"
         );
 
-        const syncAmount = (value) => {
-            const parsed = Number(value);
-            if (!Number.isFinite(parsed)) return;
+        const normalizeAmount = (value) => {
+            const parsed = Number(String(value).replace(",", "."));
+            if (!Number.isFinite(parsed)) return null;
 
-            const normalized = Math.min(maximum, Math.max(minimum, parsed));
-            const rounded = Math.round(normalized * 2) / 2;
+            const bounded = Math.min(maximum, Math.max(minimum, parsed));
+            const rounded = Math.round(bounded * 10) / 10;
 
-            amountInput.value = String(rounded);
-            slider.value = String(rounded);
-            amountValue.textContent = `${formatChips(rounded)} BB`;
+            return Number(Math.min(maximum, Math.max(minimum, rounded)).toFixed(1));
         };
+
+        const syncAmount = (value) => {
+            const normalized = normalizeAmount(value);
+            if (normalized === null) return;
+
+            amountInput.value = String(normalized);
+            slider.value = String(normalized);
+            amountValue.textContent = `${formatChips(normalized)} BB`;
+        };
+
+        const presets = createElement("div", "pl-bet-presets");
+        presets.setAttribute("aria-label", "Tailles de mise prédéfinies");
+        presets.style.gridColumn = "1 / -1";
+        presets.style.gridRow = "2";
+        const presetDefinitions = [];
+
+        if (isPreflopOpenRaise) {
+            presetDefinitions.push(
+                { label: "2 BB", value: 2 },
+                { label: "2,5 BB", value: 2.5 },
+                { label: "3 BB", value: 3 },
+                { label: "4 BB", value: 4 }
+            );
+        } else if (isPreflop) {
+            presetDefinitions.push(
+                { label: "3×", value: currentBet * 3 },
+                { label: "3,5×", value: currentBet * 3.5 },
+                { label: "4×", value: currentBet * 4 }
+            );
+        } else {
+            const potFractions = [
+                { label: "¼ pot", fraction: 0.25 },
+                { label: "⅓ pot", fraction: 1 / 3 },
+                { label: "½ pot", fraction: 0.5 },
+                { label: "⅔ pot", fraction: 2 / 3 },
+                { label: "¾ pot", fraction: 0.75 },
+                { label: "Pot", fraction: 1 }
+            ];
+
+            const potBeforeAction = Math.max(0, Number(state.pot) || 0);
+            const potAfterCall = potBeforeAction + (actionType === "raise"
+                ? Math.max(0, Number(options.callAmount) || 0)
+                : 0);
+
+            potFractions.forEach((preset) => {
+                const sizingBase = actionType === "raise"
+                    ? potAfterCall
+                    : potBeforeAction;
+                const value = actionType === "raise"
+                    ? currentBet + sizingBase * preset.fraction
+                    : sizingBase * preset.fraction;
+
+                presetDefinitions.push({
+                    label: preset.label,
+                    value
+                });
+            });
+        }
+
+        presetDefinitions.forEach((preset) => {
+            const button = createElement(
+                "button",
+                "pl-bet-preset",
+                preset.label
+            );
+
+            button.type = "button";
+            button.addEventListener("click", () => {
+                syncAmount(preset.value);
+            });
+
+            presets.appendChild(button);
+        });
 
         amountInput.addEventListener("input", () => {
             if (amountInput.value !== "") {
@@ -834,19 +908,29 @@ function renderGame(state = null) {
             }
         });
 
+        amountInput.addEventListener("change", () => {
+            if (amountInput.value === "") {
+                syncAmount(minimum);
+            } else {
+                syncAmount(amountInput.value);
+            }
+        });
+
         slider.addEventListener("input", () => syncAmount(slider.value));
 
         const sliderRow = createElement("div", "pl-bet-slider-row");
+        sliderRow.style.gridRow = "3";
         sliderRow.append(slider, amountValue);
+        amountInput.style.gridRow = "3";
 
-        betContainer.append(label, sliderRow, amountInput);
+        betContainer.append(label, presets, sliderRow, amountInput);
 
         return {
             element: betContainer,
             submit() {
-                const amount = Number(amountInput.value);
+                const amount = normalizeAmount(amountInput.value);
 
-                if (!Number.isFinite(amount) || amount < minimum || amount > maximum) {
+                if (amount === null || amount < minimum || amount > maximum) {
                     showError([
                         `Le montant doit être compris entre ${formatChips(minimum)} et ${formatChips(maximum)}.`
                     ]);
