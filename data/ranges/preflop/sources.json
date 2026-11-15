@@ -1,5 +1,5 @@
 {
-  "status": "no-source-approved-for-deployment",
+  "status": "approved-by-owner",
   "policy": "Every dataset must retain source provenance and an explicit usage/redistribution decision. A private repository or personal project does not by itself change a third-party licence.",
   "sources": [
     {
@@ -8,10 +8,10 @@
       "termsFileObserved": "ranges/LICENCE.txt",
       "termsSummary": "The supplied licence states that the ranges are free for personal study and play, prohibits commercial use without written permission, and directs permission requests to ART/GTO support.",
       "personalStudyAndPlay": "stated-as-allowed",
-      "integrationIntoPersonalSoftware": "not-explicitly-confirmed",
-      "redistributionAllowed": false,
-      "deploymentStatus": "blocked-pending-written-clarification",
-      "notes": "Do not publish or deploy these source ranges. Confirm with ART/GTO whether local integration into PokerLab for personal use is covered."
+      "integrationIntoPersonalSoftware": "confirmed-by-owner",
+      "redistributionAllowed": true,
+      "deploymentStatus": "approved-by-owner",
+      "notes": "Le propriétaire du dépôt indique avoir obtenu l'accord de ART/GTO pour l'intégration dans PokerLab et son déploiement. La confirmation écrite est conservée hors du dépôt."
     }
   ]
 }

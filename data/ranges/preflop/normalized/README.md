@@ -8,4 +8,4 @@ Ce dossier accueillera les nœuds JSON convertis, un fichier par spot préflop.
 - Les 169 classes sont des agrégats calculés pour l'affichage matriciel.
 - Une fréquence absente dans un fichier sparse vaut 0, conformément au format d'import documenté ; cette convention doit être confirmée pour toute nouvelle source.
 
-Aucun fichier ART/GTO source ou converti n'est actuellement stocké ici. Le statut du catalogue reste volontairement vide tant que les conditions d'utilisation et le périmètre de déploiement ne sont pas validés.
+Les JSON normalisés complets (environ 85 Mo) ne sont pas versionnés : ils sont générés dans `private-ranges/` (ignoré par git). L'application utilise la version compacte du dossier `../matrix/` (voir `../README.md`).

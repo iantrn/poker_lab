@@ -1944,3 +1944,65 @@ button:disabled {
     .pl-showdown-entering .pl-seat .pl-player-cards > .pl-card-showdown-reveal,
     .pl-hand-result.pl-showdown-result-enter { animation: none !important; }
 }
+
+/* =========================================================
+   POKERLAB - TABLE DE RANGES PRÉFLOP (matrice 13 x 13 + sélecteur de spots)
+   ========================================================= */
+
+.pl-rv { display: flex; flex-direction: column; gap: 12px; }
+
+.pl-rv-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.pl-rv-tab {
+    padding: 10px 0; border-radius: var(--radius-medium); border: 1px solid var(--border-subtle);
+    background: var(--bg-surface-light); color: var(--text-secondary); font-weight: 700; font-size: 0.85rem;
+    cursor: pointer;
+}
+.pl-rv-tab.is-active { background: var(--accent-red); border-color: var(--accent-red); color: #fff; }
+
+.pl-rv-filters { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 640px) { .pl-rv-filters { grid-template-columns: 220px 1fr; } }
+.pl-rv-input {
+    width: 100%; padding: 10px 12px; border-radius: var(--radius-medium); border: 1px solid var(--border-medium);
+    background: var(--bg-dark); color: var(--text-primary); font-size: 0.9rem;
+}
+
+.pl-rv-count { color: var(--text-muted); font-size: 0.8rem; margin: 0; }
+
+.pl-rv-list {
+    display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto;
+    padding: 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-medium); background: var(--bg-dark);
+    -webkit-overflow-scrolling: touch;
+}
+.pl-rv-spot {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left;
+    padding: 8px 10px; border-radius: var(--radius-small); border: 1px solid transparent;
+    background: transparent; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer;
+}
+.pl-rv-spot:hover { background: var(--bg-surface-light); }
+.pl-rv-spot.is-active { background: var(--bg-surface-light); border-color: var(--accent-gold); color: var(--text-primary); }
+.pl-rv-spot-name { overflow-wrap: anywhere; }
+.pl-rv-spot-pct { flex: none; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.pl-rv-panel { padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-large); background: var(--bg-surface); }
+.pl-rv-title { font-size: 0.95rem; font-weight: 700; margin: 0 0 2px; overflow-wrap: anywhere; }
+.pl-rv-summary { color: var(--text-muted); font-size: 0.8rem; margin: 0 0 10px; }
+.pl-rv-detail { margin: 10px 0 0; min-height: 1.4em; font-weight: 600; color: var(--accent-gold); font-size: 0.9rem; }
+.pl-rv-error { margin: 8px 0 0; color: #F87171; font-size: 0.85rem; }
+
+.pl-rv-matrix { width: 100%; max-width: 560px; margin: 0 auto; }
+.pl-range-matrix { display: flex; flex-direction: column; gap: 2px; }
+.pl-range-row { display: grid; grid-template-columns: repeat(13, 1fr); gap: 2px; }
+.pl-range-cell {
+    --fill: 0%;
+    position: relative; aspect-ratio: 1 / 1; min-width: 0; padding: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 3px; color: #fff; cursor: pointer;
+    background: linear-gradient(to top, var(--accent-green-light) var(--fill), var(--bg-surface-light) var(--fill));
+}
+.pl-range-cell:disabled { cursor: default; }
+.pl-range-cell.is-selected { outline: 2px solid var(--accent-gold); outline-offset: -2px; z-index: 1; }
+.pl-range-cell-hand { font-size: clamp(0.5rem, 2.4vw, 0.8rem); font-weight: 700; line-height: 1; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.pl-range-cell-frequency { display: none; }
+
+.pl-rv-legend { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 0.7rem; color: var(--text-muted); }
+.pl-rv-legend-bar { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--bg-surface-light), var(--accent-green-light)); }

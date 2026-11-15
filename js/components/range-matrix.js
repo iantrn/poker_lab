@@ -80,6 +80,19 @@ window.PokerLabRangeMatrix = (function () {
        3. NORMALISATION DES DONNÉES
        ===================================================== */
 
+    function normalizeHandName(hand) {
+
+        const text = String(hand).trim();
+
+        if (text.length < 2) {
+            return text.toUpperCase();
+        }
+
+        return text.slice(0, 2).toUpperCase() + text.slice(2).toLowerCase();
+
+    }
+
+
     function normalizeFrequency(value) {
 
         const frequency = Number(value);
@@ -106,7 +119,7 @@ window.PokerLabRangeMatrix = (function () {
 
         Object.entries(range).forEach(([hand, value]) => {
 
-            const normalizedHand = String(hand).toUpperCase();
+            const normalizedHand = normalizeHandName(hand);
 
             if (!getAllHands().includes(normalizedHand)) {
                 return;
@@ -524,7 +537,7 @@ window.PokerLabRangeMatrix = (function () {
                     hands.forEach(hand => {
 
                         const normalized =
-                            String(hand).toUpperCase();
+                            normalizeHandName(hand);
 
                         if (getAllHands().includes(normalized)) {
                             selectedHands.add(normalized);
