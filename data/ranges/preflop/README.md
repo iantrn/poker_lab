@@ -27,7 +27,8 @@ Les spots sont indexés avec leur nom de fichier d'origine. Leur séquence d'act
 L'application ne charge pas les 1 326 combos de `normalized/` (environ 85 Mo). Elle lit des fichiers compacts générés depuis ces JSON :
 
 - `matrix/index.json` : liste des spots (`id`, position du héros `p`, action `a`, séquence `s`, % de mains jouées `r`).
-- `matrix/<position>/<spot>.json` : pourcentages par classe de main (`{"AA": 100, "AKs": 62.5}`) ; les mains absentes valent 0.
+- `matrix/ranges.json` : bundle unique contenant les matrices compactes de tous les spots, indexées par identifiant (`position/spot`). C'est ce fichier léger qui est précaché par le Service Worker pour garantir l'accès offline à toutes les ranges.
+- `matrix/<position>/<spot>.json` : fichiers individuels conservés pour compatibilité et dépannage ; pourcentages par classe de main (`{"AA": 100, "AKs": 62.5}`), les mains absentes valent 0.
 
 Régénération :
 
