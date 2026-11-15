@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const RANKS = '23456789TJQKA';
 const SUITS = 'cdhs';
@@ -68,4 +69,4 @@ async function main() {
     console.log(`OK — ${path.basename(file)} (${Object.keys(node.range.comboFrequencies).length}/1326 combos listés).`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) main();
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) main();

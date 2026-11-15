@@ -6,6 +6,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const RANKS = '23456789TJQKA';
 const RANKS_DESC = [...RANKS].reverse();
@@ -208,7 +209,7 @@ async function main() {
     console.log(JSON.stringify({ output: args.output, ...result.parse }, null, 2));
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
     main().catch(error => {
         console.error(`[ranges] ${error.message}`);
         process.exitCode = 1;
