@@ -841,7 +841,6 @@ function renderGame(state = null) {
         const presets = createElement("div", "pl-bet-presets");
         presets.setAttribute("aria-label", "Tailles de mise prédéfinies");
         presets.style.gridColumn = "1 / -1";
-        presets.style.gridRow = "2";
         const presetDefinitions = [];
 
         if (isPreflopOpenRaise) {
@@ -919,9 +918,7 @@ function renderGame(state = null) {
         slider.addEventListener("input", () => syncAmount(slider.value));
 
         const sliderRow = createElement("div", "pl-bet-slider-row");
-        sliderRow.style.gridRow = "3";
         sliderRow.append(slider, amountValue);
-        amountInput.style.gridRow = "3";
 
         betContainer.append(label, presets, sliderRow, amountInput);
 
