@@ -77,6 +77,3 @@ Le nom du fichier est conservé intégralement. `actorCode` et `actionCode` sont
 
 Les noms ART/GTO (`MP`, `BU`) et ceux éventuellement utilisés par PokerLab (`HJ`, `BTN`) ne doivent pas être fusionnés sans règle de mapping validée.
 
-## Séparation des données et des droits
-
-Ne pas ajouter les archives ART/GTO | ce dépôt public. Le code du convertisseur est générique ; les données source et les JSON issus de ces données restent exclus du dépôt tant que l'usage dans le logiciel et le mode de déploiement ne sont pas confirmés par écrit. Le passage à un dépôt privé ne remplace pas une autorisation du titulaire des droits.
