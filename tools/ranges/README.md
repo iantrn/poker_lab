@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Le pipeline sépare l'import brut, la normalisation, la validation et l'exploitation par l'application.
+Le pipeline sépare l'import brut, la normalisation, la validation et l'exploitation par l'application. Le générateur produit aussi `matrix/ranges.json`, un bundle compact unique utilisé par la PWA pour rendre les 2 606 ranges disponibles hors connexion sans effectuer 2 606 requêtes.
 
 ```text
 Archive / fichiers source
