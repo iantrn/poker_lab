@@ -59,7 +59,7 @@ node tools/ranges/validate-range.mjs ./data/ranges/preflop/normalized/utg-rfi.js
 node --test tests/ranges/*.test.mjs
 ```
 
-## Conventions de conversion observées dans les TXT ART/GTO
+## Conventions de conversion observées dans les TXT 
 
 - `[x.xx]combo1, combo2[/x.xx]` : chacue combo du bloc reçoit `x.xx %`.
 - Les combos listés hors bloc sont interprétés à `100 %` par le convertisseur.
@@ -75,5 +75,4 @@ node --test tests/ranges/*.test.mjs
 
 Le nom du fichier est conservé intégralement. `actorCode` et `actionCode` sont extraits de façon conservatrice depuis le préfixe, mais les tokens restants ne sont pas transformés automatiquement en arbre d'actions. Une couche de mapping explicite sera nécessaire pour relier chaque spot au format de l'historique PokerLab.
 
-Les noms ART/GTO (`MP`, `BU`) et ceux éventuellement utilisés par PokerLab (`HJ`, `BTN`) ne doivent pas être fusionnés sans règle de mapping validée.
 
