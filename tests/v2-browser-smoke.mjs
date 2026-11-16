@@ -35,7 +35,26 @@ async function run() {
     page.on("pageerror", error => pageErrors.push(error.message));
     const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
     assert.equal(response?.status(), 200);
-    await page.waitForFunction(() => window.PokerLab?.app?.initialized === true && window.PokerLabV2?.solver, null, { timeout: 120000 });
+    // The PWA may reload once when its first service worker takes control.
+    // Do not consider V1 initialized until React has actually committed its shell.
+    try {
+      await page.waitForFunction(() =>
+        window.PokerLab?.app?.initialized === true &&
+        Boolean(window.PokerLabV2?.solver) &&
+        document.querySelectorAll("[data-module]").length === 6,
+        null, { timeout: 45000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        url: location.href, readyState: document.readyState,
+        rootPresent: Boolean(document.getElementById("root")),
+        rootLength: document.getElementById("root")?.innerHTML.length ?? -1,
+        moduleCount: document.querySelectorAll("[data-module]").length,
+        appInitialized: window.PokerLab?.app?.initialized ?? null,
+        solverAvailable: Boolean(window.PokerLabV2?.solver),
+        alert: document.querySelector('[role="alert"]')?.textContent,
+      })).catch((reason) => ({ evaluationFailed: String(reason) }));
+      throw new Error(`V2 shell did not initialize: ${JSON.stringify(diagnostic)}; page errors: ${pageErrors.join("; ")}`, { cause: error });
+    }
     assert.equal(await page.locator("[data-module]").count(), 6);
     assert.equal(await page.locator("[data-page]").count() > 5, true);
     assert.equal(await page.locator("#home").isVisible(), true);
