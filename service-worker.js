@@ -1,9 +1,9 @@
 /**
- * PokerLab Service Worker - v61
+ * PokerLab Service Worker - v62
  * Cache offline-first, avec bundle complet des ranges préflop.
  */
 
-const CACHE_NAME = "pokerlab-cache-v61";
+const CACHE_NAME = "pokerlab-cache-v62";
 const CACHE_PREFIX = "pokerlab-cache-";
 
 const ASSETS_TO_CACHE = [
@@ -32,6 +32,7 @@ const ASSETS_TO_CACHE = [
     "./js/modules/postflop-solver.js",
     "./js/modules/cfr-core.js",
     "./js/modules/postflop-strategy.js",
+    "./js/modules/solver-precompute.js",
     "./js/modules/postflop-solver-ui.js",
     "./pokerlab-solver-worker.js",
     "./js/modules/puzzles.js",
