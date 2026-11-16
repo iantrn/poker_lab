@@ -364,3 +364,24 @@ test("le premier enregistrement Game Review conserve les mains déjà sauvegard�
     assert.equal(module.getAllHands()[0].id, "new-session-hand");
     assert.equal(module.getAllHands()[1].id, "previous-session-hand");
 });
+
+
+test("un changement de filtres invalide l'exercice courant et respecte le nouveau périmètre", async () => {
+    const data = JSON.parse(read("data/puzzles/puzzles.json"));
+    const { module } = loadModule(
+        "js/modules/puzzles.js",
+        "PokerLabPuzzles",
+        async () => ({ ok: true, json: async () => data })
+    );
+
+    await module.loadPuzzles();
+    assert.equal(module.selectPuzzle(data.puzzles[0].id).success, true);
+
+    const filtered = module.filterPuzzles({ category: "Postflop" });
+    assert.equal(module.getCurrentPuzzle(), null);
+    assert.ok(filtered.length > 0);
+
+    const next = module.getRandomPuzzle();
+    assert.equal(next.success, true);
+    assert.equal(next.puzzle.category, "Postflop");
+});
