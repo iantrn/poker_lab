@@ -19,15 +19,28 @@ function loadStrategy() {
     context.window = context;
     vm.createContext(context);
     vm.runInContext(fs.readFileSync("js/core/evaluator.js", "utf8"), context);
+    vm.runInContext(fs.readFileSync("js/modules/cfr-core.js", "utf8"), context);
     vm.runInContext(fs.readFileSync("js/modules/postflop-strategy.js", "utf8"), context);
     context.PokerLabPostflopSolver = {
         getOpponentRange: async () => ({
-            label: "test-range",
+            label: "test-opponent-range",
+            rangeUsed: true,
             combos: [
                 { cards: [card(4, "clubs"), card(5, "clubs")], weight: 1 },
                 { cards: [card(6, "clubs"), card(7, "clubs")], weight: 1 },
                 { cards: [card(8, "clubs"), card(9, "clubs")], weight: 1 },
                 { cards: [card(2, "diamonds"), card(3, "diamonds")], weight: 1 }
+            ]
+        }),
+        getPlayerRange: async (state, history, player) => ({
+            label: "test-hero-range",
+            rangeUsed: true,
+            actualHandInRange: true,
+            combos: [
+                { cards: player.holeCards, weight: 1 },
+                { cards: [card(4, "diamonds"), card(5, "diamonds")], weight: 3 },
+                { cards: [card(6, "diamonds"), card(7, "diamonds")], weight: 3 },
+                { cards: [card(8, "diamonds"), card(9, "diamonds")], weight: 3 }
             ]
         })
     };
@@ -793,4 +806,36 @@ test("l'arbre limite à quatre relances les réponses modélisées dans une stre
 
     visit(built.tree, 0);
     assert.equal(maximumRaises, 4);
+});
+
+
+test("CFR+ entraîne les deux ranges et suréchantillonne la main réelle avec correction", async () => {
+    const app = loadStrategy();
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        consistentRiverState(),
+        [],
+        { iterations: 20, samples: 8, seed: 20261117 }
+    );
+
+    assert.equal(result.heroRangeLabel, "test-hero-range");
+    assert.equal(result.heroRangeUsed, true);
+    assert.equal(result.actualHandInHeroRange, true);
+    assert.equal(result.sampledHeroHands, 160);
+    assert.ok(result.sampledActualHeroHand > 0);
+    assert.equal(result.sampledOpponentHands, 160);
+    assert.ok(result.actions.every(action => Number.isFinite(action.frequency)));
+    assert.ok(Math.abs(result.actions.reduce((sum, action) => sum + action.frequency, 0) - 1) < 1e-6);
+});
+
+test("la stratégie conserve un fallback si l'API de range héro n'est pas disponible", async () => {
+    const app = loadStrategy();
+    delete app.PokerLabPostflopSolver.getPlayerRange;
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        consistentRiverState(),
+        [],
+        { iterations: 10, samples: 8, seed: 17 }
+    );
+    assert.equal(result.heroRangeUsed, false);
+    assert.equal(result.sampledHeroHands, 80);
+    assert.equal(result.sampledActualHeroHand, 80);
 });
