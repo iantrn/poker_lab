@@ -224,3 +224,194 @@ test("l'historique conserve les montants exacts d'une mise et d'une relance", ()
     assert.equal(raise.raiseSize, 6);
     assert.equal(raise.isFullRaise, true);
 });
+
+
+test("les pots principal et secondaires respectent les niveaux de contribution", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 50;
+    second.totalContribution = 100;
+    third.totalContribution = 150;
+
+    const pots = engine.buildSidePots();
+
+    assert.deepEqual(
+        Array.from(pots, pot => [pot.amount, pot.lowerLevel, pot.upperLevel]),
+        [[150, 0, 50], [100, 50, 100], [50, 100, 150]]
+    );
+    assert.deepEqual(
+        Array.from(pots, pot => Array.from(pot.eligiblePlayerIds)),
+        [
+            ["hero", "player_1", "player_2"],
+            ["player_1", "player_2"],
+            ["player_2"]
+        ]
+    );
+    assert.equal(pots.reduce((sum, pot) => sum + pot.amount, 0), 300);
+});
+
+test("les contributions d'un joueur foldé restent dans les pots sans lui donner de droit au gain", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 50;
+    second.totalContribution = 100;
+    third.totalContribution = 100;
+    hero.folded = true;
+
+    const pots = engine.buildSidePots();
+
+    assert.deepEqual(
+        Array.from(pots, pot => pot.eligiblePlayerIds),
+        [["player_1", "player_2"], ["player_1", "player_2"]]
+    );
+    assert.equal(pots.reduce((sum, pot) => sum + pot.amount, 0), 250);
+});
+
+test("un pot secondaire non couvert est restitué au seul joueur éligible", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 20;
+    second.totalContribution = 20;
+    third.totalContribution = 50;
+
+    const pots = engine.buildSidePots();
+    assert.deepEqual(
+        Array.from(pots, pot => [pot.amount, pot.eligiblePlayerIds]),
+        [[60, ["hero", "player_1", "player_2"]], [30, ["player_2"]]]
+    );
+
+    const before = third.stack;
+    const returned = engine.distributePot(
+        pots[1],
+        [{ player: third, evaluation: { score: [1] } }]
+    );
+
+    assert.equal(returned.amount, 30);
+    assert.deepEqual(Array.from(returned.winnerIds), ["player_2"]);
+    assert.equal(third.stack, before + 30);
+});
+
+test("le partage d'un pot impair attribue le demi-jeton selon l'ordre du bouton", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app);
+    engine.startHand();
+
+    const hero = engine.players[0];
+    const opponent = engine.players[1];
+    const heroBefore = hero.stack;
+    const opponentBefore = opponent.stack;
+
+    const result = engine.distributePot(
+        { amount: 1.5, eligiblePlayerIds: ["hero", "player_1"] },
+        [
+            { player: hero, evaluation: { score: [2, 14] } },
+            { player: opponent, evaluation: { score: [2, 14] } }
+        ]
+    );
+
+    assert.equal(result.isTie, true);
+    assert.equal(hero.stack, heroBefore + 0.5);
+    assert.equal(opponent.stack, opponentBefore + 1);
+    assert.deepEqual(Array.from(result.oddChipRecipients), ["player_1"]);
+});
+
+test("les relances courtes cumulées ne rouvrent les enchères qu'au seuil complet", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const hero = engine.players[0];
+    hero.hasActed = true;
+    hero.lastActedBet = 5;
+    engine.lastFullRaise = 5;
+
+    engine.currentBet = 9;
+    assert.equal(engine.canPlayerRaise(hero), false);
+
+    engine.currentBet = 10;
+    assert.equal(engine.canPlayerRaise(hero), true);
+});
+
+
+test("la distribution de tous les pots conserve exactement les jetons", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 20;
+    second.totalContribution = 20;
+    third.totalContribution = 50;
+    hero.stack = 80;
+    second.stack = 80;
+    third.stack = 50;
+
+    const totalBefore = engine.players.reduce(
+        (sum, player) => sum + player.stack + player.totalContribution,
+        0
+    );
+    const pots = engine.buildSidePots();
+    const evaluations = [
+        { player: hero, evaluation: { score: [4, 14] } },
+        { player: second, evaluation: { score: [1, 14] } },
+        { player: third, evaluation: { score: [3, 10] } }
+    ];
+
+    for (const pot of pots) {
+        engine.distributePot(pot, evaluations);
+    }
+
+    const totalAfter = engine.players.reduce(
+        (sum, player) => sum + player.stack,
+        0
+    );
+
+    assert.equal(totalBefore, 300);
+    assert.equal(totalAfter, totalBefore);
+    assert.equal(hero.stack, 140);
+    assert.equal(third.stack, 80);
+});
+
+
+test("un call à tapis conserve les montants avant/après dans l'historique", () => {
+    const app = loadGameEngine();
+    const engine = new app.PokerLabGameEngine({
+        players: [
+            { id: "hero", name: "Hero", stack: 1, isHuman: true },
+            { id: "player_1", name: "Player 1", stack: 100, isBot: true }
+        ],
+        dealerIndex: 0,
+        smallBlind: 0.5,
+        bigBlind: 1
+    });
+    engine.startHand();
+    engine.act("call", null, "hero");
+
+    const action = engine.getHandHistory().find(event =>
+        event.type === "player_action" &&
+        event.data.playerId === "hero"
+    ).data;
+
+    assert.equal(action.action, "call");
+    assert.equal(action.amount, 0.5);
+    assert.equal(action.potBefore, 1.5);
+    assert.equal(action.potAfter, 2);
+    assert.equal(action.currentBetBefore, 1);
+    assert.equal(action.currentBetAfter, 1);
+    assert.equal(action.streetBetBefore, 0.5);
+    assert.equal(action.streetBetAfter, 1);
+    assert.equal(action.stackBefore, 0.5);
+    assert.equal(action.stackAfter, 0);
+    assert.equal(action.totalContributionBefore, 0.5);
+    assert.equal(action.totalContributionAfter, 1);
+    assert.equal(action.allIn, true);
+});

@@ -118,7 +118,15 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
     assert.equal(result.algorithm, "CFR+ avec rééchantillonnage des chances");
     assert.equal(result.iterations, 160);
     assert.equal(result.sampledOpponentHands, 160);
-    assert.equal(result.evaluationSamples, 8);
+    assert.equal(result.evaluationSamples, 64);
+    assert.ok(Number.isFinite(result.heroEVStandardError));
+    assert.ok(result.heroEVLower95 <= result.heroEV);
+    assert.ok(result.heroEVUpper95 >= result.heroEV);
+    assert.ok(result.actions.every(action =>
+        Number.isFinite(action.evStandardError) &&
+        action.evLower95 <= action.ev &&
+        action.evUpper95 >= action.ev
+    ));
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.actions.every(action => Number.isFinite(action.ev)));
@@ -469,4 +477,101 @@ test("une mise complète rouvre le droit de relance d'un joueur ayant déjà che
     );
     assert.ok(fullBet);
     assert.ok(fullBet.child.actions.some(entry => entry.action.type === "raise"));
+});
+
+
+test("l'arbre interdit une seconde relance après une relance déjà effectuée dans la street", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].streetBet = 5;
+    state.players[0].hasActed = true;
+    state.players[0].lastActedBet = 5;
+    state.players[1].streetBet = 15;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 25,
+        maximumRaiseTo: 100
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions,
+        ["BTN:bet:5", "BB:raise:15"],
+        [],
+        0,
+        1
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["fold", "call"]
+    );
+});
+
+
+test("solvePostflop tient compte des relances déjà présentes dans l'historique réel", async () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].streetBet = 5;
+    state.players[0].stack = 20;
+    state.players[0].hasActed = true;
+    state.players[0].lastActedBet = 5;
+    state.players[0].amountToCall = 10;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 25,
+        maximumRaiseTo: 25
+    };
+    state.players[1].streetBet = 15;
+    state.players[1].stack = 20;
+
+    const history = [
+        {
+            type: "player_action",
+            street: "river",
+            data: { playerId: "hero", action: "bet", amount: 5 }
+        },
+        {
+            type: "player_action",
+            street: "river",
+            data: { playerId: "bot_1", action: "short_raise", amount: 10 }
+        }
+    ];
+
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        state,
+        history,
+        { iterations: 10, samples: 8 }
+    );
+
+    assert.deepEqual(
+        Array.from(result.actions, action => action.action).sort(),
+        ["call", "fold"]
+    );
+});
+
+
+test("une seed identique reproduit exactement le même calcul CFR+", async () => {
+    const app = loadStrategy();
+    const first = await app.PokerLabPostflopStrategy.solvePostflop(
+        riverState(),
+        [],
+        { iterations: 10, samples: 8, seed: 20261116 }
+    );
+    const second = await app.PokerLabPostflopStrategy.solvePostflop(
+        riverState(),
+        [],
+        { iterations: 10, samples: 8, seed: 20261116 }
+    );
+
+    assert.equal(first.randomSeed, 20261116);
+    assert.equal(second.randomSeed, 20261116);
+    assert.equal(first.heroEV, second.heroEV);
+    assert.equal(JSON.stringify(first.actions), JSON.stringify(second.actions));
 });

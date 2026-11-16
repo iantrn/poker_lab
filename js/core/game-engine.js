@@ -2092,6 +2092,8 @@ const position = positionNames[index];
                 this.normalizeChips(player.stack + amount),
             stackAfter: player.stack,
 
+            totalContributionBefore:
+                this.normalizeChips(player.totalContribution - amount),
             totalContributionAfter: player.totalContribution,
 
             betTo: isBet ? (details.betTo ?? player.streetBet) : null,

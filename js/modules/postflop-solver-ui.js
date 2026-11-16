@@ -113,13 +113,18 @@
                 details.appendChild(element("p", "pl-solve-detail-line",
                     item.action + " : " +
                     (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % · EV " +
-                    item.ev.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons"));
+                    item.ev.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons · IC 95 % [" +
+                    item.evLower95.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " ; " +
+                    item.evUpper95.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + "]"));
             });
 
             details.append(
                 element("p", "pl-solve-detail-line pl-solve-detail-emphasis",
                     "EV estimée depuis cette décision : " +
-                    strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons"),
+                    strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons · IC 95 % [" +
+                    strategy.heroEVLower95.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " ; " +
+                    strategy.heroEVUpper95.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + "]"),
+                element("p", "pl-solve-detail-line", strategy.evaluationMethod),
                 element("p", "pl-solve-detail-line",
                     strategy.postflopActionsUsed
                         ? strategy.postflopActionsUsed + " actions postflop adverses intégrées à l'ajustement heuristique de la range."

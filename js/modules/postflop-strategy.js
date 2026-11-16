@@ -85,7 +85,7 @@
         return { label, type, amount };
     }
 
-    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0) {
+    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0, rootRaises = 0) {
         const initial = {
             actor: 0,
             pot: roundChips(input.pot),
@@ -96,7 +96,7 @@
             lastFullRaise: roundChips(input.lastFullRaise) || 1,
             bigBlind: roundChips(input.blinds && input.blinds.bigBlind) || 1,
             heroInvested: 0,
-            raises: 0,
+            raises: Math.max(0, Math.floor(Number(rootRaises) || 0)),
             checks: rootChecks,
             history: priorHistory.slice(),
             root: true
@@ -295,10 +295,21 @@
         return { tree, nodeCount: nodes.count };
     }
 
-    function weightedSample(items) {
+    function createRandom(seed) {
+        let state = Number(seed) >>> 0;
+        return function () {
+            state = (state + 0x6D2B79F5) | 0;
+            let value = state;
+            value = Math.imul(value ^ (value >>> 15), value | 1);
+            value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+            return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function weightedSample(items, random = Math.random) {
         const total = items.reduce((sum, item) => sum + item.weight, 0);
-        if (!(total > 0)) return items[Math.floor(Math.random() * items.length)].cards;
-        let cursor = Math.random() * total;
+        if (!(total > 0)) return items[Math.floor(random() * items.length)].cards;
+        let cursor = random() * total;
         for (const item of items) {
             cursor -= item.weight;
             if (cursor <= 0) return item.cards;
@@ -323,7 +334,7 @@
         return combos;
     }
 
-    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true) {
+    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true, random = Math.random) {
         const blocked = new Set([...hero, ...board].map(cardId));
         let candidates = Array.isArray(range) ? range.filter(item =>
             item.cards && item.cards.length === 2 &&
@@ -342,7 +353,7 @@
         const deals = [];
         const suits = ["clubs", "diamonds", "hearts", "spades"];
         for (let i = 0; i < sampleCount; i++) {
-            const villain = weightedSample(candidates);
+            const villain = weightedSample(candidates, random);
             const excluded = new Set([...hero, ...board, ...villain].map(cardId));
             const deck = [];
             for (const suit of suits) for (let value = 2; value <= 14; value++) {
@@ -350,7 +361,7 @@
                 if (!excluded.has(cardId(card))) deck.push(card);
             }
             for (let index = deck.length - 1; index > 0; index--) {
-                const swap = Math.floor(Math.random() * (index + 1));
+                const swap = Math.floor(random() * (index + 1));
                 [deck[index], deck[swap]] = [deck[swap], deck[index]];
             }
             const runout = deck.slice(0, 5 - board.length);
@@ -531,6 +542,9 @@
         const lastStreetAction = currentStreetActions[currentStreetActions.length - 1];
         const lastActorId = lastStreetAction && lastStreetAction.data
             ? lastStreetAction.data.playerId : null;
+        const rootRaises = currentStreetActions.filter(event =>
+            event.data && ["raise", "short_raise"].includes(event.data.action)
+        ).length;
         const rootChecks = Number(hero.amountToCall) === 0 && lastStreetAction &&
             lastStreetAction.data && lastStreetAction.data.action === "check" &&
             lastActorId !== hero.id ? 1 : 0;
@@ -551,6 +565,9 @@
             players: [hero, opponent],
             postflopFirstActorId
         };
+        const random = Number.isInteger(options.seed)
+            ? createRandom(options.seed)
+            : Math.random;
         const maps = { regrets: new Map(), strategy: new Map() };
         let rootTree = null;
         let averageNodeCount = 0;
@@ -562,7 +579,8 @@
                 state.board,
                 rangeInfo.combos,
                 1,
-                rangeInfo.rangeUsed !== false
+                rangeInfo.rangeUsed !== false,
+                random
             );
             const deal = sampled.deals[0];
             sampledRangeUsed = sampled.rangeUsed;
@@ -575,7 +593,8 @@
                 hero.actionOptions || {},
                 priorHistory,
                 deal.runout,
-                rootChecks
+                rootChecks,
+                rootRaises
             );
             if (built.tree.terminal || !built.tree.actions || !built.tree.actions.length) {
                 throw new Error("Aucune décision stratégique disponible dans cette situation.");
@@ -594,18 +613,24 @@
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
-        const evaluationSamples = Math.min(samples, 32);
+        const requestedEvaluationSamples = Number.isInteger(options.evaluationSamples)
+            ? Math.max(16, Math.min(512, options.evaluationSamples))
+            : Math.max(64, Math.min(256, samples * 4));
         const rootStrategy = getRootStrategy(rootTree, null, maps, hero.holeCards, state.board);
-        const actionValues = new Array(rootTree.actions.length).fill(0);
+        const actionValueSums = new Array(rootTree.actions.length).fill(0);
+        const actionValueSquares = new Array(rootTree.actions.length).fill(0);
+        let heroEVSum = 0;
+        let heroEVSquares = 0;
         let evaluatedDeals = 0;
 
-        for (let sampleIndex = 0; sampleIndex < evaluationSamples; sampleIndex++) {
+        for (let sampleIndex = 0; sampleIndex < requestedEvaluationSamples; sampleIndex++) {
             const sampled = sampleDeals(
                 hero.holeCards,
                 state.board,
                 rangeInfo.combos,
                 1,
-                rangeInfo.rangeUsed !== false
+                rangeInfo.rangeUsed !== false,
+                random
             );
             const deal = sampled.deals[0];
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
@@ -617,35 +642,61 @@
                 hero.actionOptions || {},
                 priorHistory,
                 deal.runout,
-                rootChecks
+                rootChecks,
+                rootRaises
             );
             if (built.tree.actions.length !== rootTree.actions.length) continue;
+
+            const sampleActionValues = [];
             for (let actionIndex = 0; actionIndex < rootTree.actions.length; actionIndex++) {
-                actionValues[actionIndex] += averageStrategy(
+                const value = averageStrategy(
                     built.tree.actions[actionIndex].child,
                     deal,
                     maps,
                     hero.holeCards,
                     state.board
                 );
+                sampleActionValues.push(value);
+                actionValueSums[actionIndex] += value;
+                actionValueSquares[actionIndex] += value * value;
             }
+
+            const sampleHeroEV = sampleActionValues.reduce((sum, value, index) =>
+                sum + rootStrategy[index] * value, 0);
+            heroEVSum += sampleHeroEV;
+            heroEVSquares += sampleHeroEV * sampleHeroEV;
             evaluatedDeals++;
+
+            if ((sampleIndex + 1) % 8 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
         }
 
         if (!evaluatedDeals) {
             throw new Error("Impossible d'évaluer la stratégie sur les échantillons indépendants.");
         }
 
-        for (let index = 0; index < actionValues.length; index++) {
-            actionValues[index] /= evaluatedDeals;
-        }
-        const actions = rootTree.actions.map((entry, index) => ({
-            action: entry.action.label,
-            frequency: rootStrategy[index],
-            ev: actionValues[index]
-        })).sort((a, b) => b.frequency - a.frequency);
-        const heroEV = actionValues.reduce((sum, value, index) =>
-            sum + rootStrategy[index] * value, 0);
+        const standardError = (sum, sumSquares) => {
+            if (evaluatedDeals < 2) return 0;
+            const mean = sum / evaluatedDeals;
+            const variance = Math.max(0, (sumSquares - evaluatedDeals * mean * mean) / (evaluatedDeals - 1));
+            return Math.sqrt(variance / evaluatedDeals);
+        };
+
+        const actions = rootTree.actions.map((entry, index) => {
+            const ev = actionValueSums[index] / evaluatedDeals;
+            const evStandardError = standardError(actionValueSums[index], actionValueSquares[index]);
+            return {
+                action: entry.action.label,
+                frequency: rootStrategy[index],
+                ev,
+                evStandardError,
+                evLower95: ev - 1.96 * evStandardError,
+                evUpper95: ev + 1.96 * evStandardError
+            };
+        }).sort((a, b) => b.frequency - a.frequency);
+        const heroEV = heroEVSum / evaluatedDeals;
+        const heroEVStandardError = standardError(heroEVSum, heroEVSquares);
 
         return {
             algorithm: "CFR+ avec rééchantillonnage des chances",
@@ -656,8 +707,13 @@
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
+            randomSeed: Number.isInteger(options.seed) ? (options.seed >>> 0) : null,
             sampledOpponentHands: trainingIterations,
             evaluationSamples: evaluatedDeals,
+            evaluationMethod: "Échantillons indépendants ; erreur standard conditionnelle à la stratégie moyenne apprise.",
+            heroEVStandardError,
+            heroEVLower95: heroEV - 1.96 * heroEVStandardError,
+            heroEVUpper95: heroEV + 1.96 * heroEVStandardError,
             treeNodes: Math.round(averageNodeCount / trainingIterations),
             rangeLabel: rangeInfo.rangeUsed === false
                 ? rangeInfo.label

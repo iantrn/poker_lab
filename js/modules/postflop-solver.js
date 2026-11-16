@@ -90,7 +90,7 @@
         return { index, ranges };
     }
 
-    function actionCode(action, aggressorNumber) {
+    function actionCode(action, aggressorNumber, data = {}) {
         if (action === "call" || action === "all_in_call") return "call";
         if (action === "fold") return "fold";
         if (action === "check") return "check";
@@ -98,8 +98,17 @@
         if (aggressorNumber === 1) return "RFI";
         if (aggressorNumber === 2) return "3bet";
         if (aggressorNumber === 3) return "4bet";
-        if (aggressorNumber === 4) return "5bet";
+        if (aggressorNumber === 4) return data.allIn ? "5bet" : "5bet_small";
         return "6bet";
+    }
+
+    function matrixPosition(position) {
+        const aliases = {
+            "BTN": "BU",
+            "BTN/SB": "BU",
+            "HJ": "MP"
+        };
+        return aliases[position] || position;
     }
 
     function findOpponentRange(state, history, opponent, matrix) {
@@ -117,19 +126,20 @@
             const action = event.data.action;
             const isAggressive = ["bet", "raise", "short_raise", "short_all_in_bet"].includes(action);
             if (isAggressive) aggressorNumber++;
-            const code = actionCode(action, aggressorNumber);
+            const code = actionCode(action, aggressorNumber, event.data || {});
             if (index === actorIndex) {
                 targetCode = code;
                 break;
             }
-            const position = positions.get(event.data.playerId);
+            const position = matrixPosition(positions.get(event.data.playerId));
             if (position && code) prefix.push(position + " " + code);
         }
 
         if (!targetCode) return { combos: null, label: "Range large (action non couverte)" };
         const sequence = prefix.join(" › ");
+        const opponentPosition = matrixPosition(opponent.position);
         const candidates = matrix.index.spots.filter(item =>
-            item.p === opponent.position && item.a === targetCode
+            item.p === opponentPosition && item.a === targetCode
         );
         // Never substitute a merely similar sequence: a different preflop line
         // can represent a materially different range. If the exact line is absent,
@@ -247,7 +257,8 @@
             "playerId", "playerName", "action", "amount", "pot",
             "potBefore", "potAfter", "currentBetBefore", "currentBetAfter",
             "streetBetBefore", "streetBetAfter", "stackBefore", "stackAfter",
-            "totalContributionAfter", "betTo", "raiseTo", "raiseSize",
+            "totalContributionBefore", "totalContributionAfter",
+            "betTo", "raiseTo", "raiseSize",
             "isFullRaise", "lastFullRaiseBefore", "lastFullRaiseAfter", "allIn",
             "street", "board", "smallBlind", "smallBlindAmount",
             "bigBlind", "bigBlindAmount", "winnerId"
@@ -389,6 +400,23 @@
                     likelihood = 0.20 + strength * 0.80;
                 } else {
                     likelihood = 0.12 + strength * 0.88;
+
+                    // Les sizings observés apportent un signal supplémentaire :
+                    // un sizing plus élevé augmente légèrement le poids des mains
+                    // fortes, sans supposer qu'une grosse mise exclut les bluffs.
+                    const potBefore = Number(event.data.potBefore);
+                    const sizeAmount = Number(
+                        action === "bet" || action === "short_all_in_bet"
+                            ? (event.data.betTo ?? event.data.amount)
+                            : (event.data.raiseSize ?? event.data.amount)
+                    );
+                    if (Number.isFinite(potBefore) && potBefore > 0 &&
+                        Number.isFinite(sizeAmount) && sizeAmount > 0) {
+                        const sizeRatio = sizeAmount / potBefore;
+                        const sizingSignal = Math.min(1, Math.log1p(sizeRatio) / Math.LN2);
+                        const sizingMultiplier = Math.exp((strength - 0.5) * 0.8 * sizingSignal);
+                        likelihood *= Math.max(0.5, Math.min(1.5, sizingMultiplier));
+                    }
                 }
                 logWeight += Math.log(Math.max(0.05, likelihood));
             }
@@ -405,7 +433,7 @@
             ...range,
             combos,
             postflopActionsUsed: actions.length,
-            conditioning: "heuristique basée sur les catégories de mains et les actions observées"
+            conditioning: "heuristique basée sur la force de main, les actions et les sizings observés"
         };
     }
 
@@ -482,7 +510,7 @@
                     : "Range large (combinaisons bloquées)",
             rangeUsed: preflopRangeUsed,
             decision,
-            note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique des actions postflop observées. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
+            note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique non calibré des actions et des sizings postflop observés. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
         };
     }
 

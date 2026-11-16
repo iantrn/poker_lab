@@ -194,7 +194,7 @@ test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses"
     const history = [{
         type: "player_action",
         street: "flop",
-        data: { playerId: "bot_1", action: "check", amount: 0, potBefore: 2, potAfter: 2, currentBetBefore: 0, currentBetAfter: 0, streetBetBefore: 0, streetBetAfter: 0, stackBefore: 100, stackAfter: 100, betTo: null, raiseTo: null, raiseSize: null, isFullRaise: null, lastFullRaiseBefore: 1, lastFullRaiseAfter: 1, allIn: false, secret: "must-not-pass" }
+        data: { playerId: "bot_1", action: "check", amount: 0, potBefore: 2, potAfter: 2, currentBetBefore: 0, currentBetAfter: 0, streetBetBefore: 0, streetBetAfter: 0, stackBefore: 100, stackAfter: 100, totalContributionBefore: 100, totalContributionAfter: 100, betTo: null, raiseTo: null, raiseSize: null, isFullRaise: null, lastFullRaiseBefore: 1, lastFullRaiseAfter: 1, allIn: false, secret: "must-not-pass" }
     }];
     const input = app.PokerLabPostflopSolver.createInput(current, history);
     assert.equal(input.schemaVersion, 1);
@@ -204,6 +204,7 @@ test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses"
     assert.equal(input.history[0].data.potBefore, 2);
     assert.equal(input.history[0].data.currentBetAfter, 0);
     assert.equal(input.history[0].data.stackAfter, 100);
+    assert.equal(input.history[0].data.totalContributionBefore, 100);
     input.state.board[0].value = 3;
     assert.equal(current.board[0].value, 2);
 });
@@ -255,4 +256,236 @@ test("le solveur conserve une range uniforme hors ligne si le bundle préflop es
     assert.equal(range.rangeUsed, false);
     assert.match(range.label, /bundle préflop indisponible/);
     assert.equal(range.combos.length, 1081);
+});
+
+
+test("la position BTN du moteur est convertie en BU pour sélectionner une range", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bu/BU_RFI", p: "BU", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { "bu/BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BB";
+    current.players[1].position = "BTN";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "bot_1", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "bu/BU_RFI");
+});
+
+test("la position BTN/SB du heads-up est convertie en BU", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bu/BU_RFI", p: "BU", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { "bu/BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BB";
+    current.players[1].position = "BTN/SB";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "bot_1", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "bu/BU_RFI");
+});
+
+test("la position HJ du moteur est convertie en MP dans la matrice", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "mp/MP_RFI", p: "MP", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { "mp/MP_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[1].position = "HJ";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "bot_1", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "mp/MP_RFI");
+});
+
+test("les positions BTN sont normalisées dans la séquence préflop face à une défense BB", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_call_vs_BU_RFI", p: "BB", a: "call", s: "BU RFI" }] }
+            : { version: 1, ranges: { "bb/BB_call_vs_BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BTN";
+    current.players[1].position = "BB";
+    const history = [
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "hero", action: "raise" }
+        },
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "bot_1", action: "call" }
+        }
+    ];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "bb/BB_call_vs_BU_RFI");
+});
+
+
+test("le mapping distingue un 5bet non all-in d'un 5bet à tapis", async () => {
+    const sequence = "BU RFI › BB 3bet › BU 4bet";
+    const smallId = "bb/BB_5bet_small_vs_BU_RFI_BB_3bet_BU_4bet";
+    const jamId = "bb/BB_5bet_vs_BU_RFI_BB_3bet_BU_4bet";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? {
+                version: 1,
+                spots: [
+                    { id: smallId, p: "BB", a: "5bet_small", s: sequence },
+                    { id: jamId, p: "BB", a: "5bet", s: sequence }
+                ]
+            }
+            : { version: 1, ranges: { [smallId]: { AA: 100 }, [jamId]: { KK: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BTN";
+    current.players[1].position = "BB";
+
+    const makeHistory = allIn => [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise", allIn: false } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "raise", allIn: false } },
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise", allIn: false } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "raise", allIn } }
+    ];
+
+    const small = await app.PokerLabPostflopSolver.getOpponentRange(
+        current, makeHistory(false), current.players[1]
+    );
+    const jam = await app.PokerLabPostflopSolver.getOpponentRange(
+        current, makeHistory(true), current.players[1]
+    );
+
+    assert.equal(small.rangeUsed, true);
+    assert.equal(small.label, smallId);
+    assert.equal(jam.rangeUsed, true);
+    assert.equal(jam.label, jamId);
+});
+
+
+test("un sizing de mise plus élevé renforce prudemment le poids des mains fortes", async () => {
+    const spotId = "bb/BB_call_vs_BU_RFI";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: spotId, p: "BB", a: "call", s: "BU RFI" }] }
+            : { version: 1, ranges: { [spotId]: { AA: 100, "43o": 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        [card(8, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BTN";
+    current.players[1].position = "BB";
+
+    const baseHistory = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "call" } }
+    ];
+    const rangeForBetSize = async betTo => app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        [
+            ...baseHistory,
+            {
+                type: "player_action",
+                street: "flop",
+                data: {
+                    playerId: "bot_1",
+                    action: "bet",
+                    amount: betTo,
+                    betTo,
+                    potBefore: 10
+                }
+            }
+        ],
+        current.players[1]
+    );
+    const small = await rangeForBetSize(1);
+    const large = await rangeForBetSize(10);
+
+    const ratioFor = range => {
+        const aces = range.combos
+            .filter(item => item.cards[0].value === 14 && item.cards[1].value === 14)
+            .reduce((sum, item) => sum + item.weight, 0);
+        const lowOffsuit = range.combos
+            .filter(item =>
+                [item.cards[0].value, item.cards[1].value].includes(4) &&
+                [item.cards[0].value, item.cards[1].value].includes(3) &&
+                item.cards[0].suit !== item.cards[1].suit
+            )
+            .reduce((sum, item) => sum + item.weight, 0);
+        return aces / lowOffsuit;
+    };
+
+    assert.ok(ratioFor(large) > ratioFor(small));
+    assert.equal(large.postflopActionsUsed, 1);
 });
