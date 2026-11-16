@@ -91,7 +91,7 @@
     }
 
     function actionCode(action, aggressorNumber) {
-        if (!["bet", "raise", "short_raise"].includes(action)) return null;
+        if (!["bet", "raise", "short_raise", "short_all_in_bet"].includes(action)) return null;
         if (aggressorNumber === 1) return "RFI";
         if (aggressorNumber === 2) return "3bet";
         if (aggressorNumber === 3) return "4bet";
@@ -101,7 +101,7 @@
 
     function findOpponentRange(state, history, opponent, matrix) {
         const preflop = history.filter(event => event.type === "player_action" && event.street === "preflop");
-        const aggressive = preflop.filter(event => ["bet", "raise", "short_raise"].includes(event.data.action));
+        const aggressive = preflop.filter(event => ["bet", "raise", "short_raise", "short_all_in_bet"].includes(event.data.action));
         const actorEvents = aggressive.filter(event => event.data.playerId === opponent.id);
         if (!actorEvents.length) return { combos: null, label: "Range large (non renseignée)" };
 
