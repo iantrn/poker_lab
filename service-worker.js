@@ -1,9 +1,9 @@
 /**
- * PokerLab Service Worker - v42
+ * PokerLab Service Worker - v43
  * Cache offline-first, avec bundle complet des ranges préflop.
  */
 
-const CACHE_NAME = "pokerlab-cache-v42";
+const CACHE_NAME = "pokerlab-cache-v43";
 const CACHE_PREFIX = "pokerlab-cache-";
 
 const ASSETS_TO_CACHE = [
@@ -27,6 +27,7 @@ const ASSETS_TO_CACHE = [
     "./js/modules/ranges-viewer.js",
     "./js/modules/training.js",
     "./js/modules/postflop-solver.js",
+    "./js/modules/cfr-core.js",
     "./js/modules/postflop-strategy.js",
     "./js/modules/postflop-solver-ui.js",
     "./js/modules/puzzles.js",
