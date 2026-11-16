@@ -681,17 +681,18 @@ test("le modèle bot respecte la réouverture des relances après des relances c
             lastFullRaiseBefore: 1
         }
     };
-    const makeCall = currentBet => ({
+    const makeRaise = currentBet => ({
         type: "player_action",
         street: "flop",
         data: {
             playerId: "bot",
-            action: "call",
-            amount: currentBet - 10,
+            action: "raise",
+            amount: 1,
+            raiseSize: 1,
             potBefore: 20,
             currentBetBefore: currentBet,
             streetBetBefore: 10,
-            streetBetAfter: currentBet,
+            streetBetAfter: currentBet + 1,
             stackBefore: 100,
             lastFullRaiseBefore: 1
         }
@@ -705,16 +706,16 @@ test("le modèle bot respecte la réouverture des relances après des relances c
 
     const notReopened = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
         state,
-        [previousBet, makeCall(10.5)],
+        [previousBet, makeRaise(10.5)],
         opponent,
         range
     );
     const reopened = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
         state,
-        [previousBet, makeCall(11)],
+        [previousBet, makeRaise(11)],
         opponent,
         range
     );
 
-    assert.ok(notReopened.combos[0].weight > reopened.combos[0].weight);
+    assert.ok(reopened.combos[0].weight > notReopened.combos[0].weight);
 });
