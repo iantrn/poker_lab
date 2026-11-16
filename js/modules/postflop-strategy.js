@@ -105,9 +105,10 @@
                 const requiredRaiseTotal = state.root && Number.isFinite(rootOptions.minimumRaiseTo)
                     ? Math.max(toCall, rootOptions.minimumRaiseTo - state.bets[actor])
                     : Math.max(toCall, state.pot * BET_FRACTION);
+                const effectiveMaximum = toCall + state.stacks[other];
                 const maximumRaiseTotal = state.root && Number.isFinite(rootOptions.maximumRaiseTo)
-                    ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor])
-                    : state.stacks[actor];
+                    ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor], effectiveMaximum)
+                    : Math.min(state.stacks[actor], effectiveMaximum);
                 if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
                     const desiredRaiseTotal = toCall + Math.max(toCall, state.pot * BET_FRACTION,
                         requiredRaiseTotal - toCall);
@@ -125,10 +126,11 @@
                 if (canRaise && rootBetAllowed && state.stacks[actor] > 0) {
                     const minimumBet = state.root && Number.isFinite(rootOptions.minimumBet)
                         ? rootOptions.minimumBet : 1;
-                    const bet = Math.min(state.stacks[actor], Math.max(minimumBet, state.pot * BET_FRACTION));
+                    const effectiveBetStack = Math.min(state.stacks[actor], state.stacks[other]);
+                    const bet = Math.min(effectiveBetStack, Math.max(minimumBet, state.pot * BET_FRACTION));
                     actions.push(makeAction("bet_50", "bet", bet));
-                    if (state.stacks[actor] > bet * 1.8 && state.stacks[other] > bet) {
-                        actions.push(makeAction("all_in", "bet", state.stacks[actor]));
+                    if (effectiveBetStack > bet * 1.8) {
+                        actions.push(makeAction("all_in", "bet", effectiveBetStack));
                     }
                 }
             }
@@ -159,7 +161,13 @@
                 }
 
                 if (action.type === "call") {
-                    applyContribution(next, actor, action.amount);
+                    const paid = applyContribution(next, actor, action.amount);
+                    if (paid + 0.000001 < action.amount) {
+                        const uncalled = action.amount - paid;
+                        next.pot -= uncalled;
+                        next.bets[other] -= uncalled;
+                        next.stacks[other] += uncalled;
+                    }
                     node.actions.push({ action, child: terminal("showdown", next) });
                     continue;
                 }
