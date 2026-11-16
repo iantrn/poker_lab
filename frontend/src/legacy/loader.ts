@@ -6,6 +6,7 @@ import { installRangesData } from "../ranges/data";
 import { installSolverPrecompute } from "../solver/precompute";
 import { installCfrCore } from "../solver/cfr-core";
 import { installBotProfiles } from "../bots/profiles";
+import { installBotEngine } from "../bots/engine";
 import { installDeck } from "../core/deck";
 import { installPokerRules } from "../core/poker-rules";
 import { installGameEngine } from "../core/game-engine";
@@ -46,6 +47,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/core/game-engine.js") { installGameEngine(); continue; }
       if (file === "js/components/cards.js") { installCards(); continue; }
       if (file === "js/bots/bot-profiles.js") { installBotProfiles(); continue; }
+      if (file === "js/bots/bot-engine.js") { installBotEngine(); continue; }
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
