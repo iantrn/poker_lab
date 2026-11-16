@@ -688,3 +688,37 @@ test("la validation rejette une option bet lorsque la mise courante est déjà o
         /mise d'ouverture alors qu'une mise existe déjà/
     );
 });
+
+
+test("un sizing de mise plafonné au tapis effectif est étiqueté all-in", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[0].stack = 5;
+    state.players[1].stack = 5;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["check", "bet_33", "all_in"]
+    );
+});
+
+test("une mise à tapis inférieure à la big blind reste identifiée comme all-in", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[0].stack = 0.5;
+    state.players[1].stack = 0.5;
+    state.players[0].actionOptions.minimumBet = 1;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["check", "all_in"]
+    );
+});
