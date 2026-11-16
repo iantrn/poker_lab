@@ -324,3 +324,21 @@ test("l'ordre de parole des streets suivantes respecte le premier joueur actif a
         .child.actions.find(entry => entry.action.type === "check").child;
     assert.equal(turnNode.actor, 1);
 });
+
+
+test("le moteur signale le fallback uniforme si toutes les combos pondérées sont bloquées", async () => {
+    const app = loadStrategy();
+    app.PokerLabPostflopSolver.getOpponentRange = async () => ({
+        label: "blocked-range",
+        combos: [{
+            cards: [card(2, "clubs"), card(5, "clubs")],
+            weight: 100
+        }]
+    });
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(riverState(), [], {
+        iterations: 20,
+        samples: 8
+    });
+    assert.equal(result.rangeUsed, false);
+    assert.equal(result.rangeLabel, "Range large (combinaisons bloquées)");
+});
