@@ -35,6 +35,8 @@ jobs:
           wasm-pack build --release --target nodejs --out-dir pkg-node
       - name: Legacy baseline tests (126 tests)
         run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
+      - name: TypeScript V1 parity for range data
+        run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: WASM versus JavaScript parity tests
         run: node --test tests/v2-wasm-parity.test.mjs
       - name: Install frontend dependencies
