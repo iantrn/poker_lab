@@ -74,7 +74,7 @@ test("une main distribue deux cartes distinctes à chaque joueur", () => {
 test("le heads-up respecte les positions et l'ordre de parole", () => {
     const app = loadGameEngine();
     const engine = createEngine(app);
-    const state = engine.startHand();
+    let state = engine.startHand();
 
     assert.equal(engine.players[0].position, "BTN/SB");
     assert.equal(engine.players[1].position, "BB");
