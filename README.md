@@ -93,7 +93,8 @@ Les trois icônes PNG sont fournies : `icon-192.png` (192×192), `icon-512.png` 
 │   └── ranges/                Import, conversion, validation et génération
 ├── index.html                 Point d'entrée de l'application
 ├── manifest.json              Configuration PWA
-└── service-worker.js          Cache et fonctionnement hors connexion
+├── pokerlab-solver-worker.js   Worker de calcul du solveur postflop
+└── service-worker.js           Cache et fonctionnement hors connexion
 ```
 
 ## Architecture applicative
