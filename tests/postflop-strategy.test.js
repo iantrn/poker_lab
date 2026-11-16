@@ -148,7 +148,6 @@ test("CFR+ refuse une situation multiway", async () => {
 test("un tapis laisse encore à l'adversaire le choix fold ou call", () => {
     const app = loadStrategy();
     const state = riverState();
-    state.players[0].stack = 5;
     state.pot = 10;
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
     const allIn = built.tree.actions.find(entry => entry.action.label === "all_in");
