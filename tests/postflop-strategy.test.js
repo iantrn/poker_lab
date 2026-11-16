@@ -119,6 +119,11 @@ test("face Ã  une mise, l'arbre propose fold, call et raise si la relance est lÃ
         Array.from(built.tree.actions, entry => entry.action.label),
         ["fold", "call", "raise"]
     );
+    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    assert.deepEqual(
+        Array.from(raiseBranch.child.actions, entry => entry.action.label),
+        ["fold", "call", "raise"]
+    );
 });
 
 test("l'arbre respecte l'interdiction de relancer fournie par le moteur", () => {
