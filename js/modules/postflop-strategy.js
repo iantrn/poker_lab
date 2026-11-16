@@ -507,7 +507,7 @@
             averageStrategyWeighting: "linear",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · runouts échantillonnés · check · mises 33 % / 75 % pot ou tapis effectif · une relance maximale par street",
+                " → river HU · runouts échantillonnés · check · mises 33 % / 75 % pot · relance abstraite 50 % pot · tapis effectif · une relance maximale par street",
             iterations,
             sampledOpponentHands: samples,
             treeNodes: Math.round(nodeCount / samples),
