@@ -204,6 +204,7 @@ test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses"
     assert.equal(input.history[0].data.potBefore, 2);
     assert.equal(input.history[0].data.currentBetAfter, 0);
     assert.equal(input.history[0].data.stackAfter, 100);
+    assert.equal(input.history[0].data.totalContributionBefore, 100);
     input.state.board[0].value = 3;
     assert.equal(current.board[0].value, 2);
 });
