@@ -2281,8 +2281,14 @@ const position = positionNames[index];
                             ? player.botDifficulty
                             : null,
 
+                        // Ne jamais exposer les cartes adverses avant le showdown.
+                        // Les joueurs ayant fold ne révèlent pas leur main au showdown.
                         holeCards:
-                            this.handComplete || player.isHuman
+                            player.isHuman || (
+                                this.handComplete &&
+                                this.lastResult?.type === "showdown" &&
+                                !player.folded
+                            )
                                 ? [...player.holeCards]
                                 : null,
 

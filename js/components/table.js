@@ -484,8 +484,10 @@
 
             const isAllIn = Boolean(player.allIn);
 
+            // Les cartes des adversaires ne sont visibles qu'à l'abattage,
+            // et uniquement pour les joueurs qui n'ont pas passé.
             const visibleCards =
-                (!handComplete && isHuman) || Boolean(player.showCards) || revealCards;
+                (!handComplete && isHuman) || (revealCards && !isFolded);
 
             const seat = createElement(
                 "div",
