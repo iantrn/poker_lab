@@ -400,7 +400,7 @@
         return {
             algorithm: "CFR+",
             averageStrategyWeighting: "linear",
-            abstraction: "River HU · une taille de mise (50 % pot) · une relance maximale",
+            abstraction: "River HU · check · mise 50 % pot ou tapis · une relance maximale",
             iterations,
             sampledOpponentHands: samples,
             treeNodes: nodeCount,
