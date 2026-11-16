@@ -101,9 +101,10 @@
             details.append(
                 element("h5", "pl-solve-details-heading", "Détails stratégiques — " + strategy.street),
                 element("p", "pl-solve-detail-line",
-                    strategy.iterations + " itérations · " +
-                    strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
-                    strategy.treeNodes + " nœuds dans l'arbre")
+                    strategy.iterations + " itérations CFR+ · " +
+                    strategy.sampledOpponentHands + " échantillons d'apprentissage renouvelés · " +
+                    strategy.evaluationSamples + " échantillons d'évaluation indépendants · " +
+                    strategy.treeNodes + " nœuds moyens dans l'arbre")
             );
 
             strategy.actions.forEach(item => {
@@ -117,6 +118,10 @@
                 element("p", "pl-solve-detail-line pl-solve-detail-emphasis",
                     "EV estimée depuis cette décision : " +
                     strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons"),
+                element("p", "pl-solve-detail-line",
+                    strategy.postflopActionsUsed
+                        ? strategy.postflopActionsUsed + " actions postflop adverses intégrées à l'ajustement heuristique de la range."
+                        : "Aucune action postflop adverse antérieure à cette décision à intégrer."),
                 element("p", "pl-solve-detail-line", strategy.abstraction),
                 element("p", "pl-solve-detail-line", strategy.convergence)
             );
