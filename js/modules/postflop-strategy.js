@@ -175,14 +175,20 @@
                 if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
                     const desiredRaiseTotal = ceilChips(toCall + Math.max(toCall, state.pot * BET_FRACTION,
                         requiredRaiseTotal - toCall, state.lastFullRaise));
-                    if (desiredRaiseTotal <= maximumRaiseTotal + 0.000001) {
-                        actions.push(makeAction("raise", "raise", desiredRaiseTotal));
-                    } else if (state.root && rootOptions.isAllIn && maximumRaiseTotal > toCall) {
-                        actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
-                    } else if (state.root && maximumRaiseTotal > toCall) {
-                        actions.push(makeAction("raise_effective", "raise", maximumRaiseTotal));
-                    } else if (!state.root && state.stacks[actor] > toCall && maximumRaiseTotal > toCall) {
-                        actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
+                    if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
+                        const isAllIn = Math.abs(desiredRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                        actions.push(makeAction(
+                            isAllIn ? "all_in_raise" : "raise",
+                            "raise",
+                            desiredRaiseTotal
+                        ));
+                    } else if (maximumRaiseTotal > toCall) {
+                        const maximumIsAllIn = Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                        actions.push(makeAction(
+                            maximumIsAllIn ? "all_in_raise" : "raise_effective",
+                            "raise",
+                            maximumRaiseTotal
+                        ));
                     }
                 }
             } else {
