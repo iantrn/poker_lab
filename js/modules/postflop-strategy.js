@@ -65,7 +65,7 @@
         return { label, type, amount };
     }
 
-    function buildDecisionTree(input, rootOptions, priorHistory = []) {
+    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = []) {
         const initial = {
             actor: 0,
             pot: Number(input.pot) || 0,
@@ -79,10 +79,32 @@
         };
         const nodes = { count: 0 };
 
-        function build(state, depth) {
+        function firstToAct() {
+            const index = input.players.findIndex(player =>
+                ["BTN/SB", "SB", "BTN"].includes(player.position)
+            );
+            return index >= 0 ? index : 0;
+        }
+
+        function advanceStreet(state, board, runoutIndex, depth) {
+            if (state.stacks[0] <= 0 || state.stacks[1] <= 0 || runoutIndex >= runout.length) {
+                return terminal("showdown", state);
+            }
+            const nextBoard = [...board, runout[runoutIndex]];
+            const next = cloneState(state);
+            next.actor = firstToAct();
+            next.bets = [0, 0];
+            next.raises = 0;
+            next.checks = 0;
+            next.root = false;
+            const streetName = nextBoard.length === 4 ? "turn" : "river";
+            next.history.push("street:" + streetName);
+            return build(next, nextBoard, runoutIndex + 1, depth + 1);
+        }
+
+        function build(state, board, runoutIndex, depth) {
             nodes.count++;
-            if (depth > 8 || state.stacks[state.actor] <= 0 ||
-                (state.stacks[0] <= 0 && state.stacks[1] <= 0)) {
+            if (depth > 18 || state.stacks[state.actor] <= 0) {
                 return terminal("showdown", state);
             }
 
@@ -91,7 +113,7 @@
             const toCall = amountToCall(state, actor);
 
             if (toCall === 0 && state.checks >= 1) {
-                return terminal("showdown", state);
+                return advanceStreet(state, board, runoutIndex, depth);
             }
 
             const actions = [];
@@ -116,8 +138,8 @@
                         actions.push(makeAction("raise", "raise", desiredRaiseTotal));
                     } else if (state.root && rootOptions.isAllIn && maximumRaiseTotal > toCall) {
                         actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
-                    } else if (!state.root && state.stacks[actor] > toCall) {
-                        actions.push(makeAction("all_in_raise", "raise", state.stacks[actor]));
+                    } else if (!state.root && state.stacks[actor] > toCall && maximumRaiseTotal > toCall) {
+                        actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
                     }
                 }
             } else {
@@ -128,7 +150,7 @@
                         ? rootOptions.minimumBet : 1;
                     const effectiveBetStack = Math.min(state.stacks[actor], state.stacks[other]);
                     const bet = Math.min(effectiveBetStack, Math.max(minimumBet, state.pot * BET_FRACTION));
-                    actions.push(makeAction("bet_50", "bet", bet));
+                    if (bet > 0) actions.push(makeAction("bet_50", "bet", bet));
                     if (effectiveBetStack > bet * 1.8) {
                         actions.push(makeAction("all_in", "bet", effectiveBetStack));
                     }
@@ -138,9 +160,9 @@
             const node = {
                 terminal: false,
                 actor,
+                board: board.slice(),
                 history: state.history.join("/"),
-                actions: [],
-                infoKey: null
+                actions: []
             };
 
             for (const action of actions.slice(0, ACTION_LIMIT)) {
@@ -156,7 +178,7 @@
                 if (action.type === "check") {
                     next.checks++;
                     next.actor = other;
-                    node.actions.push({ action, child: build(next, depth + 1) });
+                    node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                     continue;
                 }
 
@@ -169,7 +191,10 @@
                         next.stacks[other] += uncalled;
                         if (other === 0) next.heroInvested -= uncalled;
                     }
-                    node.actions.push({ action, child: terminal("showdown", next) });
+                    const child = next.stacks[0] <= 0 || next.stacks[1] <= 0
+                        ? terminal("showdown", next)
+                        : advanceStreet(next, board, runoutIndex, depth + 1);
+                    node.actions.push({ action, child });
                     continue;
                 }
 
@@ -177,7 +202,7 @@
                     applyContribution(next, actor, action.amount);
                     next.checks = 0;
                     next.actor = other;
-                    node.actions.push({ action, child: build(next, depth + 1) });
+                    node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                     continue;
                 }
 
@@ -186,7 +211,7 @@
                     next.raises++;
                     next.checks = 0;
                     next.actor = other;
-                    node.actions.push({ action, child: build(next, depth + 1) });
+                    node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                 }
             }
 
@@ -194,7 +219,7 @@
             return node;
         }
 
-        const tree = build(initial, 0);
+        const tree = build(initial, input.board, 0, 0);
         return { tree, nodeCount: nodes.count };
     }
 
