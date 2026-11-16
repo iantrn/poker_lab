@@ -365,14 +365,21 @@
         }
 
         const rootStrategy = getRootStrategy(tree, deals[0], maps, hero.holeCards, state.board);
+        const actionValues = tree.actions.map(entry => {
+            let total = 0;
+            for (const deal of deals) {
+                total += averageStrategy(entry.child, deal, maps, hero.holeCards, state.board);
+            }
+            return total / deals.length;
+        });
         const actions = tree.actions.map((entry, index) => ({
             action: entry.action.label,
-            frequency: rootStrategy[index]
+            frequency: rootStrategy[index],
+            ev: actionValues[index]
         })).sort((a, b) => b.frequency - a.frequency);
 
-        let ev = 0;
-        for (const deal of deals) ev += averageStrategy(tree, deal, maps, hero.holeCards, state.board);
-        ev /= deals.length;
+        const ev = actionValues.reduce((sum, value, index) =>
+            sum + rootStrategy[index] * value, 0);
 
         return {
             algorithm: "CFR+",
