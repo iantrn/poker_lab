@@ -484,6 +484,24 @@
         return payout - node.heroInvested;
     }
 
+    function informationKey(node, deal, hero, board) {
+        const privateHand = node.actor === 0
+            ? handId(deal && deal.hero || hero)
+            : handId(deal.villain);
+        const publicState = [
+            roundChips(node.pot),
+            (node.stacks || []).map(roundChips).join(","),
+            (node.bets || []).map(roundChips).join(","),
+            (node.hasActed || []).map(Boolean).join(","),
+            (node.lastActedBets || []).map(roundChips).join(","),
+            roundChips(node.lastFullRaise),
+            node.raises || 0,
+            node.checks || 0
+        ].join(":");
+        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) +
+            "|" + publicState + "|" + node.history;
+    }
+
     function cfrCallbacks(hero, board) {
         return {
             informationKey: (node, deal) =>
