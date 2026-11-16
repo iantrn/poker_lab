@@ -122,7 +122,7 @@ test("face à une mise, l'arbre propose fold, call et raise si la relance est l�
     const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
     assert.deepEqual(
         Array.from(raiseBranch.child.actions, entry => entry.action.label),
-        ["fold", "call", "all_in_raise"]
+        ["fold", "call", "raise_effective"]
     );
 });
 
@@ -570,7 +570,7 @@ test("l'arbre autorise une seconde relance lorsque le plafond de la street n'est
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call", "raise"]
+        ["fold", "call", "all_in_raise"]
     );
 });
 
@@ -615,7 +615,7 @@ test("solvePostflop tient compte des relances déjà présentes dans l'historiqu
 
     assert.deepEqual(
         Array.from(result.actions, action => action.action).sort(),
-        ["call", "fold", "raise"]
+        ["all_in_raise", "call", "fold"]
     );
 });
 
