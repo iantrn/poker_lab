@@ -2049,17 +2049,26 @@ button {
     outline-offset: 3px;
 }
 
-/* PokerLab v10 — zone de jeu en pleine largeur d'écran. */
-#training {
-    width: 100vw !important;
+/* PokerLab v10 — zone de jeu pleine largeur, avec adaptation responsive. */
+main:has(> #training:not([hidden])) {
+    width: 100% !important;
     max-width: none !important;
-    margin-left: calc(50% - 50vw) !important;
-    margin-right: calc(50% - 50vw) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+#training {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 #training > div {
+    box-sizing: border-box;
     width: 100% !important;
     max-width: none !important;
+    padding: clamp(12px, 2vw, 24px) !important;
     border-radius: 0 !important;
 }
 
@@ -2067,6 +2076,7 @@ button {
 #training-table,
 .pl-table-container,
 #training-actions {
+    box-sizing: border-box;
     width: 100% !important;
     max-width: none !important;
 }
@@ -2074,4 +2084,19 @@ button {
 .pl-table-container {
     margin-left: 0 !important;
     margin-right: 0 !important;
+}
+
+@media (max-width: 600px) {
+    #training > div {
+        padding: 10px !important;
+    }
+
+    #training-game {
+        margin-top: 16px !important;
+    }
+
+    .pl-table-container {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
 }
