@@ -380,3 +380,38 @@ test("la distribution de tous les pots conserve exactement les jetons", () => {
     assert.equal(hero.stack, 140);
     assert.equal(third.stack, 80);
 });
+
+
+test("un call à tapis conserve les montants avant/après dans l'historique", () => {
+    const app = loadGameEngine();
+    const engine = new app.PokerLabGameEngine({
+        players: [
+            { id: "hero", name: "Hero", stack: 1, isHuman: true },
+            { id: "player_1", name: "Player 1", stack: 100, isBot: true }
+        ],
+        dealerIndex: 0,
+        smallBlind: 0.5,
+        bigBlind: 1
+    });
+    engine.startHand();
+    engine.act("call", null, "hero");
+
+    const action = engine.getHandHistory().find(event =>
+        event.type === "player_action" &&
+        event.data.playerId === "hero"
+    ).data;
+
+    assert.equal(action.action, "call");
+    assert.equal(action.amount, 0.5);
+    assert.equal(action.potBefore, 1.5);
+    assert.equal(action.potAfter, 2);
+    assert.equal(action.currentBetBefore, 1);
+    assert.equal(action.currentBetAfter, 1);
+    assert.equal(action.streetBetBefore, 0.5);
+    assert.equal(action.streetBetAfter, 1);
+    assert.equal(action.stackBefore, 0.5);
+    assert.equal(action.stackAfter, 0);
+    assert.equal(action.totalContributionBefore, 0.5);
+    assert.equal(action.totalContributionAfter, 1);
+    assert.equal(action.allIn, true);
+});
