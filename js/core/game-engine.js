@@ -1106,6 +1106,9 @@ const position = positionNames[index];
             );
         }
 
+        const currentBetBefore = this.currentBet;
+        const lastFullRaiseBefore = this.lastFullRaise;
+
         const paidAmount =
             this.commitChips(player, amount);
 
@@ -1125,7 +1128,14 @@ const position = positionNames[index];
         this.recordAction(
             player,
             isFullOpening ? "bet" : "short_all_in_bet",
-            paidAmount
+            paidAmount,
+            {
+                currentBetBefore,
+                lastFullRaiseBefore,
+                betTo: player.streetBet,
+                raiseSize: paidAmount,
+                isFullRaise: isFullOpening
+            }
         );
 
         return {
@@ -1198,6 +1208,9 @@ const position = positionNames[index];
             );
         }
 
+        const currentBetBefore = this.currentBet;
+        const lastFullRaiseBefore = this.lastFullRaise;
+
         const paidAmount = this.commitChips(
             player,
             additionalAmount
@@ -1216,7 +1229,14 @@ const position = positionNames[index];
         this.recordAction(
             player,
             isFullRaise ? "raise" : "short_raise",
-            paidAmount
+            paidAmount,
+            {
+                currentBetBefore,
+                lastFullRaiseBefore,
+                raiseTo: player.streetBet,
+                raiseSize,
+                isFullRaise
+            }
         );
 
         return {
@@ -2038,7 +2058,11 @@ const position = positionNames[index];
        34. HISTORIQUE
        ===================================================== */
 
-    recordAction(player, action, amount) {
+    recordAction(player, action, amount, details = {}) {
+
+        const potAfter = this.getPot();
+        const isBet = action === "bet" || action === "short_all_in_bet";
+        const isRaise = action === "raise" || action === "short_raise";
 
         this.recordEvent("player_action", {
 
@@ -2052,7 +2076,36 @@ const position = positionNames[index];
 
             street: this.street,
 
-            pot: this.getPot()
+            // Snapshot des montants avant et après l'action.
+            potBefore: this.normalizeChips(potAfter - amount),
+            potAfter,
+
+            currentBetBefore:
+                details.currentBetBefore ?? this.currentBet,
+            currentBetAfter: this.currentBet,
+
+            streetBetBefore:
+                this.normalizeChips(player.streetBet - amount),
+            streetBetAfter: player.streetBet,
+
+            stackBefore:
+                this.normalizeChips(player.stack + amount),
+            stackAfter: player.stack,
+
+            totalContributionAfter: player.totalContribution,
+
+            betTo: isBet ? (details.betTo ?? player.streetBet) : null,
+            raiseTo: isRaise ? (details.raiseTo ?? player.streetBet) : null,
+            raiseSize: details.raiseSize ?? null,
+            isFullRaise: details.isFullRaise ?? null,
+
+            lastFullRaiseBefore:
+                details.lastFullRaiseBefore ?? this.lastFullRaise,
+            lastFullRaiseAfter: this.lastFullRaise,
+
+            allIn: player.allIn,
+
+            pot: potAfter
 
         });
 
