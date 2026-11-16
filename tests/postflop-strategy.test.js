@@ -349,7 +349,7 @@ test("l'interface déclenche CFR+ sur le flop, le turn et la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
     assert.match(ui, /PokerLabPostflopStrategy\.solvePostflop\(solverInput\)/);
     assert.doesNotMatch(ui, /initialState\.street === ["']river["']/);
-    assert.match(ui, /"Stratégie CFR\+ — " \+ strategy\.street/);
+    assert.match(ui, /"Détails stratégiques — " \+ strategy\.street/);
 });
 
 
