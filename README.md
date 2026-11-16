@@ -157,7 +157,7 @@ node tools/ranges/build-matrix.mjs --input-dir chemin/vers/les-ranges-normalisee
 
 Les commandes d'import et de conversion, leurs paramètres et les conventions de données sont détaillés dans [tools/ranges/README.md](tools/ranges/README.md).
 
-Les tests couvrent les données de ranges, le moteur de jeu, les décisions et l'intégration des bots, l'historique des actions, les pots principal et secondaires, la conservation des jetons, le contrat d'entrée du solveur, l'isolation des cartes adverses, l'ajustement heuristique des ranges, le fallback hors ligne, les contraintes de mises et le moteur CFR+ (dont la reproductibilité par seed).
+Les tests couvrent les données de ranges, le moteur de jeu, les décisions et l'intégration des bots, l'historique des actions, les pots principal et secondaires, la conservation des jetons, le contrat d'entrée du solveur, l'isolation des cartes adverses, l'ajustement heuristique des ranges, le fallback hors ligne, les contraintes de mises, l'échantillonnage range-vs-range avec poids de bloqueurs, la cohérence des actions par information set, ainsi que le noyau CFR+ validé sur Kuhn Poker, Matching Pennies et un spot river à EV exacte.
 
 Lancer les tests du solveur postflop :
 
