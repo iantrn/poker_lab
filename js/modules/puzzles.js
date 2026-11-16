@@ -353,6 +353,12 @@ window.PokerLabPuzzles = (function () {
 
         });
 
+        // Un changement de filtres invalide la question en cours afin
+        // d'éviter de répondre à un exercice qui ne correspond plus au filtre.
+        currentPuzzle = null;
+        currentAnswer = null;
+        answered = false;
+
         return [...filteredPuzzles];
 
     }
