@@ -294,19 +294,46 @@
 
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
                 <h2 class="text-2xl font-bold mb-2">Tactiques</h2>
-
                 <p class="text-textMuted text-sm">
-                    Entraîne-toi à prendre les meilleures décisions dans différentes situations de poker.
+                    Travaille tes décisions à travers des situations préflop, postflop et mathématiques.
                 </p>
 
-                <div id="tactics-content" class="mt-6">
-                    <p class="text-textMuted text-sm">
-                        Le module de puzzles tactiques sera développé ici.
+                <div class="mt-6 grid gap-3 sm:grid-cols-2">
+                    <label class="text-sm text-textMuted">
+                        Catégorie
+                        <select data-puzzle-category class="pl-form-control mt-1 w-full" aria-label="Filtrer les tactiques par catégorie">
+                            <option value="">Toutes les catégories</option>
+                            <option value="Préflop">Préflop</option>
+                            <option value="Postflop">Postflop</option>
+                            <option value="Mathématiques">Mathématiques</option>
+                            <option value="Règles">Règles</option>
+                        </select>
+                    </label>
+                    <label class="text-sm text-textMuted">
+                        Difficulté
+                        <select data-puzzle-difficulty class="pl-form-control mt-1 w-full" aria-label="Filtrer les tactiques par difficulté">
+                            <option value="">Toutes les difficultés</option>
+                            <option value="Débutant">Débutant</option>
+                            <option value="Intermédiaire">Intermédiaire</option>
+                            <option value="Avancé">Avancé</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <button type="button" data-puzzle-action="start" class="pl-button">
+                        Commencer un exercice
+                    </button>
+                    <p data-puzzle-stats class="text-sm text-textMuted" aria-live="polite">
+                        Les statistiques de cette session apparaîtront ici.
                     </p>
+                </div>
+
+                <div data-puzzles-container class="mt-6" aria-live="polite">
+                    <p class="text-textMuted text-sm">Chargement des exercices…</p>
                 </div>
             </div>
         </section>
-
 
         <!-- APPRENTISSAGE -->
         <section id="lessons"
@@ -316,20 +343,31 @@
 
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
                 <h2 class="text-2xl font-bold mb-2">Apprentissage</h2>
-
                 <p class="text-textMuted text-sm">
-                    Apprends les concepts du poker et travaille tes ranges de jeu.
+                    Progresse avec des leçons structurées, puis approfondis les ranges préflop.
                 </p>
 
-                <div id="lessons-content" class="mt-6">
-                    <h3 class="text-lg font-bold mb-3">Ranges préflop</h3>
-                    <div data-ranges-viewer>
-                        <p class="text-textMuted text-sm">Chargement des ranges…</p>
-                    </div>
+                <div class="mt-6 space-y-6">
+                    <section aria-labelledby="learning-path-title">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <h3 id="learning-path-title" class="text-lg font-bold">Parcours pédagogique</h3>
+                            <div data-lessons-progress class="w-full sm:w-64" aria-live="polite"></div>
+                        </div>
+                        <div data-lessons-catalog></div>
+                        <div data-lesson-content class="mt-5" aria-live="polite">
+                            <p class="text-textMuted text-sm">Choisis une leçon pour commencer.</p>
+                        </div>
+                    </section>
+
+                    <section aria-labelledby="preflop-ranges-title">
+                        <h3 id="preflop-ranges-title" class="text-lg font-bold mb-3">Ranges préflop</h3>
+                        <div data-ranges-viewer>
+                            <p class="text-textMuted text-sm">Chargement des ranges…</p>
+                        </div>
+                    </section>
                 </div>
             </div>
         </section>
-
 
         <!-- GAME REVIEW -->
         <section id="review"
@@ -339,19 +377,24 @@
 
             <div class="bg-surface rounded-2xl p-6 border border-white/5">
                 <h2 class="text-2xl font-bold mb-2">Game Review</h2>
-
                 <p class="text-textMuted text-sm">
-                    Analyse tes mains et identifie les erreurs dans tes décisions.
+                    Revois les mains terminées pendant tes sessions locales. Les cartes adverses ne sont conservées que lorsqu'elles ont été révélées légalement au showdown.
                 </p>
 
-                <div id="review-content" class="mt-6">
-                    <p class="text-textMuted text-sm">
-                        Le système d'analyse des parties sera développé ici.
-                    </p>
+                <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]">
+                    <section aria-labelledby="review-history-title">
+                        <h3 id="review-history-title" class="text-lg font-bold mb-3">Historique des mains</h3>
+                        <div data-review-history aria-live="polite"></div>
+                    </section>
+                    <section aria-labelledby="review-detail-title">
+                        <h3 id="review-detail-title" class="text-lg font-bold mb-3">Détail de la main</h3>
+                        <div data-review-detail aria-live="polite">
+                            <p class="text-textMuted text-sm">Sélectionne une main dans l'historique pour afficher ses actions.</p>
+                        </div>
+                    </section>
                 </div>
             </div>
         </section>
-
 
         <!-- PARAMÈTRES -->
         <section id="settings"
