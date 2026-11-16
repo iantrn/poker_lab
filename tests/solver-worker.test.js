@@ -118,3 +118,18 @@ test("le Worker renvoie une erreur structurée pour une tâche inconnue", async 
     assert.equal(response.ok, false);
     assert.match(response.error, /Tâche de solveur inconnue/);
 });
+
+
+test("l'interface délègue les calculs au Worker et annule les requêtes obsolètes", () => {
+    const ui = fs.readFileSync(
+        path.join(__dirname, "..", "js/modules/postflop-solver-ui.js"),
+        "utf8"
+    );
+
+    assert.match(ui, /new global\.Worker\("\.\/pokerlab-solver-worker\.js"\)/);
+    assert.match(ui, /runWorkerTask\(\s*"equity"/);
+    assert.match(ui, /runWorkerTask\(\s*"strategy"/);
+    assert.match(ui, /function cancelSolverWorker\(\)/);
+    assert.match(ui, /currentKey !== activeStateKey/);
+    assert.match(ui, /error\.name === "AbortError"/);
+});
