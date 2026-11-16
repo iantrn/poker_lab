@@ -69,14 +69,19 @@
             : "Aucune mise à payer";
         const details = element("p", "text-xs text-textMuted mb-2", odds);
         const disclaimer = element("p", "text-xs text-textMuted", result.note);
-        container.append(heading, equity, range, stats, action, explanation, details);
+        container.append(heading, equity, range, stats, details);
+        if (!strategy) {
+            const heuristicLabel = element("p", "font-semibold text-primaryHover mb-1",
+                "Piste heuristique fondée sur l'équité : " + result.decision.action);
+            container.append(heuristicLabel, explanation);
+        }
 
         if (strategy) {
             const divider = element("div", "border-t border-white/10 my-4");
             const strategyHeading = element("h5", "font-bold mb-2", "Stratégie CFR+ — river");
             const strategyMeta = element("p", "text-xs text-textMuted mb-2",
                 strategy.iterations + " itérations · " +
-                strategy.sampledOpponentHands + " mains adverses échantillonnées · " +
+                strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
                 strategy.treeNodes + " nœuds dans l'arbre");
             const strategyActions = element("div", "space-y-1 mb-3");
             for (const item of strategy.actions) {
