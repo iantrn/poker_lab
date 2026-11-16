@@ -116,7 +116,7 @@ test("face Ã  une mise, l'arbre propose fold, call et raise si la relance est lÃ
     state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: true };
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
     assert.deepEqual(
-        Array.from(built.tree.actions, entry => entry.action.label),
+        Array.from(built.tree.actions, entry => entry.action.type),
         ["fold", "call", "raise"]
     );
     const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
