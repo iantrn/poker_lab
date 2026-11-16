@@ -115,7 +115,8 @@
                     strategy.sampledActualHeroHand + "/" + strategy.sampledHeroHands +
                     " · ESS pondéré : " + strategy.heroRangeEffectiveSampleSize.toLocaleString("fr-FR", { maximumFractionDigits: 1 })),
                 element("p", "pl-solve-detail-line",
-                    "Range adverse : " + strategy.rangeLabel)
+                    "Range adverse : " + strategy.rangeLabel),
+                element("p", "pl-solve-detail-line", strategy.rangeConditioning)
             );
 
             strategy.actions.forEach(item => {
