@@ -313,9 +313,79 @@
         return { action, explanation, potOdds, margin };
     }
 
+    function estimateBotHandStrength(holeCards, board) {
+        const result = global.PokerLabHandEvaluator.evaluate([...holeCards, ...board]);
+        const categoryStrength = [0.24, 0.40, 0.56, 0.68, 0.78, 0.84, 0.91, 0.96, 0.985, 0.995];
+        let strength = categoryStrength[result.score[0]] ?? 0.5;
+        if (Array.isArray(result.score) && result.score.length > 1) {
+            const kickerSum = result.score.slice(1).reduce((sum, value) =>
+                sum + (Number.isFinite(value) ? value : 0), 0);
+            strength += Math.max(0, Math.min(0.025, kickerSum / 1000));
+        }
+        return Math.max(0.05, Math.min(0.995, strength));
+    }
+
+    function conditionRangeOnPostflopActions(state, history, opponent, range) {
+        if (!range || !Array.isArray(range.combos)) return range;
+        const streetOrder = { flop: 3, turn: 4, river: 5 };
+        const actions = (history || []).filter(event =>
+            event.type === "player_action" &&
+            event.data &&
+            event.data.playerId === opponent.id &&
+            Object.prototype.hasOwnProperty.call(streetOrder, event.street) &&
+            streetOrder[event.street] <= state.board.length &&
+            ["check", "call", "all_in_call", "bet", "raise", "short_raise", "short_all_in_bet"].includes(event.data.action)
+        );
+        if (!actions.length) return { ...range, postflopActionsUsed: 0 };
+
+        const conditioned = range.combos.map(item => {
+            let logWeight = Math.log(Math.max(Number(item.weight) || 0, 1e-12));
+            for (const event of actions) {
+                const boardLength = streetOrder[event.street];
+                const board = state.board.slice(0, boardLength);
+                let strength = 0.5;
+                try {
+                    strength = estimateBotHandStrength(item.cards, board);
+                } catch (error) {
+                    // An invalid historical board must not silently discard a combo.
+                    strength = 0.5;
+                }
+                const action = event.data.action;
+                let likelihood;
+                if (action === "check") {
+                    likelihood = 0.25 + (1 - strength) * 0.75;
+                } else if (action === "call" || action === "all_in_call") {
+                    likelihood = 0.20 + strength * 0.80;
+                } else {
+                    likelihood = 0.12 + strength * 0.88;
+                }
+                logWeight += Math.log(Math.max(0.05, likelihood));
+            }
+            return { cards: item.cards, logWeight };
+        });
+
+        const maxLogWeight = Math.max(...conditioned.map(item => item.logWeight));
+        const combos = conditioned.map(item => ({
+            cards: item.cards,
+            weight: Math.exp(item.logWeight - maxLogWeight)
+        })).filter(item => item.weight > 0);
+
+        return {
+            ...range,
+            combos,
+            postflopActionsUsed: actions.length,
+            conditioning: "heuristique basée sur les catégories de mains et les actions observées"
+        };
+    }
+
     async function getOpponentRange(state, history, opponent) {
         const matrix = await loadMatrix();
-        return findOpponentRange(state, history, opponent, matrix);
+        const baseRange = findOpponentRange(state, history, opponent, matrix);
+        const conditioned = conditionRangeOnPostflopActions(state, history, opponent, baseRange);
+        if (conditioned.postflopActionsUsed > 0 && conditioned.combos) {
+            conditioned.label += " · ajustée postflop";
+        }
+        return conditioned;
     }
 
     async function analyse(input, history = [], options = {}) {
