@@ -2305,6 +2305,8 @@ const position = positionNames[index];
 
                         hasActed: player.hasActed,
 
+                        lastActedBet: player.lastActedBet,
+
                         position: player.position,
 
                         amountToCall:
