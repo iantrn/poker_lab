@@ -12,6 +12,7 @@
     const BET_FRACTION = 0.5;
     const BET_SIZINGS = [0.33, 0.75];
     const ACTION_LIMIT = 4;
+    const MAX_RAISES_PER_STREET = 2;
 
     const CHIP_UNIT = 0.5;
     const CHIP_EPSILON = 0.000001;
@@ -153,7 +154,7 @@
             const currentBet = Math.max(state.bets[0], state.bets[1]);
             const actorRaiseRights = !state.hasActed[actor] ||
                 currentBet - state.lastActedBets[actor] >= state.lastFullRaise - CHIP_EPSILON;
-            const canContinueAggression = state.raises < 1 &&
+            const canContinueAggression = state.raises < MAX_RAISES_PER_STREET &&
                 state.stacks[other] > 0 &&
                 actorRaiseRights;
             const canRaise = canContinueAggression &&
@@ -796,7 +797,7 @@
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · une relance maximale par street",
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · deux relances maximales par street",
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
