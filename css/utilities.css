@@ -203,6 +203,6 @@
     transition-property: transform;
     transition-duration: 150ms;
 }
-.group:hover .group-hover\\:translate-x-1 {
+.group:hover .group-hover\:translate-x-1 {
     transform: translateX(0.25rem);
 }
