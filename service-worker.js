@@ -33,6 +33,7 @@ const ASSETS_TO_CACHE = [
     "./js/modules/cfr-core.js",
     "./js/modules/postflop-strategy.js",
     "./js/modules/postflop-solver-ui.js",
+    "./pokerlab-solver-worker.js",
     "./js/modules/puzzles.js",
     "./js/modules/lessons.js",
     "./js/modules/game-review.js",
