@@ -197,3 +197,46 @@ test("Game Review accepte une main terminée et refuse les actions invalides", (
     };
     assert.equal(module.validateHand(invalid).valid, false);
 });
+
+
+test("les modules pédagogiques sont reliés à la navigation et aux sections HTML", () => {
+    const html = read("index.html");
+    const app = read("js/app.js");
+
+    for (const page of ["tactics", "lessons", "review"]) {
+        assert.match(html, new RegExp(`data-module=["']${page}["']`));
+        assert.match(app, new RegExp(`\\b${page}: window\\.PokerLab`));
+    }
+
+    for (const selector of [
+        "data-puzzles-container",
+        "data-puzzle-category",
+        "data-puzzle-difficulty",
+        "data-lessons-catalog",
+        "data-lesson-content",
+        "data-lessons-progress",
+        "data-review-history",
+        "data-review-detail"
+    ]) {
+        assert.ok(html.includes(selector), `Conteneur absent : ${selector}`);
+    }
+
+    for (const modulePath of [
+        "./js/modules/puzzles.js",
+        "./js/modules/lessons.js",
+        "./js/modules/game-review.js"
+    ]) {
+        assert.ok(html.includes(`src="${modulePath}"`), `Script non chargé : ${modulePath}`);
+    }
+});
+
+test("les mains terminées sont enregistrées avec un snapshot public du moteur", () => {
+    const training = read("js/modules/training.js");
+    const engine = read("js/core/game-engine.js");
+
+    assert.match(training, /function saveCompletedHand\(state\)/);
+    assert.match(training, /PokerLabGameReview\.saveHand\(hand\)/);
+    assert.match(training, /gameEngine\.getHandHistory\(\)/);
+    assert.match(engine, /Ne jamais exposer les cartes adverses avant le showdown/);
+    assert.match(engine, /this\.handComplete\s*&&\s*this\.lastResult\?\.type\s*===\s*"showdown"/);
+});
