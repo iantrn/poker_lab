@@ -863,7 +863,7 @@ function renderGame(state = null) {
 
             buttonsContainer.appendChild(
                 createActionButton(
-                    "Relance",
+                    actionOptions.canBet ? "Miser" : "Relancer",
                     betControls.submit,
                     { className: "pl-action-btn pl-action-btn-raise" }
                 )
@@ -1013,7 +1013,7 @@ function renderGame(state = null) {
             if (isBelowMinimum) {
                 button.disabled = true;
                 button.setAttribute("aria-disabled", "true");
-                button.title = `Relance minimale : ${formatChips(minimum)}`;
+                button.title = `${actionType === "bet" ? "Mise" : "Relance"} minimale : ${formatChips(minimum)}`;
             } else {
                 button.addEventListener("click", () => {
                     syncAmount(preset.value);
