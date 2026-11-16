@@ -1,5 +1,6 @@
 import { installRangeAdapter } from "./range-adapter";
 import { installStorageMirror } from "../storage/mirror";
+import { SolverScheduler } from "../solver/scheduler";
 
 // Keep exactly the script order from index.html in the validated V1 snapshot.
 const SCRIPTS = [
@@ -32,6 +33,9 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/components/range-matrix.js") installRangeAdapter();
     }
     installStorageMirror();
+    (window as Window & { PokerLabV2?: { solver: SolverScheduler } }).PokerLabV2 = {
+      solver: new SolverScheduler()
+    };
   })();
   return loading;
 }

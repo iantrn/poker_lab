@@ -49,6 +49,8 @@ jobs:
           test -s dist/data/ranges/preflop/matrix/ranges.json
           test -s dist/pokerlab-solver-worker.js
           test -s dist/assets/icons/icon-192.png
+      - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
+        run: node tests/v2-browser-smoke.mjs
       - name: Upload V2 preview bundle (no production deployment)
         uses: actions/upload-artifact@v4
         with:
