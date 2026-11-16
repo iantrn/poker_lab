@@ -502,3 +502,48 @@ test("l'arbre interdit une seconde relance après une relance déjà effectuée 
         ["fold", "call"]
     );
 });
+
+
+test("solvePostflop tient compte des relances déjà présentes dans l'historique réel", async () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].streetBet = 5;
+    state.players[0].stack = 20;
+    state.players[0].hasActed = true;
+    state.players[0].lastActedBet = 5;
+    state.players[0].amountToCall = 10;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 25,
+        maximumRaiseTo: 25
+    };
+    state.players[1].streetBet = 15;
+    state.players[1].stack = 20;
+
+    const history = [
+        {
+            type: "player_action",
+            street: "river",
+            data: { playerId: "hero", action: "bet", amount: 5 }
+        },
+        {
+            type: "player_action",
+            street: "river",
+            data: { playerId: "bot_1", action: "short_raise", amount: 10 }
+        }
+    ];
+
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        state,
+        history,
+        { iterations: 10, samples: 8 }
+    );
+
+    assert.deepEqual(
+        result.actions.map(action => action.action).sort(),
+        ["call", "fold"]
+    );
+});
