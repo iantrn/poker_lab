@@ -104,9 +104,17 @@
                 element("h5", "pl-solve-details-heading", "Détails stratégiques — " + strategy.street),
                 element("p", "pl-solve-detail-line",
                     strategy.iterations + " itérations CFR+ · " +
-                    strategy.sampledOpponentHands + " échantillons d'apprentissage renouvelés · " +
-                    strategy.evaluationSamples + " échantillons d'évaluation indépendants · " +
-                    strategy.treeNodes + " nœuds moyens dans l'arbre")
+                    strategy.sampledHeroHands + " mains héros échantillonnées · " +
+                    strategy.sampledOpponentHands + " mains adverses échantillonnées · " +
+                    strategy.evaluationSamples + " évaluations indépendantes · " +
+                    strategy.treeNodes + " nœuds moyens dans l'arbre"),
+                element("p", "pl-solve-detail-line",
+                    "Range héros : " + strategy.heroRangeLabel +
+                    " · main réelle incluse : " + (strategy.actualHandInHeroRange ? "oui" : "non") +
+                    " · échantillons de la main réelle : " +
+                    strategy.sampledActualHeroHand + "/" + strategy.sampledHeroHands),
+                element("p", "pl-solve-detail-line",
+                    "Range adverse : " + strategy.rangeLabel)
             );
 
             strategy.actions.forEach(item => {
