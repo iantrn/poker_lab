@@ -391,7 +391,7 @@ test("une relance est plafonnée au tapis adverse sans exiger que le héros soit
 test("le message de repli UI ne prétend pas limiter CFR+ à la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
     assert.doesNotMatch(ui, /limité à la river/);
-    assert.match(ui, /L\x27analyse stratégique n\x27a pas pu être calculée/);
+    assert.match(ui, /Fréquences stratégiques indisponibles pour cette situation/);
 });
 
 
