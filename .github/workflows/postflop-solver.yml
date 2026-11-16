@@ -1,0 +1,26 @@
+name: Postflop solver tests
+
+on:
+  pull_request:
+    paths:
+      - "js/core/evaluator.js"
+      - "js/modules/postflop-solver.js"
+      - "tests/postflop-solver.test.js"
+      - ".github/workflows/postflop-solver.yml"
+  push:
+    branches:
+      - main
+      - feature/postflop-solver-mvp
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run postflop solver tests
+        run: node --test tests/postflop-solver.test.js
