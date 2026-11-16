@@ -4,6 +4,7 @@ import { SolverScheduler } from "../solver/scheduler";
 import { installNavigation } from "../navigation";
 import { installRangesData } from "../ranges/data";
 import { installSolverPrecompute } from "../solver/precompute";
+import { installBotProfiles } from "../bots/profiles";
 
 // Keep exactly the script order from index.html in the validated V1 snapshot.
 const SCRIPTS = [
@@ -33,6 +34,7 @@ export function loadLegacy(): Promise<void> {
   loading = (async () => {
     for (const file of SCRIPTS) {
       // Preserve the original module load position with the typed implementation.
+      if (file === "js/bots/bot-profiles.js") { installBotProfiles(); continue; }
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
