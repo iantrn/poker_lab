@@ -681,6 +681,9 @@ test("une seed identique reproduit exactement le même calcul CFR+", async () =>
     assert.equal(first.randomSeed, 20261116);
     assert.equal(second.randomSeed, 20261116);
     assert.equal(first.heroEV, second.heroEV);
+    assert.equal(first.nashConv, second.nashConv);
+    assert.equal(first.exploitability, second.exploitability);
+    assert.equal(first.exploitabilityEffectiveSampleSize, second.exploitabilityEffectiveSampleSize);
     assert.equal(JSON.stringify(first.actions), JSON.stringify(second.actions));
 });
 
