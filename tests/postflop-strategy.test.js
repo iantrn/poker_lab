@@ -722,3 +722,30 @@ test("une mise à tapis inférieure à la big blind reste identifiée comme all-
         ["check", "all_in"]
     );
 });
+
+
+test("une relance qui consomme exactement le stack du héros est étiquetée all-in", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 15;
+    state.players[0].stack = 12.5;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 6,
+        maximumRaiseTo: 12.5,
+        isAllIn: true
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+
+    assert.ok(raise);
+    assert.equal(raise.action.label, "all_in_raise");
+    assert.equal(raise.action.amount, 12.5);
+});
