@@ -5,7 +5,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 
-function loadSolver() {
+function loadSolver(fetcher = async url => ({
+    ok: true,
+    json: async () => url.endsWith("index.json")
+        ? { version: 1, spots: [] }
+        : { version: 1, ranges: {} }
+})) {
     const context = {
         console,
         Math,
@@ -13,12 +18,7 @@ function loadSolver() {
         Map,
         Uint32Array,
         Promise,
-        fetch: async url => ({
-            ok: true,
-            json: async () => url.endsWith("index.json")
-                ? { version: 1, spots: [] }
-                : { version: 1, ranges: {} }
-        })
+        fetch: fetcher
     };
     context.window = context;
     vm.createContext(context);
@@ -82,4 +82,26 @@ test("une quinte flush royale au board produit une équité de partage de 50 %",
     assert.equal(result.wins, 0);
     assert.equal(result.losses, 0);
     assert.equal(result.equity, 0.5);
+});
+
+test("le solveur utilise une range préflop compatible lorsqu'elle existe", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_3bet_vs_BU_RFI", p: "BB", a: "3bet", s: "BU RFI" }] }
+            : { version: 1, ranges: { "bb/BB_3bet_vs_BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts"), card(8, "clubs"), card(10, "diamonds")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    const history = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "raise" } }
+    ];
+    const result = await app.PokerLabPostflopSolver.analyse(current, history, { iterations: 300 });
+    assert.equal(result.rangeUsed, true);
+    assert.equal(result.rangeLabel, "bb/BB_3bet_vs_BU_RFI");
+    assert.equal(result.equity, 0);
 });
