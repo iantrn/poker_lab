@@ -699,6 +699,8 @@
                     ? range.label
                     : "Range large (combinaisons bloquées)",
             rangeUsed: preflopRangeUsed,
+            rangeConditioning: range.conditioning || "aucune action postflop exploitable dans l'historique",
+            profileModeledActions: range.profileModeledActions || 0,
             decision,
             note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique non calibré des actions et des sizings postflop observés. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
         };
