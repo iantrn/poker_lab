@@ -20,7 +20,7 @@ Les fréquences sont stockées comme fractions entre 0 et 1. Les combinaisons ab
 
 Voir [tools/ranges/README.md](../../../tools/ranges/README.md) pour importer un dossier de fichiers texte, convertir un fichier isolé et valider les JSON.
 
-Les spots sont indexés avec leur nom de fichier d'origine. Leur séquence d'actions doit être mappée explicitement avant de pouvoir sélectionner automatiquement un nœud depuis l'historique d'une main PokerLab. Les codes de positions ART/GTO (MP, BU) ne sont pas automatiquement assimilés à ceux de PokerLab.
+Les spots sont indexés avec leur nom de fichier d'origine. Le solveur applique un mapping explicite des positions PokerLab vers les codes ART/GTO (BTN et BTN/SB vers BU ; HJ vers MP) ainsi que des principales actions d'agression préflop. La sélection exige une séquence exacte ; un spot absent ou ambigu déclenche le fallback uniforme au lieu de substituer une range simplement similaire. Le mapping reste volontairement explicite et doit être étendu avec des tests pour chaque nouveau code de spot.
 
 ## Format utilisé par l'application
 
