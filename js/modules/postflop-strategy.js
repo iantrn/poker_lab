@@ -292,8 +292,8 @@
                 : -node.heroInvested;
         }
         const result = global.PokerLabHandEvaluator.compareScores(
-            global.PokerLabHandEvaluator.evaluate([...hero, ...board]).score,
-            global.PokerLabHandEvaluator.evaluate([...deal.villain, ...board]).score
+            global.PokerLabHandEvaluator.evaluate([...hero, ...(deal.finalBoard || board)]).score,
+            global.PokerLabHandEvaluator.evaluate([...deal.villain, ...(deal.finalBoard || board)]).score
         );
         const payout = result > 0 ? node.pot : result === 0 ? node.pot / 2 : 0;
         return payout - node.heroInvested;
@@ -308,7 +308,7 @@
 
     function informationKey(node, deal, hero, board) {
         const privateHand = node.actor === 0 ? handId(hero) : handId(deal.villain);
-        return node.actor + "|" + privateHand + "|" + boardId(board) + "|" + node.history;
+        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) + "|" + node.history;
     }
 
     function runCfr(node, deal, traverser, reach, maps, hero, board, averageWeight) {
