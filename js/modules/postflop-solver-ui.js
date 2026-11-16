@@ -103,7 +103,7 @@
             container.append(divider, strategyHeading, strategyMeta, strategyActions, ev, abstraction, convergence);
         } else {
             const strategyInfo = element("p", "text-xs text-textMuted mb-2",
-                "Le calcul CFR+ est actuellement limité à la river. Sur le flop et le turn, cette version affiche uniquement l'analyse d'équité.");
+                "L'analyse stratégique n'a pas pu être calculée dans cette situation. L'analyse d'équité reste disponible.");
             container.append(strategyInfo);
         }
 
