@@ -81,7 +81,8 @@
 
         function build(state, depth) {
             nodes.count++;
-            if (depth > 8 || state.stacks[0] <= 0 || state.stacks[1] <= 0) {
+            if (depth > 8 || state.stacks[state.actor] <= 0 ||
+                (state.stacks[0] <= 0 && state.stacks[1] <= 0)) {
                 return terminal("showdown", state);
             }
 
