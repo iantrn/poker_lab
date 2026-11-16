@@ -3,6 +3,7 @@ import { installStorageMirror } from "../storage/mirror";
 import { SolverScheduler } from "../solver/scheduler";
 import { installNavigation } from "../navigation";
 import { installRangesData } from "../ranges/data";
+import { installSolverPrecompute } from "../solver/precompute";
 
 // Keep exactly the script order from index.html in the validated V1 snapshot.
 const SCRIPTS = [
@@ -34,6 +35,7 @@ export function loadLegacy(): Promise<void> {
       // Preserve the original module load position with the typed implementation.
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
+      if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
       await loadClassicScript(file);
       if (file === "js/components/range-matrix.js") installRangeAdapter();
     }
