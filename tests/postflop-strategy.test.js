@@ -38,6 +38,22 @@ function card(value, suit) {
     return { value, suit };
 }
 
+function consistentRiverState() {
+    const state = riverState();
+    state.currentBet = 2;
+    state.lastFullRaise = 2;
+    state.minimumRaiseTo = 4;
+    state.blinds = { smallBlind: 0.5, bigBlind: 1 };
+    state.players[0].streetBet = 0;
+    state.players[0].amountToCall = 2;
+    state.players[0].totalContribution = 6;
+    state.players[1].streetBet = 2;
+    state.players[1].amountToCall = 0;
+    state.players[1].totalContribution = 6;
+    state.pot = 12;
+    return state;
+}
+
 function riverState() {
     return {
         street: "river",
@@ -574,4 +590,29 @@ test("une seed identique reproduit exactement le même calcul CFR+", async () =>
     assert.equal(second.randomSeed, 20261116);
     assert.equal(first.heroEV, second.heroEV);
     assert.equal(JSON.stringify(first.actions), JSON.stringify(second.actions));
+});
+
+
+test("la validation rejette un état dont la mise courante ne correspond pas aux mises des joueurs", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.currentBet = 3;
+    state.minimumRaiseTo = 5;
+    state.players[0].amountToCall = 3;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /mise courante ne correspond pas/
+    );
+});
+
+test("la validation rejette un pot différent de la somme des contributions", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.pot = 13;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /pot ne correspond pas/
+    );
 });
