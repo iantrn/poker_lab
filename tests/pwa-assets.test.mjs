@@ -90,7 +90,8 @@ test("le Service Worker précache les ressources offline indispensables", () => 
         "./data/lessons/lessons.json",
         "./data/puzzles/puzzles.json",
         "./data/ranges/preflop/matrix/index.json",
-        "./data/ranges/preflop/matrix/ranges.json"
+        "./data/ranges/preflop/matrix/ranges.json",
+        "./pokerlab-solver-worker.js"
     ]) {
         assert.ok(serviceWorker.includes(`"${asset}"`), `Ressource absente du précache : ${asset}`);
     }
