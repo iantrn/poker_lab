@@ -235,3 +235,21 @@ test("une action postflop adverse modifie les poids de la range sans prétendre 
     assert.match(range.label, /ajustée postflop/);
     assert.ok(weakWeight > aaWeight);
 });
+
+
+test("le solveur conserve une range uniforme hors ligne si le bundle préflop est indisponible", async () => {
+    const app = loadSolver(async () => ({ ok: false, json: async () => ({}) }));
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        [card(14, "spades"), card(14, "hearts")]
+    );
+    current.players[1].position = "BB";
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        [],
+        current.players[1]
+    );
+    assert.equal(range.rangeUsed, false);
+    assert.match(range.label, /bundle préflop indisponible/);
+    assert.equal(range.combos.length, 1081);
+});
