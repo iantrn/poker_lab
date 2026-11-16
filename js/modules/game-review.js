@@ -321,23 +321,27 @@ window.PokerLabGameReview = (function () {
 
         }
 
+        const previousHands = hands;
         const existingIndex = hands.findIndex(
             item => item.id === preparedHand.id
         );
+        const nextHands = [...hands];
 
         if (existingIndex !== -1) {
-
-            hands[existingIndex] = preparedHand;
-
+            nextHands[existingIndex] = preparedHand;
         } else {
-
-            hands.unshift(preparedHand);
-
+            nextHands.unshift(preparedHand);
         }
 
-        hands = hands.slice(0, MAX_SAVED_HANDS);
+        hands = nextHands.slice(0, MAX_SAVED_HANDS);
 
-        persist();
+        if (!persist()) {
+            hands = previousHands;
+            return {
+                success: false,
+                errors: ["La main n'a pas pu être enregistrée dans le stockage local."]
+            };
+        }
 
         dispatch(EVENTS.HAND_SAVED, {
             hand: clone(preparedHand)
