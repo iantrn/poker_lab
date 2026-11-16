@@ -87,8 +87,8 @@ Les trois icônes PNG sont fournies : `icon-192.png` (192×192), `icon-512.png` 
 │   ├── core/                  Paquet de cartes, règles, évaluation et moteur
 │   └── modules/               Entraînement, ranges, leçons, puzzles et review
 ├── tests/
-│   │   ├── ranges/             Tests du pipeline et de l'intégrité des ranges
-│   │   └── *.test.js           Tests moteur, bots, solveur et modules pédagogiques
+│   ├── ranges/                 Tests du pipeline et de l'intégrité des ranges
+│   └── *.test.js               Tests moteur, bots, solveur et modules pédagogiques
 ├── tools/
 │   └── ranges/                Import, conversion, validation et génération
 ├── index.html                 Point d'entrée de l'application
