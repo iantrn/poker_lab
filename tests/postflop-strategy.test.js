@@ -306,3 +306,21 @@ test("CFR+ échantillonne la river et calcule une stratégie depuis le turn", as
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.treeNodes > 10);
 });
+
+
+test("l'ordre de parole des streets suivantes respecte le premier joueur actif après le bouton", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.street = "flop";
+    state.board = state.board.slice(0, 3);
+    state.postflopFirstActorId = "bot_1";
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions,
+        [],
+        [card(4, "diamonds"), card(5, "clubs")]
+    );
+    const turnNode = built.tree.actions.find(entry => entry.action.type === "check")
+        .child.actions.find(entry => entry.action.type === "check").child;
+    assert.equal(turnNode.actor, 1);
+});
