@@ -636,12 +636,32 @@ window.PokerLabTraining = (function () {
                 const action = actionAliases[rawAction] || rawAction;
                 const amount = Number(event.data.amount);
 
+                const snapshot = {};
+                [
+                    "potBefore",
+                    "potAfter",
+                    "currentBetBefore",
+                    "currentBetAfter",
+                    "streetBetBefore",
+                    "streetBetAfter",
+                    "stackBefore",
+                    "stackAfter",
+                    "totalContributionBefore",
+                    "totalContributionAfter"
+                ].forEach(key => {
+                    const value = event.data[key];
+                    if (Number.isFinite(value) && value >= 0) {
+                        snapshot[key] = value;
+                    }
+                });
+
                 return {
                     street: event.street,
                     playerId: event.data.playerId,
                     playerName: event.data.playerName || event.data.playerId,
                     type: action,
                     ...(Number.isFinite(amount) && amount >= 0 ? { amount } : {}),
+                    ...snapshot,
                     timestamp: event.timestamp
                 };
             })
@@ -655,6 +675,8 @@ window.PokerLabTraining = (function () {
             name: player.name,
             position: player.position || null,
             stack: player.stack,
+            streetBet: player.streetBet,
+            totalContribution: player.totalContribution,
             folded: Boolean(player.folded),
             allIn: Boolean(player.allIn),
             ...(Array.isArray(player.holeCards)
@@ -667,6 +689,11 @@ window.PokerLabTraining = (function () {
             sessionId: currentSession.id,
             handNumber: state.handNumber,
             gameMode: currentSession.config?.gameMode || null,
+            blinds: {
+                smallBlind: currentSession.config?.smallBlind ?? SMALL_BLIND,
+                bigBlind: currentSession.config?.bigBlind ?? BIG_BLIND
+            },
+            startingStackBB: currentSession.config?.startingStackBB ?? null,
             players,
             board: Array.isArray(state.board)
                 ? state.board.map(card => ({ ...card }))
