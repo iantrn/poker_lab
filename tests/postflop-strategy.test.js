@@ -118,7 +118,15 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
     assert.equal(result.algorithm, "CFR+ avec rééchantillonnage des chances");
     assert.equal(result.iterations, 160);
     assert.equal(result.sampledOpponentHands, 160);
-    assert.equal(result.evaluationSamples, 8);
+    assert.equal(result.evaluationSamples, 64);
+    assert.ok(Number.isFinite(result.heroEVStandardError));
+    assert.ok(result.heroEVLower95 <= result.heroEV);
+    assert.ok(result.heroEVUpper95 >= result.heroEV);
+    assert.ok(result.actions.every(action =>
+        Number.isFinite(action.evStandardError) &&
+        action.evLower95 <= action.ev &&
+        action.evUpper95 >= action.ev
+    ));
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.actions.every(action => Number.isFinite(action.ev)));
