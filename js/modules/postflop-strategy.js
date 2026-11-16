@@ -429,7 +429,8 @@
                     cards: item.cards,
                     weight: item.proposalProbability,
                     priorProbability: item.priorProbability,
-                    proposalProbability: item.proposalProbability
+                    proposalProbability: item.proposalProbability,
+                    opponentMass: item.opponentMass
                 })),
                 random
             );
