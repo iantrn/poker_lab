@@ -123,7 +123,8 @@ Les profils sont définis dans `js/bots/bot-profiles.js`. La logique de décisio
 - `js/components/navigation.js` gère la navigation entre les sections.
 - `js/modules/ranges-viewer.js` et `js/modules/ranges-data.js` gèrent la consultation des ranges préflop.
 - `js/modules/postflop-solver.js` estime l'équité contre une range adverse, utilise les matrices préflop lorsqu'un spot exact est disponible et ajuste heuristiquement les poids à partir des actions postflop observées et de leurs sizings. En l'absence du bundle, il conserve une range uniforme.
-- `js/modules/postflop-strategy.js` construit un arbre de décisions abstrait sur le flop, le turn et la river. Le moteur CFR+ rééchantillonne une main adverse et un runout à chaque itération, valide la cohérence des montants, des contributions et des options d'action avec l'état de la partie, respecte les incréments de 0,5 jeton ainsi que la dernière relance complète, et tient compte des relances déjà effectuées sur la street courante. Une seed optionnelle permet de reproduire exactement un calcul pour les tests et les benchmarks. Les EV sont évaluées sur un second jeu d'échantillons indépendants, avec erreur standard et intervalle de confiance à 95 % conditionnels à la stratégie apprise.
+- `js/modules/cfr-core.js` contient le noyau CFR+ générique : regret matching+, pondération de stratégie moyenne, traversées contrefactuelles et contrôle de cohérence des information sets. Il est testé séparément sur Kuhn Poker et Matching Pennies, deux jeux à information imparfaite dont les propriétés d'équilibre sont connues.
+- `js/modules/postflop-strategy.js` construit un arbre de décisions abstrait sur le flop, le turn et la river. Le moteur CFR+ échantillonne les ranges préflop des deux joueurs, conditionnées par leurs actions observées. La main réelle du héros est suréchantillonnée pour garantir l'apprentissage de son information set racine, avec une pondération d'importance qui corrige ce biais d'échantillonnage. Les runouts sont rééchantillonnés à chaque itération. Le moteur valide la cohérence des montants, des contributions et des options d'action avec l'état de la partie, respecte les incréments de 0,5 jeton ainsi que la dernière relance complète, et tient compte des relances déjà effectuées sur la street courante. Une seed optionnelle permet de reproduire exactement un calcul. Les EV sont évaluées sur un second jeu d'échantillons indépendants, avec erreur standard et intervalle de confiance à 95 % conditionnels à la stratégie apprise.
 - `js/modules/postflop-solver-ui.js` construit un instantané versionné et expurgé des cartes adverses, transmis aux deux moteurs. La modale affiche les fréquences d'action et réserve les EV et les limites du modèle aux détails. L'historique transmet aussi les montants avant/après chaque action (pot, mise courante, contribution totale et stack), ainsi que les tailles exactes des mises et relances.
 
 ### Données de ranges
@@ -161,10 +162,10 @@ Les tests couvrent les données de ranges, le moteur de jeu, les décisions et l
 Lancer les tests du solveur postflop :
 
 ```powershell
-node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js
+node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js
 ```
 
-La suite stratégique vérifie notamment les actions légales de l'arbre, les contraintes de tapis, les mises non couvertes, les transitions flop-turn-river et la normalisation des fréquences CFR+.
+La suite stratégique vérifie notamment les actions légales de l'arbre, les contraintes de tapis, les mises non couvertes, les transitions flop-turn-river, la normalisation des fréquences CFR+ et la convergence du noyau sur Kuhn Poker et Matching Pennies.
 
 ## Données locales et confidentialité
 
