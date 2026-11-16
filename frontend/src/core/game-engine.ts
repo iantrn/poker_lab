@@ -1,5 +1,5 @@
 /** PokerLab game engine: typed port of the validated V1 implementation. */
-export interface GameCard { value:number; suit:string; [field:string]:unknown }
+export interface GameCard { value:number; suit:string }
 export interface InputPlayer {
  id?:string;name?:string;stack:number;isHuman?:boolean;isBot?:boolean;
  botProfile?:string;profile?:string;botDifficulty?:string;difficulty?:string;
@@ -13,7 +13,7 @@ export interface GamePlayer {
 export interface GamePosition {seatIndex:number;position:string;isDealer:boolean;isSmallBlind:boolean;isBigBlind:boolean}
 export interface GameEngineOptions {players?:InputPlayer[];smallBlind?:number;bigBlind?:number;dealerIndex?:number}
 export interface GameSidePot {amount:number;eligiblePlayerIds:string[];[key:string]:unknown}
-export interface GameHandEvaluation {category:number;categoryLabel:string;score:number[];bestFiveCards:GameCard[];[key:string]:unknown}
+export interface GameHandEvaluation {category:number;categoryLabel:string;score:number[];bestFiveCards:GameCard[]}
 export interface GameResult {type:string;[key:string]:unknown}
 export interface BotDecision {action:string;amount?:number;raiseTo?:number}
 export interface GameActionOptions {
