@@ -609,6 +609,9 @@
             river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
         }[state.street];
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
+        const heroRangeInfo = typeof global.PokerLabPostflopSolver.getPlayerRange === "function"
+            ? await global.PokerLabPostflopSolver.getPlayerRange(state, history, hero)
+            : { ...rangeInfo, label: "Range héro uniforme (compatibilité)", rangeUsed: false };
         const requestedIterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
         const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
         // Chaque itération reçoit une nouvelle main adverse et un nouveau runout.
@@ -655,6 +658,8 @@
         let rootTree = null;
         let averageNodeCount = 0;
         let sampledRangeUsed = true;
+        let sampledHeroHands = 0;
+        let sampledActualHeroHand = 0;
 
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = sampleDeals(
@@ -663,12 +668,15 @@
                 rangeInfo.combos,
                 1,
                 rangeInfo.rangeUsed !== false,
-                random
+                random,
+                heroRangeInfo.combos
             );
             const deal = sampled.deals[0];
-            sampledRangeUsed = sampled.rangeUsed;
+            sampledRangeUsed = sampledRangeUsed && sampled.rangeUsed;
+            sampledHeroHands++;
+            sampledActualHeroHand += sampled.actualHeroSamples;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
             );
             const built = buildDecisionTree(
@@ -689,8 +697,8 @@
             averageNodeCount += built.nodeCount;
 
             // Une seule accumulation de stratégie moyenne par itération CFR+.
-            runCfr(built.tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
-            runCfr(built.tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
+            runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1);
+            runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1);
 
             // L'échantillonnage est renouvelé à chaque itération ; le navigateur reste réactif.
             await new Promise(resolve => setTimeout(resolve, 0));
@@ -792,6 +800,11 @@
             samplesPerIteration: 1,
             randomSeed: Number.isInteger(options.seed) ? (options.seed >>> 0) : null,
             sampledOpponentHands: trainingIterations,
+            sampledHeroHands,
+            sampledActualHeroHand,
+            heroRangeLabel: heroRangeInfo.label,
+            heroRangeUsed: heroRangeInfo.rangeUsed !== false,
+            actualHandInHeroRange: heroRangeInfo.actualHandInRange !== false,
             evaluationSamples: evaluatedDeals,
             evaluationMethod: "Échantillons indépendants ; erreur standard conditionnelle à la stratégie moyenne apprise.",
             heroEVStandardError,
@@ -807,7 +820,7 @@
             postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
             heroEV,
             actions,
-            convergence: "CFR+ échantillonné avec une nouvelle main adverse et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
+            convergence: "CFR+ échantillonné sur les ranges des deux joueurs, avec suréchantillonnage corrigé de la main réelle du héros et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
         };
     }
 
