@@ -297,3 +297,37 @@ test("les poids de chance pondèrent les regrets et la stratégie moyenne", () =
     assert.deepEqual(regrets, [2, 6]);
     assert.deepEqual(strategySum, [4, 1]);
 });
+
+
+test("la meilleure réponse agrège les poids de chance avant de choisir dans un information set partagé", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "shared-private-information-set",
+        utility: node => node.payoff
+    };
+    const makeTree = (firstPayoff, secondPayoff) => ({
+        terminal: false,
+        actor: 0,
+        actions: [
+            { action: { type: "check", label: "A" }, child: { terminal: true, payoff: firstPayoff } },
+            { action: { type: "bet", label: "B", amount: 1 }, child: { terminal: true, payoff: secondPayoff } }
+        ]
+    });
+    const deals = [
+        { root: makeTree(1, 0), deal: { weight: 1 } },
+        { root: makeTree(0, 1), deal: { weight: 4 } }
+    ];
+
+    const bestResponse = core.bestResponseValue(
+        deals,
+        maps,
+        callbacks,
+        0,
+        deal => deal.weight
+    );
+
+    assert.equal(bestResponse.informationSets, 1);
+    assert.equal(bestResponse.totalWeight, 5);
+    assert.ok(Math.abs(bestResponse.value - 0.8) < 1e-9);
+});
