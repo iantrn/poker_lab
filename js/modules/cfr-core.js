@@ -114,6 +114,124 @@
             : Array(node.actions.length).fill(1 / node.actions.length);
     }
 
+    function bestResponse(dealTrees, player, maps, callbacks) {
+        if (player !== 0 && player !== 1) {
+            throw new Error("Le joueur de la meilleure réponse doit être 0 ou 1.");
+        }
+        if (!Array.isArray(dealTrees) || dealTrees.length === 0) {
+            throw new Error("La meilleure réponse exige au moins un arbre de décision.");
+        }
+
+        const informationSets = new Map();
+        let totalChanceWeight = 0;
+
+        function collect(node, deal, weight, depth) {
+            if (node.terminal || weight <= 0) return;
+            if (node.actor === player) {
+                const key = callbacks.informationKey(node, deal);
+                let group = informationSets.get(key);
+                if (!group) {
+                    group = { key, depth, actionCount: node.actions.length, records: [] };
+                    informationSets.set(key, group);
+                } else if (group.actionCount !== node.actions.length) {
+                    throw new Error("Un information set CFR contient des ensembles d'actions incompatibles.");
+                }
+                group.records.push({ node, deal, weight });
+
+                // Counterfactual reach excludes the responding player's own
+                // realization probability, so all of its actions are explored.
+                for (const entry of node.actions) {
+                    collect(entry.child, deal, weight, depth + 1);
+                }
+                return;
+            }
+
+            const strategy = getStrategy(node, deal, maps, callbacks);
+            for (let index = 0; index < node.actions.length; index++) {
+                const probability = Number(strategy[index]) || 0;
+                if (probability > 0) {
+                    collect(node.actions[index].child, deal, weight * probability, depth + 1);
+                }
+            }
+        }
+
+        for (const item of dealTrees) {
+            const weight = Number(item.weight) > 0 ? Number(item.weight) : 1;
+            totalChanceWeight += weight;
+            collect(item.root, item.deal, weight, 0);
+        }
+
+        const policies = new Map();
+
+        function evaluate(node, deal) {
+            if (node.terminal) return callbacks.utility(node, deal);
+            if (node.actor === player) {
+                const key = callbacks.informationKey(node, deal);
+                const selectedAction = policies.get(key);
+                const index = Number.isInteger(selectedAction) ? selectedAction : 0;
+                return evaluate(node.actions[index].child, deal);
+            }
+
+            const strategy = getStrategy(node, deal, maps, callbacks);
+            let value = 0;
+            for (let index = 0; index < node.actions.length; index++) {
+                value += strategy[index] * evaluate(node.actions[index].child, deal);
+            }
+            return value;
+        }
+
+        const groups = Array.from(informationSets.values())
+            .sort((first, second) => second.depth - first.depth);
+
+        for (const group of groups) {
+            const actionValues = new Array(group.actionCount).fill(0);
+            for (const record of group.records) {
+                for (let index = 0; index < group.actionCount; index++) {
+                    actionValues[index] += record.weight *
+                        evaluate(record.node.actions[index].child, record.deal);
+                }
+            }
+
+            let bestIndex = 0;
+            for (let index = 1; index < actionValues.length; index++) {
+                const isBetter = player === 0
+                    ? actionValues[index] > actionValues[bestIndex]
+                    : actionValues[index] < actionValues[bestIndex];
+                if (isBetter) bestIndex = index;
+            }
+            policies.set(group.key, bestIndex);
+        }
+
+        let valueSum = 0;
+        for (const item of dealTrees) {
+            const weight = Number(item.weight) > 0 ? Number(item.weight) : 1;
+            valueSum += weight * evaluate(item.root, item.deal);
+        }
+
+        return {
+            player,
+            value: valueSum / totalChanceWeight,
+            informationSets: informationSets.size,
+            policies
+        };
+    }
+
+    function estimateExploitability(dealTrees, maps, callbacks) {
+        const playerZero = bestResponse(dealTrees, 0, maps, callbacks);
+        const playerOne = bestResponse(dealTrees, 1, maps, callbacks);
+        const nashConv = Math.max(0, playerZero.value - playerOne.value);
+        return {
+            playerZeroBestResponse: playerZero.value,
+            playerOneBestResponse: playerOne.value,
+            nashConv,
+            exploitability: nashConv / 2,
+            informationSets: {
+                playerZero: playerZero.informationSets,
+                playerOne: playerOne.informationSets
+            }
+        };
+    }
+
     function createMaps() {
         return { regrets: new Map(), strategy: new Map() };
     }
@@ -123,6 +241,8 @@
         runCfr,
         averageStrategy,
         getStrategy,
+        bestResponse,
+        estimateExploitability,
         createMaps
     };
 })(window);
