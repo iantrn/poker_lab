@@ -1,6 +1,7 @@
 import { installRangeAdapter } from "./range-adapter";
 import { installStorageMirror } from "../storage/mirror";
 import { SolverScheduler } from "../solver/scheduler";
+import { installNavigation } from "../navigation";
 
 // Keep exactly the script order from index.html in the validated V1 snapshot.
 const SCRIPTS = [
@@ -29,6 +30,8 @@ export function loadLegacy(): Promise<void> {
   if (loading) return loading;
   loading = (async () => {
     for (const file of SCRIPTS) {
+      // Preserve the original module load position with the typed implementation.
+      if (file === "js/components/navigation.js") { installNavigation(); continue; }
       await loadClassicScript(file);
       if (file === "js/components/range-matrix.js") installRangeAdapter();
     }
