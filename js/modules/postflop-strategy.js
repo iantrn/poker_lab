@@ -7,8 +7,8 @@
 "use strict";
 
 (function (global) {
-    const DEFAULT_ITERATIONS = 120;
-    const DEFAULT_SAMPLES = 48;
+    const DEFAULT_ITERATIONS = 60;
+    const DEFAULT_SAMPLES = 24;
     const BET_FRACTION = 0.5;
     const ACTION_LIMIT = 3;
 
@@ -400,7 +400,7 @@
         const { hero, opponent } = validate(state);
         const defaults = {
             flop: { iterations: 30, samples: 12 },
-            turn: { iterations: 60, samples: 24 },
+            turn: { iterations: 40, samples: 16 },
             river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
         }[state.street];
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
@@ -451,10 +451,8 @@
                 runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
                 runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
             }
-            // Yield periodically so the PWA remains responsive during CFR iterations.
-            if (iteration % 5 === 4) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
+            // Yield after every iteration so the PWA remains responsive.
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
 
         const rootTree = trees[0].tree;
