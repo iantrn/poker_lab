@@ -850,6 +850,15 @@ test("CFR+ entraîne les deux ranges et suréchantillonne la main réelle avec c
     assert.equal(result.sampledOpponentHands, 160);
     assert.ok(result.actions.every(action => Number.isFinite(action.frequency)));
     assert.ok(Math.abs(result.actions.reduce((sum, action) => sum + action.frequency, 0) - 1) < 1e-6);
+    assert.ok(result.exploitabilitySamples >= 8);
+    assert.ok(Number.isFinite(result.profileEV));
+    assert.ok(Number.isFinite(result.heroBestResponseEV));
+    assert.ok(Number.isFinite(result.opponentBestResponseEV));
+    assert.ok(Number.isFinite(result.nashConv));
+    assert.ok(Number.isFinite(result.exploitability));
+    assert.ok(Math.abs(result.exploitability - result.nashConv / 2) < 1e-9);
+    assert.ok(result.heroDeviationGain >= -1e-8);
+    assert.ok(result.opponentDeviationGain >= -1e-8);
 });
 
 test("la stratégie conserve un fallback si l'API de range héro n'est pas disponible", async () => {
