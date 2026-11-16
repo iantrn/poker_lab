@@ -14,19 +14,19 @@
       "options": [
         {
           "action": "fold",
-          "label": "Fold"
+          "label": "Se coucher"
         },
         {
           "action": "call",
-          "label": "Call"
+          "label": "Suivre"
         },
         {
           "action": "raise",
-          "label": "Raise (open)"
+          "label": "Relancer (ouverture)"
         },
         {
           "action": "all-in",
-          "label": "All-in"
+          "label": "Tapis"
         }
       ],
       "solution": {
@@ -47,19 +47,19 @@
       "options": [
         {
           "action": "fold",
-          "label": "Fold"
+          "label": "Se coucher"
         },
         {
           "action": "call",
-          "label": "Call"
+          "label": "Suivre"
         },
         {
           "action": "raise",
-          "label": "Raise"
+          "label": "Relancer"
         },
         {
           "action": "all-in",
-          "label": "All-in"
+          "label": "Tapis"
         }
       ],
       "solution": {
@@ -80,11 +80,11 @@
       "options": [
         {
           "action": "fold",
-          "label": "Fold"
+          "label": "Se coucher"
         },
         {
           "action": "call",
-          "label": "Call"
+          "label": "Suivre"
         },
         {
           "action": "raise",
@@ -92,7 +92,7 @@
         },
         {
           "action": "all-in",
-          "label": "All-in"
+          "label": "Tapis"
         }
       ],
       "solution": {
@@ -113,19 +113,19 @@
       "options": [
         {
           "action": "check",
-          "label": "Check"
+          "label": "Checker"
         },
         {
           "action": "bet",
-          "label": "Bet"
+          "label": "Miser"
         },
         {
           "action": "fold",
-          "label": "Fold"
+          "label": "Se coucher"
         },
         {
           "action": "all-in",
-          "label": "All-in"
+          "label": "Tapis"
         }
       ],
       "solution": {
@@ -179,19 +179,19 @@
       "options": [
         {
           "action": "fold",
-          "label": "Fold"
+          "label": "Se coucher"
         },
         {
           "action": "call",
-          "label": "Call"
+          "label": "Suivre"
         },
         {
           "action": "raise",
-          "label": "Raise"
+          "label": "Relancer"
         },
         {
           "action": "all-in",
-          "label": "All-in"
+          "label": "Tapis"
         }
       ],
       "solution": {
@@ -216,15 +216,15 @@
         },
         {
           "action": "bet",
-          "label": "Bet pour value"
+          "label": "Miser pour value"
         },
         {
           "action": "fold",
-          "label": "Fold"
+          "label": "Se coucher"
         },
         {
           "action": "all-in",
-          "label": "All-in sans tenir compte de la range"
+          "label": "Tapis sans tenir compte de la range"
         }
       ],
       "solution": {

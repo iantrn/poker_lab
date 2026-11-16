@@ -281,7 +281,7 @@
             if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
                 if (button.isConnected) {
                     panel.replaceChildren(element("p", "text-sm text-textMuted",
-                        "La situation a changé pendant le calcul. Relance SOLVE pour analyser la nouvelle situation."));
+                        "La situation a changé pendant le calcul. Relance l’analyse pour analyser la nouvelle situation."));
                 }
                 return;
             }
@@ -305,7 +305,7 @@
             if (!button.isConnected || stateKey(latestState) !== initialKey) {
                 if (button.isConnected) {
                     panel.replaceChildren(element("p", "text-sm text-textMuted",
-                        "La situation a changé pendant le calcul. Relance SOLVE pour analyser la nouvelle situation."));
+                        "La situation a changé pendant le calcul. Relance l’analyse pour analyser la nouvelle situation."));
                 }
                 return;
             }
@@ -314,7 +314,7 @@
         } catch (error) {
             if (button.isConnected) {
                 const message = error.name === "AbortError"
-                    ? "La situation a changé pendant le calcul. Relance SOLVE pour analyser la nouvelle situation."
+                    ? "La situation a changé pendant le calcul. Relance l’analyse pour analyser la nouvelle situation."
                     : error.message;
                 panel.replaceChildren(element(
                     "p",
@@ -327,7 +327,7 @@
             busy = false;
             if (button.isConnected) {
                 button.disabled = false;
-                button.textContent = "SOLVE";
+                button.textContent = "Analyser";
             }
         }
     }
@@ -360,7 +360,7 @@
                     oldPanel.replaceChildren(element(
                         "p",
                         "text-sm text-textMuted",
-                        "La situation a changé. Ferme cette fenêtre puis relance SOLVE pour analyser le nouveau spot."
+                        "La situation a changé. Ferme cette fenêtre puis relance l’analyse pour analyser le nouveau spot."
                     ));
                 }
             }
@@ -369,7 +369,7 @@
 
         const button = element("button",
             "pl-solve-button bg-primary hover:bg-primaryHover text-white font-bold rounded-lg px-5 py-3 transition",
-            "SOLVE");
+            "Analyser");
         button.type = "button";
         button.dataset.postflopSolve = "true";
         button.dataset.solveStateKey = currentKey;
