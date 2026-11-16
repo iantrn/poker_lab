@@ -153,9 +153,10 @@
             const currentBet = Math.max(state.bets[0], state.bets[1]);
             const actorRaiseRights = !state.hasActed[actor] ||
                 currentBet - state.lastActedBets[actor] >= state.lastFullRaise - CHIP_EPSILON;
-            const canRaise = state.raises < 1 &&
+            const canContinueAggression = state.raises < 1 &&
                 state.stacks[other] > 0 &&
-                actorRaiseRights &&
+                actorRaiseRights;
+            const canRaise = canContinueAggression &&
                 !(state.root && actor === 0 && rootOptions.canRaise === false);
 
             if (toCall > 0) {
@@ -186,7 +187,7 @@
             } else {
                 actions.push(makeAction("check", "check"));
                 const rootBetAllowed = !state.root || rootOptions.canBet;
-                if (canRaise && rootBetAllowed && state.stacks[actor] > 0) {
+                if (canContinueAggression && rootBetAllowed && state.stacks[actor] > 0) {
                     const minimumBet = ceilChips(state.root && Number.isFinite(rootOptions.minimumBet)
                         ? rootOptions.minimumBet : 1);
                     const effectiveBetStack = floorChips(Math.min(state.stacks[actor], state.stacks[other]));
