@@ -86,6 +86,14 @@
         return { label, type, amount };
     }
 
+    function rootActionSignature(tree) {
+        return JSON.stringify((tree.actions || []).map(entry => [
+            entry.action.type,
+            entry.action.label,
+            Number(entry.action.amount) || 0
+        ]));
+    }
+
     function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0, rootRaises = 0) {
         const initial = {
             actor: 0,
@@ -674,6 +682,7 @@
             : Math.random;
         const maps = { regrets: new Map(), strategy: new Map() };
         let rootTree = null;
+        let expectedRootSignature = null;
         let averageNodeCount = 0;
         let sampledRangeUsed = true;
 
@@ -703,9 +712,11 @@
             if (built.tree.terminal || !built.tree.actions || !built.tree.actions.length) {
                 throw new Error("Aucune décision stratégique disponible dans cette situation.");
             }
-            if (rootTree && built.tree.actions.length !== rootTree.actions.length) {
-                throw new Error("L'arbre stratégique change de structure entre deux échantillons.");
+            const signature = rootActionSignature(built.tree);
+            if (expectedRootSignature !== null && signature !== expectedRootSignature) {
+                throw new Error("Les actions légales à la racine changent entre les échantillons.");
             }
+            expectedRootSignature = signature;
             rootTree = built.tree;
             averageNodeCount += built.nodeCount;
 
@@ -749,7 +760,9 @@
                 rootChecks,
                 rootRaises
             );
-            if (built.tree.actions.length !== rootTree.actions.length) continue;
+            if (rootActionSignature(built.tree) !== expectedRootSignature) {
+                throw new Error("L'arbre d'évaluation ne correspond pas aux actions légales apprises.");
+            }
 
             const sampleActionValues = [];
             for (let actionIndex = 0; actionIndex < rootTree.actions.length; actionIndex++) {
