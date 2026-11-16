@@ -5,6 +5,9 @@ on:
     paths:
       - "js/core/evaluator.js"
       - "js/modules/postflop-solver.js"
+      - "js/modules/postflop-solver-ui.js"
+      - "index.html"
+      - "service-worker.js"
       - "tests/postflop-solver.test.js"
       - ".github/workflows/postflop-solver.yml"
   push:
