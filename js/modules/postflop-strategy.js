@@ -344,6 +344,10 @@
                 runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board);
                 runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board);
             }
+            // Yield periodically so the PWA remains responsive during CFR iterations.
+            if (iteration % 5 === 4) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
         }
 
         const rootStrategy = getRootStrategy(tree, deals[0], maps, hero.holeCards, state.board);
