@@ -70,11 +70,11 @@ test("le solveur refuse les pots multiway", () => {
     assert.throws(() => app.PokerLabPostflopSolver.validateState(current), /heads-up/);
 });
 
-test("une quinte flush royale commune produit une équité de partage de 50 %", async () => {
+test("une quinte flush royale au board produit une équité de partage de 50 %", async () => {
     const app = loadSolver();
     const current = state(
-        [card(12, "spades"), card(11, "spades"), card(10, "spades"), card(2, "diamonds"), card(3, "clubs")],
-        [card(14, "spades"), card(13, "spades")]
+        [card(14, "spades"), card(13, "spades"), card(12, "spades"), card(11, "spades"), card(10, "spades")],
+        [card(2, "clubs"), card(3, "clubs")]
     );
     const result = await app.PokerLabPostflopSolver.analyse(current, [], { iterations: 300 });
     assert.equal(result.iterations, 300);
