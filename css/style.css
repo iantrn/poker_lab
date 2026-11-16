@@ -2471,3 +2471,79 @@ main:has(> #training:not([hidden])) {
         grid-column: auto;
     }
 }
+
+
+/* SOLVE : vraie boîte de dialogue native, accessible au clavier et sur mobile. */
+#training-actions .pl-solve-dialog {
+    box-sizing: border-box;
+    width: min(720px, calc(100vw - 32px));
+    max-width: 720px;
+    max-height: min(82vh, 760px);
+    margin: auto;
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--border-medium);
+    border-radius: 16px;
+    background: var(--bg-surface, var(--bg-background, #171717));
+    color: var(--text-primary);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+}
+#training-actions .pl-solve-dialog::backdrop {
+    background: rgba(0, 0, 0, .72);
+    backdrop-filter: blur(3px);
+}
+#training-actions .pl-solve-dialog-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-medium);
+    background: var(--bg-surface, #171717);
+}
+#training-actions .pl-solve-dialog-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 800;
+}
+#training-actions .pl-solve-dialog-close {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 1px solid var(--border-medium);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: .8rem;
+    font-weight: 650;
+}
+#training-actions .pl-solve-dialog-close:hover,
+#training-actions .pl-solve-dialog-close:focus-visible {
+    background: var(--bg-surface-light);
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 2px;
+}
+#training-actions .pl-solve-result {
+    min-height: 80px;
+    padding: 18px;
+}
+#training-actions .pl-solve-dialog .pl-solve-heading {
+    margin-top: 0;
+}
+@media (max-width: 600px) {
+    #training-actions .pl-solve-dialog {
+        width: calc(100vw - 20px);
+        max-height: 88vh;
+        border-radius: 12px;
+    }
+    #training-actions .pl-solve-dialog-header {
+        padding: 13px 14px;
+    }
+    #training-actions .pl-solve-result {
+        padding: 14px;
+    }
+}
