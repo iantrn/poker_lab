@@ -183,3 +183,44 @@ test("une mise d'ouverture inférieure à la big blind est refusée hors tapis",
     );
     assert.equal(engine.getState().pot, 2);
 });
+
+
+test("l'historique conserve les montants exacts d'une mise et d'une relance", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app);
+    engine.startHand();
+
+    engine.act("call", null, "hero");
+    engine.act("check", null, "player_1");
+    engine.act("bet", 3, "player_1");
+    engine.act("raise", 9, "hero");
+
+    const actions = engine.getHandHistory().filter(event =>
+        event.type === "player_action" &&
+        ["bet", "raise"].includes(event.data.action)
+    );
+
+    assert.equal(actions.length, 2);
+
+    const bet = actions[0].data;
+    assert.equal(bet.potBefore, 2);
+    assert.equal(bet.potAfter, 5);
+    assert.equal(bet.currentBetBefore, 0);
+    assert.equal(bet.currentBetAfter, 3);
+    assert.equal(bet.streetBetBefore, 0);
+    assert.equal(bet.streetBetAfter, 3);
+    assert.equal(bet.betTo, 3);
+    assert.equal(bet.raiseSize, 3);
+    assert.equal(bet.isFullRaise, true);
+
+    const raise = actions[1].data;
+    assert.equal(raise.potBefore, 5);
+    assert.equal(raise.potAfter, 14);
+    assert.equal(raise.currentBetBefore, 3);
+    assert.equal(raise.currentBetAfter, 9);
+    assert.equal(raise.streetBetBefore, 0);
+    assert.equal(raise.streetBetAfter, 9);
+    assert.equal(raise.raiseTo, 9);
+    assert.equal(raise.raiseSize, 6);
+    assert.equal(raise.isFullRaise, true);
+});
