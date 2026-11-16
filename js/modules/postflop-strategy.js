@@ -199,7 +199,11 @@
                         if (amount <= 0 || addedBetAmounts.has(amount)) continue;
                         addedBetAmounts.add(amount);
                         largestBet = Math.max(largestBet, amount);
-                        actions.push(makeAction("bet_" + Math.round(fraction * 100), "bet", amount));
+                        const isAllInSizing = Math.abs(amount - effectiveBetStack) <= CHIP_EPSILON;
+                        const label = isAllInSizing
+                            ? "all_in"
+                            : "bet_" + Math.round(fraction * 100);
+                        actions.push(makeAction(label, "bet", amount));
                     }
                     if (largestBet > 0 && effectiveBetStack > largestBet * 1.25) {
                         actions.push(makeAction("all_in", "bet", effectiveBetStack));
