@@ -38,14 +38,9 @@ const ASSETS_TO_CACHE = [
     "./js/modules/game-review.js",
     "./data/ranges/preflop/catalog/index.json",
     "./data/ranges/preflop/matrix/index.json",
+    "./data/ranges/preflop/matrix/ranges.json",
     "./data/puzzles/puzzles.json",
     "./data/lessons/lessons.json"
-];
-
-// Généré par tools/ranges/build-matrix.mjs.
-// Facultatif pendant le développement, indispensable pour l'offline complet des ranges.
-const OPTIONAL_ASSETS_TO_CACHE = [
-    "./data/ranges/preflop/matrix/ranges.json"
 ];
 
 self.addEventListener("message", event => {
@@ -61,15 +56,6 @@ self.addEventListener("install", event => {
         // Les ressources essentielles doivent toutes être disponibles.
         // Une erreur fait échouer l'installation plutôt que de publier un cache incomplet.
         await cache.addAll(ASSETS_TO_CACHE);
-
-        // Le bundle est facultatif tant que le script de génération n'a pas été exécuté.
-        await Promise.all(OPTIONAL_ASSETS_TO_CACHE.map(async asset => {
-            try {
-                await cache.add(asset);
-            } catch (error) {
-                console.warn("[PokerLab SW] Bundle offline non précaché :", asset, error);
-            }
-        }));
 
         await self.skipWaiting();
     })());
