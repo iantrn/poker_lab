@@ -2048,3 +2048,30 @@ button {
     outline: 2px solid var(--accent-gold);
     outline-offset: 3px;
 }
+
+/* PokerLab v10 — zone de jeu en pleine largeur d'écran. */
+#training {
+    width: 100vw !important;
+    max-width: none !important;
+    margin-left: calc(50% - 50vw) !important;
+    margin-right: calc(50% - 50vw) !important;
+}
+
+#training > div {
+    width: 100% !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+}
+
+#training-game,
+#training-table,
+.pl-table-container,
+#training-actions {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.pl-table-container {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
