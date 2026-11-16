@@ -212,6 +212,8 @@
                 pot: state.pot,
                 stacks: state.stacks.slice(),
                 bets: state.bets.slice(),
+                hasActed: state.hasActed.slice(),
+                lastActedBets: state.lastActedBets.slice(),
                 lastFullRaise: state.lastFullRaise,
                 raises: state.raises,
                 checks: state.checks,
@@ -385,6 +387,8 @@
             roundChips(node.pot),
             (node.stacks || []).map(roundChips).join(","),
             (node.bets || []).map(roundChips).join(","),
+            (node.hasActed || []).map(Boolean).join(","),
+            (node.lastActedBets || []).map(roundChips).join(","),
             roundChips(node.lastFullRaise),
             node.raises || 0,
             node.checks || 0
