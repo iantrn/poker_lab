@@ -461,10 +461,9 @@
         let rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
         let sourceRange = rangeUsed ? baseRange : {
             ...baseRange,
-            combos: buildUniformCombos([
-                ...(player.isHuman ? [] : (state.players.find(item => item.isHuman)?.holeCards || [])),
-                ...state.board
-            ])
+            // Une range source adverse ne doit pas être bloquée par la main réelle
+            // du héros : sampleDeals applique les bloqueurs pour chaque main héros tirée.
+            combos: buildUniformCombos(state.board)
         };
 
         // The known human hand must belong to the modeled hero range. If the
