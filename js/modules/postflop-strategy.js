@@ -306,10 +306,12 @@
                 ? node.pot - node.heroInvested
                 : -node.heroInvested;
         }
-        const result = global.PokerLabHandEvaluator.compareScores(
-            global.PokerLabHandEvaluator.evaluate([...hero, ...(deal.finalBoard || board)]).score,
-            global.PokerLabHandEvaluator.evaluate([...deal.villain, ...(deal.finalBoard || board)]).score
-        );
+        const result = Number.isInteger(deal.showdownResult)
+            ? deal.showdownResult
+            : global.PokerLabHandEvaluator.compareScores(
+                global.PokerLabHandEvaluator.evaluate([...hero, ...(deal.finalBoard || board)]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...(deal.finalBoard || board)]).score
+            );
         const payout = result > 0 ? node.pot : result === 0 ? node.pot / 2 : 0;
         return payout - node.heroInvested;
     }
@@ -417,6 +419,14 @@
         const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
         const sampled = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
         const deals = sampled.deals;
+        // A deal's showdown result is invariant across every betting path.
+        // Evaluate it once instead of re-running the hand evaluator at each leaf.
+        for (const deal of deals) {
+            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
+                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            );
+        }
         const priorHistory = (history || [])
             .filter(event => event.type === "player_action" && event.street === state.street)
             .map(event => {
