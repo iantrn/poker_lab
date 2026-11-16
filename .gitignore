@@ -3,3 +3,10 @@
 /private-ranges/
 /artgto-viewer.zip
 /ranges.zip
+
+# V2 generated artifacts and dependencies
+/frontend/node_modules/
+/dist/
+/engine/target/
+/engine/pkg/
+/engine/pkg-node/
