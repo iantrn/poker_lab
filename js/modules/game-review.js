@@ -385,21 +385,24 @@ window.PokerLabGameReview = (function () {
 
     function deleteHand(id) {
 
-        const initialLength = hands.length;
+        const previousHands = hands;
+        const previousCurrentHand = currentHand;
+        const nextHands = hands.filter(hand => hand.id !== id);
 
-        hands = hands.filter(
-            hand => hand.id !== id
-        );
-
-        if (hands.length === initialLength) {
+        if (nextHands.length === hands.length) {
             return false;
         }
 
+        hands = nextHands;
         if (currentHand && currentHand.id === id) {
             currentHand = null;
         }
 
-        persist();
+        if (!persist()) {
+            hands = previousHands;
+            currentHand = previousCurrentHand;
+            return false;
+        }
 
         dispatch(EVENTS.HAND_DELETED, {
             handId: id
@@ -412,11 +415,17 @@ window.PokerLabGameReview = (function () {
 
     function clearHistory() {
 
-        hands = [];
+        const previousHands = hands;
+        const previousCurrentHand = currentHand;
 
+        hands = [];
         currentHand = null;
 
-        persist();
+        if (!persist()) {
+            hands = previousHands;
+            currentHand = previousCurrentHand;
+            return false;
+        }
 
         return true;
 
