@@ -141,7 +141,8 @@
                         strategy.nashConv.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
                         " jetons · exploitabilité estimée : " +
                         strategy.exploitability.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
-                        " jetons · " + strategy.exploitabilitySamples + " deals indépendants"),
+                        " jetons · " + strategy.exploitabilitySamples + " deals indépendants · ESS " +
+                        strategy.exploitabilityEffectiveSampleSize.toLocaleString("fr-FR", { maximumFractionDigits: 1 })),
                     element("p", "pl-solve-detail-line",
                         "Gain d'une déviation optimale estimée — héros : +" +
                         strategy.heroDeviationGain.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
