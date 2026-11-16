@@ -13,6 +13,8 @@ L'application permet de jouer contre des adversaires automatisés, de consulter 
 - Évaluation des mains et détermination des gagnants.
 - Historique des actions d'une main.
 - Consultation des ranges préflop depuis le module Apprentissage.
+- Analyse d'équité postflop Monte-Carlo en heads-up.
+- Analyse stratégique postflop expérimentale par CFR+ avec échantillonnage des mains adverses et des runouts, arbre de décisions simplifié et estimation des EV par action.
 - Mise en cache des ressources et des ranges pour une utilisation hors connexion après le premier chargement.
 - Interface responsive pour ordinateur, tablette et mobile.
 
@@ -120,6 +122,9 @@ Les profils sont définis dans `js/bots/bot-profiles.js`. La logique de décisio
 - `js/modules/training.js` gère la configuration des parties, les actions du joueur et l'enchaînement des tours des bots.
 - `js/components/navigation.js` gère la navigation entre les sections.
 - `js/modules/ranges-viewer.js` et `js/modules/ranges-data.js` gèrent la consultation des ranges préflop.
+- `js/modules/postflop-solver.js` estime l'équité contre une range adverse et utilise les matrices préflop lorsqu'un spot exact est disponible.
+- `js/modules/postflop-strategy.js` construit un arbre de décisions abstrait sur le flop, le turn et la river, puis calcule des fréquences de stratégie par CFR+ avec échantillonnage des runouts.
+- `js/modules/postflop-solver-ui.js` intègre le bouton SOLVE et affiche l'équité, les fréquences d'action et les EV estimées.
 
 ### Données de ranges
 
@@ -151,7 +156,15 @@ node tools/ranges/build-matrix.mjs --input-dir chemin/vers/les-ranges-normalisee
 
 Les commandes d'import et de conversion, leurs paramètres et les conventions de données sont détaillés dans [tools/ranges/README.md](tools/ranges/README.md).
 
-Les tests actuellement présents couvrent la conversion et la validation des données de ranges. Ils ne constituent pas encore une suite complète de tests automatisés du moteur de poker et de l'interface.
+Les tests couvrent les données de ranges ainsi que les premiers modules d'analyse postflop.
+
+Lancer les tests du solveur postflop :
+
+```powershell
+node --test tests/postflop-solver.test.js tests/postflop-strategy.test.js
+```
+
+La suite stratégique vérifie notamment les actions légales de l'arbre, les contraintes de tapis, les mises non couvertes, les transitions flop-turn-river et la normalisation des fréquences CFR+.
 
 ## Données locales et confidentialité
 
@@ -163,4 +176,4 @@ Les cartes privatives des adversaires ne doivent pas être exposées à l'état 
 
 PokerLab est en développement. Certaines sections de l'interface, notamment les tactiques, les leçons et la Game Review, peuvent encore contenir des espaces réservés ou des fonctionnalités incomplètes.
 
-Le solveur postflop n'est pas encore intégré. Son développement doit intervenir après la stabilisation du moteur de jeu, de l'affichage et des règles de confidentialité des cartes.
+Le module SOLVE est intégré à la branche de développement. Son moteur stratégique reste expérimental : heads-up uniquement, tailles de mises abstraites (50 % du pot et tapis effectif), une relance maximale par street et nombre limité d'itérations/scénarios échantillonnés. Il ne calcule pas encore un équilibre GTO certifié et son exploitabilité n'est pas mesurée. Les résultats doivent être interprétés comme une approximation d'entraînement, pas comme une stratégie optimale garantie. La validation manuelle dans un navigateur et sur une session réelle reste nécessaire.
