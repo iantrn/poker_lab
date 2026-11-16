@@ -11,7 +11,7 @@
     const DEFAULT_SAMPLES = 24;
     const BET_FRACTION = 0.5;
     const BET_SIZINGS = [0.33, 0.75];
-    const ACTION_LIMIT = 4;
+    const ACTION_LIMIT = 5;
     const MAX_RAISES_PER_STREET = 4;
 
     const CHIP_UNIT = 0.5;
@@ -180,22 +180,74 @@
                     ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor], effectiveMaximum)
                     : Math.min(state.stacks[actor], effectiveMaximum));
                 if (canRaise && state.stacks[actor] > toCall) {
-                    const desiredRaiseTotal = ceilChips(toCall + Math.max(toCall, state.pot * BET_FRACTION,
-                        requiredRaiseTotal - toCall, state.lastFullRaise));
-                    if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
-                        const isAllIn = Math.abs(desiredRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
-                        actions.push(makeAction(
-                            isAllIn ? "all_in_raise" : "raise",
-                            "raise",
-                            desiredRaiseTotal
+                    if (state.root) {
+                        const minimumRaiseIncrement = Math.max(
+                            state.lastFullRaise,
+                            requiredRaiseTotal - toCall
+                        );
+                        const rootRaiseOptions = [
+                            {
+                                label: "min_raise",
+                                amount: ceilChips(toCall + minimumRaiseIncrement)
+                            },
+                            {
+                                label: "raise_50",
+                                amount: ceilChips(toCall + Math.max(
+                                    minimumRaiseIncrement,
+                                    toCall,
+                                    state.pot * BET_FRACTION
+                                ))
+                            }
+                        ];
+                        const uniqueRaises = new Map();
+
+                        for (const option of rootRaiseOptions) {
+                            if (option.amount <= toCall + CHIP_EPSILON ||
+                                option.amount > maximumRaiseTotal + CHIP_EPSILON) continue;
+                            let label = option.label;
+                            if (Math.abs(option.amount - state.stacks[actor]) <= CHIP_EPSILON) {
+                                label = "all_in_raise";
+                            } else if (Math.abs(option.amount - effectiveMaximum) <= CHIP_EPSILON) {
+                                label = "raise_effective";
+                            }
+                            if (!uniqueRaises.has(option.amount)) {
+                                uniqueRaises.set(option.amount, label);
+                            }
+                        }
+
+                        if (maximumRaiseTotal > toCall + CHIP_EPSILON) {
+                            const maximumLabel =
+                                Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON
+                                    ? "all_in_raise"
+                                    : "raise_effective";
+                            uniqueRaises.set(maximumRaiseTotal, maximumLabel);
+                        }
+
+                        for (const [amount, label] of uniqueRaises) {
+                            actions.push(makeAction(label, "raise", amount));
+                        }
+                    } else {
+                        const desiredRaiseTotal = ceilChips(toCall + Math.max(
+                            toCall,
+                            state.pot * BET_FRACTION,
+                            requiredRaiseTotal - toCall,
+                            state.lastFullRaise
                         ));
-                    } else if (maximumRaiseTotal > toCall) {
-                        const maximumIsAllIn = Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
-                        actions.push(makeAction(
-                            maximumIsAllIn ? "all_in_raise" : "raise_effective",
-                            "raise",
-                            maximumRaiseTotal
-                        ));
+                        if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
+                            const isAllIn = Math.abs(desiredRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                            actions.push(makeAction(
+                                isAllIn ? "all_in_raise" : "raise",
+                                "raise",
+                                desiredRaiseTotal
+                            ));
+                        } else if (maximumRaiseTotal > toCall) {
+                            const maximumIsAllIn = Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                            actions.push(makeAction(
+                                maximumIsAllIn ? "all_in_raise" : "raise_effective",
+                                "raise",
+                                maximumRaiseTotal
+                            ));
+                        }
                     }
                 }
             } else {
@@ -982,7 +1034,7 @@
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · quatre relances maximales dans les réponses modélisées ; racine conforme aux droits réels",
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale et sizing 50 % pot à la racine · sizing simplifié dans les réponses futures · tapis effectif · quatre relances maximales dans les réponses modélisées",
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
