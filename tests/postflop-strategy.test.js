@@ -543,7 +543,7 @@ test("solvePostflop tient compte des relances déjà présentes dans l'historiqu
     );
 
     assert.deepEqual(
-        result.actions.map(action => action.action).sort(),
+        Array.from(result.actions, action => action.action).sort(),
         ["call", "fold"]
     );
 });
