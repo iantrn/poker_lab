@@ -14,8 +14,10 @@ on:
       - "js/modules/cfr-core.js"
       - "js/modules/postflop-strategy.js"
       - "js/modules/postflop-solver-ui.js"
+      - "js/modules/solver-precompute.js"
       - "pokerlab-solver-worker.js"
       - "tests/solver-worker.test.js"
+      - "tests/solver-precompute.test.js"
       - "index.html"
       - "service-worker.js"
       - "manifest.json"
@@ -73,6 +75,8 @@ jobs:
         run: node --check js/modules/postflop-strategy.js
       - name: Check solver UI syntax
         run: node --check js/modules/postflop-solver-ui.js
+      - name: Check solver precomputation syntax
+        run: node --check js/modules/solver-precompute.js
       - name: Check solver Worker syntax
         run: node --check pokerlab-solver-worker.js
       - name: Check application bootstrap syntax
@@ -86,4 +90,4 @@ jobs:
       - name: Check Service Worker syntax
         run: node --check service-worker.js
       - name: Run game engine and postflop solver tests
-        run: node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js tests/learning-modules.test.js tests/pwa-assets.test.mjs tests/solver-worker.test.js tests/ranges/*.test.mjs
+        run: node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js tests/learning-modules.test.js tests/pwa-assets.test.mjs tests/solver-worker.test.js tests/solver-precompute.test.js tests/ranges/*.test.mjs
