@@ -489,3 +489,73 @@ test("un sizing de mise plus élevé renforce prudemment le poids des mains fort
     assert.ok(ratioFor(large) > ratioFor(small));
     assert.equal(large.postflopActionsUsed, 1);
 });
+
+
+test("le solveur construit aussi la range préflop du héros à partir de sa propre ligne", async () => {
+    const spotId = "bu/BU_RFI";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: spotId, p: "BU", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { [spotId]: { AA: 100, KK: 50 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(14, "clubs"), card(14, "hearts")]
+    );
+    current.players[0].position = "BTN";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "hero", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getPlayerRange(
+        current,
+        history,
+        current.players[0]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.actualHandInRange, true);
+    assert.equal(range.label, spotId);
+    assert.ok(range.combos.some(item =>
+        item.cards.every(card => card.value === 14)
+    ));
+});
+
+test("la range héro retombe en range large si elle exclut la main réellement distribuée", async () => {
+    const spotId = "bu/BU_RFI";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: spotId, p: "BU", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { [spotId]: { KK: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(14, "clubs"), card(14, "hearts")]
+    );
+    current.players[0].position = "BTN";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "hero", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getPlayerRange(
+        current,
+        history,
+        current.players[0]
+    );
+
+    assert.equal(range.rangeUsed, false);
+    assert.equal(range.actualHandInRange, true);
+    assert.match(range.label, /main réelle absente/);
+    assert.ok(range.combos.some(item =>
+        item.cards.some(card => card.value === 14 && card.suit === "clubs") &&
+        item.cards.some(card => card.value === 14 && card.suit === "hearts")
+    ));
+});
