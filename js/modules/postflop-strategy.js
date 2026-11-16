@@ -428,7 +428,7 @@
         const active = state.players.filter(player => !player.folded);
         if (active.length !== 2) throw new Error("Le moteur CFR+ est limité au heads-up.");
         const hero = state.players.find(player => player.isHuman);
-        if (!hero || !hero.holeCards || hero.holeCards.length !== 2) {
+        if (!hero || !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) {
             throw new Error("Les cartes du joueur sont indisponibles.");
         }
         if (state.currentPlayerId !== hero.id) {
@@ -436,6 +436,26 @@
         }
         const opponent = active.find(player => player.id !== hero.id);
         if (!opponent) throw new Error("Adversaire heads-up introuvable.");
+
+        const seen = new Set();
+        for (const card of [...hero.holeCards, ...state.board]) {
+            if (!card || !Number.isInteger(card.value) || card.value < 2 || card.value > 14 ||
+                !["clubs", "diamonds", "hearts", "spades"].includes(card.suit)) {
+                throw new Error("Une carte de l'état stratégique est invalide.");
+            }
+            const key = cardId(card);
+            if (seen.has(key)) throw new Error("L'état stratégique contient des cartes dupliquées.");
+            seen.add(key);
+        }
+
+        const chipValues = [
+            state.pot, hero.stack, opponent.stack, hero.streetBet, opponent.streetBet,
+            hero.amountToCall, state.lastFullRaise
+        ].filter(value => value !== undefined && value !== null);
+        if (chipValues.some(value => !Number.isFinite(Number(value)) || Number(value) < 0 ||
+            Math.abs(Number(value) * 2 - Math.round(Number(value) * 2)) > CHIP_EPSILON)) {
+            throw new Error("L'état stratégique contient un montant qui ne respecte pas l'unité de 0,5 jeton.");
+        }
         return { hero, opponent };
     }
 
