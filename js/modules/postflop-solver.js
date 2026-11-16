@@ -233,6 +233,7 @@
             folded: Boolean(player.folded),
             allIn: Boolean(player.allIn),
             hasActed: Boolean(player.hasActed),
+            lastActedBet: chipAmount(player.lastActedBet, "lastActedBet"),
             amountToCall: chipAmount(player.amountToCall, "amountToCall"),
             holeCards: player.isHuman && Array.isArray(player.holeCards)
                 ? player.holeCards.map(card => ({ value: card.value, suit: card.suit }))
