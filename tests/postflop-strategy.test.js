@@ -425,3 +425,48 @@ test("une relance postflop respecte la dernière relance complète de la street"
     assert.ok(raise);
     assert.ok(raise.action.amount >= 7);
 });
+
+
+test("un short all-in inférieur à la relance minimale ne rouvre pas les enchères", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 1;
+    state.players[1].stack = 0.5;
+    state.players[0].hasActed = false;
+    state.players[0].lastActedBet = 0;
+    state.players[1].hasActed = false;
+    state.players[1].lastActedBet = 0;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        { canCheck: true, canBet: true, canRaise: true, minimumBet: 1, maximumBet: 20 }
+    );
+    const heroCheck = built.tree.actions.find(entry => entry.action.type === "check");
+    const shortBet = heroCheck.child.actions.find(entry => entry.action.type === "bet");
+    assert.ok(shortBet);
+    assert.equal(shortBet.action.amount, 0.5);
+    assert.deepEqual(
+        Array.from(shortBet.child.actions, entry => entry.action.type),
+        ["fold", "call"]
+    );
+});
+
+test("une mise complète rouvre le droit de relance d'un joueur ayant déjà checké", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 1;
+    state.players[1].stack = 10;
+    state.players[0].hasActed = false;
+    state.players[0].lastActedBet = 0;
+    state.players[1].hasActed = false;
+    state.players[1].lastActedBet = 0;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        { canCheck: true, canBet: true, canRaise: true, minimumBet: 1, maximumBet: 20 }
+    );
+    const heroCheck = built.tree.actions.find(entry => entry.action.type === "check");
+    const fullBet = heroCheck.child.actions.find(entry =>
+        entry.action.type === "bet" && entry.action.amount >= 1
+    );
+    assert.ok(fullBet);
+    assert.ok(fullBet.child.actions.some(entry => entry.action.type === "raise"));
+});
