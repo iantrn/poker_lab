@@ -717,5 +717,8 @@ test("le modèle bot respecte la réouverture des relances après des relances c
         range
     );
 
-    assert.ok(reopened.combos[0].weight > notReopened.combos[0].weight);
+    const likelihoodRatio = result =>
+        result.combos[0].weight / result.combos[1].weight;
+
+    assert.ok(likelihoodRatio(reopened) > likelihoodRatio(notReopened));
 });
