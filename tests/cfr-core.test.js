@@ -106,6 +106,9 @@ test("CFR+ converge vers la valeur théorique de Kuhn Poker", () => {
         result.maps,
         result.callbacks
     );
+    assert.ok(Math.abs(exploitability.profileValue - result.expectedValue) < 1e-9);
+    assert.ok(exploitability.player0Gain >= -1e-9);
+    assert.ok(exploitability.player1Gain >= -1e-9);
     assert.ok(exploitability.nashConv >= -1e-9);
     assert.ok(
         exploitability.nashConv < 0.04,
@@ -169,6 +172,9 @@ test("CFR+ apprend une stratégie mixte sur Matching Pennies", () => {
         maps,
         callbacks
     );
+    assert.ok(Math.abs(exploitability.profileValue) < 0.02);
+    assert.ok(exploitability.player0Gain >= -1e-9);
+    assert.ok(exploitability.player1Gain >= -1e-9);
     assert.ok(exploitability.nashConv >= -1e-9);
     assert.ok(
         exploitability.nashConv < 0.05,
