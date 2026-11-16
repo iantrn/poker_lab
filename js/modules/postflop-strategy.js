@@ -66,7 +66,7 @@
         return { label, type, amount };
     }
 
-    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = []) {
+    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0) {
         const initial = {
             actor: 0,
             pot: Number(input.pot) || 0,
@@ -74,7 +74,7 @@
             bets: input.players.map(player => Number(player.streetBet) || 0),
             heroInvested: 0,
             raises: 0,
-            checks: 0,
+            checks: rootChecks,
             history: priorHistory.slice(),
             root: true
         };
@@ -427,14 +427,20 @@
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
             );
         }
-        const priorHistory = (history || [])
-            .filter(event => event.type === "player_action" && event.street === state.street)
-            .map(event => {
-                const data = event.data || {};
-                const player = state.players.find(item => item.id === data.playerId);
-                return (player ? player.position || player.id : data.playerId) +
-                    ":" + data.action + (Number.isFinite(data.amount) ? ":" + data.amount : "");
-            });
+        const currentStreetActions = (history || [])
+            .filter(event => event.type === "player_action" && event.street === state.street);
+        const priorHistory = currentStreetActions.map(event => {
+            const data = event.data || {};
+            const player = state.players.find(item => item.id === data.playerId);
+            return (player ? player.position || player.id : data.playerId) +
+                ":" + data.action + (Number.isFinite(data.amount) ? ":" + data.amount : "");
+        });
+        const lastStreetAction = currentStreetActions[currentStreetActions.length - 1];
+        const lastActorId = lastStreetAction && lastStreetAction.data
+            ? lastStreetAction.data.playerId : null;
+        const rootChecks = Number(hero.amountToCall) === 0 && lastStreetAction &&
+            lastStreetAction.data && lastStreetAction.data.action === "check" &&
+            lastActorId !== hero.id ? 1 : 0;
 
         // Normalize the internal seat order: hero = 0, opponent = 1.
         // Preserve the real postflop action order from the original table seats,
@@ -456,7 +462,7 @@
             postflopFirstActorId
         };
         const trees = deals.map(deal =>
-            buildDecisionTree(normalizedState, hero.actionOptions || {}, priorHistory, deal.runout)
+            buildDecisionTree(normalizedState, hero.actionOptions || {}, priorHistory, deal.runout, rootChecks)
         );
         if (trees.some(item => item.tree.terminal || !item.tree.actions || !item.tree.actions.length)) {
             throw new Error("Aucune décision stratégique disponible dans cette situation.");
