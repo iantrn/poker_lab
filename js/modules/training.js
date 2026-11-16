@@ -894,9 +894,21 @@ function renderGame(state = null) {
             );
 
             button.type = "button";
-            button.addEventListener("click", () => {
-                syncAmount(preset.value);
-            });
+
+            // Une taille prédéfinie inférieure au minimum légal ne doit pas
+            // être sélectionnable (notamment les petits sizings postflop).
+            const presetAmount = Math.round(Number(preset.value) * 10) / 10;
+            const isBelowMinimum = presetAmount < minimum - 0.000001;
+
+            if (isBelowMinimum) {
+                button.disabled = true;
+                button.setAttribute("aria-disabled", "true");
+                button.title = `Relance minimale : ${formatChips(minimum)}`;
+            } else {
+                button.addEventListener("click", () => {
+                    syncAmount(preset.value);
+                });
+            }
 
             presets.appendChild(button);
         });
