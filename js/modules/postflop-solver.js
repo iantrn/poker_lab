@@ -233,6 +233,11 @@
         return { action, explanation, potOdds, margin };
     }
 
+    async function getOpponentRange(state, history, opponent) {
+        const matrix = await loadMatrix();
+        return findOpponentRange(state, history, opponent, matrix);
+    }
+
     async function analyse(state, history, options = {}) {
         const { hero, opponent } = validateState(state);
         const known = [...hero.holeCards, ...state.board];
@@ -242,8 +247,7 @@
             if (!key || seen.has(key)) throw new Error("Cartes connues invalides ou dupliquées.");
             seen.add(key);
         }
-        const matrix = await loadMatrix();
-        const range = findOpponentRange(state, history, opponent, matrix);
+        const range = await getOpponentRange(state, history, opponent);
         const baseDeck = makeDeck(seen);
         const iterations = Math.max(300, Math.min(10000, Number(options.iterations) || DEFAULT_ITERATIONS));
         let wins = 0, ties = 0, losses = 0;
@@ -270,5 +274,5 @@
         };
     }
 
-    global.PokerLabPostflopSolver = { analyse, validateState };
+    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange };
 })(window);
