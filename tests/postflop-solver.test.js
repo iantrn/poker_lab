@@ -96,6 +96,8 @@ test("le solveur utilise une range préflop compatible lorsqu'elle existe", asyn
         [card(2, "spades"), card(4, "spades"), card(6, "hearts"), card(8, "clubs"), card(10, "diamonds")],
         [card(3, "clubs"), card(5, "clubs")]
     );
+    current.players[0].position = "BU";
+    current.players[1].position = "BB";
     const history = [
         { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
         { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "raise" } }
