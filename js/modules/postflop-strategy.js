@@ -301,8 +301,9 @@
             Number(item.weight) > 0
         ) : [];
 
-        const rangeUsed = candidates.length > 0 && rangeUsedHint;
-        if (!rangeUsed) {
+        const hasRangeCandidates = candidates.length > 0;
+        const rangeUsed = hasRangeCandidates && rangeUsedHint;
+        if (!hasRangeCandidates) {
             candidates = buildUniformRange([...hero, ...board]);
         }
         if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
