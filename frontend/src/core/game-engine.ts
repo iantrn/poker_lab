@@ -471,7 +471,7 @@ export class PokerLabGameEngine {
 
         this.handHistory = [];
 
-        this.deck = new legacyPokerGlobals().PokerLabDeck();
+        this.deck = new (legacyPokerGlobals().PokerLabDeck)();
 
         this.board = [];
         this.street = "preflop";
