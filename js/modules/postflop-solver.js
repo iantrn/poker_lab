@@ -192,6 +192,86 @@
         return weightedChoice(available);
     }
 
+    function resolveInput(input, history = []) {
+        if (input && input.schemaVersion === 1 && input.state) {
+            return {
+                state: input.state,
+                history: Array.isArray(input.history) ? input.history : []
+            };
+        }
+        return { state: input, history: Array.isArray(history) ? history : [] };
+    }
+
+    function createInput(state, history = []) {
+        if (!state || !Array.isArray(state.players)) {
+            throw new Error("Impossible de construire les données du solveur : état invalide.");
+        }
+
+        const players = state.players.map(player => ({
+            id: player.id,
+            name: player.name,
+            isHuman: Boolean(player.isHuman),
+            isBot: Boolean(player.isBot),
+            botProfile: player.botProfile || null,
+            botDifficulty: player.botDifficulty || null,
+            position: player.position || null,
+            stack: Number(player.stack) || 0,
+            streetBet: Number(player.streetBet) || 0,
+            totalContribution: Number(player.totalContribution) || 0,
+            folded: Boolean(player.folded),
+            allIn: Boolean(player.allIn),
+            hasActed: Boolean(player.hasActed),
+            amountToCall: Number(player.amountToCall) || 0,
+            holeCards: player.isHuman && Array.isArray(player.holeCards)
+                ? player.holeCards.map(card => ({ value: card.value, suit: card.suit }))
+                : null,
+            actionOptions: player.isHuman && player.actionOptions
+                ? { ...player.actionOptions }
+                : null
+        }));
+
+        const allowedHistoryFields = [
+            "playerId", "playerName", "action", "amount", "pot",
+            "street", "board", "smallBlind", "smallBlindAmount",
+            "bigBlind", "bigBlindAmount", "winnerId"
+        ];
+        const safeHistory = (Array.isArray(history) ? history : []).map(event => {
+            const data = {};
+            for (const key of allowedHistoryFields) {
+                if (event && event.data && Object.prototype.hasOwnProperty.call(event.data, key)) {
+                    const value = event.data[key];
+                    data[key] = key === "board" && Array.isArray(value)
+                        ? value.map(card => ({ value: card.value, suit: card.suit }))
+                        : value;
+                }
+            }
+            return {
+                type: event && event.type,
+                street: event && event.street,
+                timestamp: Number(event && event.timestamp) || 0,
+                data
+            };
+        });
+
+        const snapshot = {
+            handNumber: state.handNumber,
+            street: state.street,
+            board: (state.board || []).map(card => ({ value: card.value, suit: card.suit })),
+            pot: Number(state.pot) || 0,
+            currentBet: Number(state.currentBet) || 0,
+            lastFullRaise: Number(state.lastFullRaise) || 0,
+            minimumRaiseTo: Number(state.minimumRaiseTo) || 0,
+            blinds: state.blinds ? { ...state.blinds } : { smallBlind: 0.5, bigBlind: 1 },
+            dealerIndex: state.dealerIndex,
+            currentPlayerId: state.currentPlayerId,
+            pendingPlayers: Array.isArray(state.pendingPlayers) ? state.pendingPlayers.slice() : [],
+            handComplete: Boolean(state.handComplete),
+            players
+        };
+
+        return { schemaVersion: 1, state: snapshot, history: safeHistory };
+    }
+
     function validateState(state) {
         if (!state || !Array.isArray(state.board) || state.board.length < 3 || state.board.length > 5) {
             throw new Error("Le solveur est disponible à partir du flop.");
@@ -238,7 +318,10 @@
         return findOpponentRange(state, history, opponent, matrix);
     }
 
-    async function analyse(state, history, options = {}) {
+    async function analyse(input, history = [], options = {}) {
+        const resolved = resolveInput(input, history);
+        const state = resolved.state;
+        history = resolved.history;
         const { hero, opponent } = validateState(state);
         const known = [...hero.holeCards, ...state.board];
         const seen = new Set();
@@ -274,5 +357,5 @@
         };
     }
 
-    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange };
+    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange, createInput, resolveInput };
 })(window);
