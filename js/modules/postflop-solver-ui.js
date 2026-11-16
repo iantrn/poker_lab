@@ -53,61 +53,94 @@
 
     function renderResult(container, result, strategy = null, strategyError = null) {
         container.replaceChildren();
-        const heading = element("h4", "font-bold text-lg mb-3", "Analyse postflop");
-        const equity = element("p", "text-2xl font-bold mb-2",
-            (result.equity * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % d'équité");
-        const range = element("p", "text-sm text-textMuted mb-2",
-            "Range adverse : " + result.rangeLabel);
-        const stats = element("p", "text-sm text-textMuted mb-3",
+
+        const heading = element("h4", "pl-solve-heading", "Stratégie");
+        const summary = element("p", "pl-solve-summary",
+            strategy
+                ? "Fréquence de chaque action dans cette situation"
+                : "Fréquences stratégiques indisponibles pour cette situation.");
+
+        const frequencies = element("div", "pl-solve-frequencies");
+        if (strategy && Array.isArray(strategy.actions) && strategy.actions.length) {
+            strategy.actions.forEach(item => {
+                const row = element("div", "pl-solve-frequency-row");
+                const action = element("span", "pl-solve-frequency-action", item.action);
+                const value = element("strong", "pl-solve-frequency-value",
+                    (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
+                row.append(action, value);
+                frequencies.appendChild(row);
+            });
+        } else {
+            frequencies.appendChild(element("p", "pl-solve-unavailable",
+                strategyError
+                    ? "Erreur de calcul : " + strategyError
+                    : "Aucune fréquence d'action n'a été retournée."));
+        }
+
+        const detailsButton = element("button", "pl-solve-details-toggle", "Afficher tous les détails");
+        detailsButton.type = "button";
+        detailsButton.setAttribute("aria-expanded", "false");
+
+        const details = element("div", "pl-solve-details hidden");
+        details.setAttribute("aria-label", "Détails de l'analyse");
+
+        const equityHeading = element("h5", "pl-solve-details-heading", "Équité");
+        const equity = element("p", "pl-solve-detail-line",
+            (result.equity * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
+        const range = element("p", "pl-solve-detail-line", "Range adverse : " + result.rangeLabel);
+        const stats = element("p", "pl-solve-detail-line",
             result.wins + " victoires · " + result.ties + " égalités · " +
             result.losses + " défaites sur " + result.iterations.toLocaleString("fr-FR") + " simulations");
-        const action = element("p", "font-semibold text-primaryHover mb-1",
-            "Piste de décision : " + result.decision.action);
-        const explanation = element("p", "text-sm mb-2", result.decision.explanation);
         const odds = result.decision.potOdds > 0
             ? "Pot odds : " + (result.decision.potOdds * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"
             : "Aucune mise à payer";
-        const details = element("p", "text-xs text-textMuted mb-2", odds);
-        const disclaimer = element("p", "text-xs text-textMuted", result.note);
-        container.append(heading, equity, range, stats, details);
-        if (!strategy) {
-            const heuristicLabel = element("p", "font-semibold text-primaryHover mb-1",
-                "Piste heuristique fondée sur l'équité : " + result.decision.action);
-            container.append(heuristicLabel, explanation);
+        details.append(equityHeading, equity, range, stats,
+            element("p", "pl-solve-detail-line", odds));
+
+        if (strategy) {
+            details.append(
+                element("h5", "pl-solve-details-heading", "Détails stratégiques — " + strategy.street),
+                element("p", "pl-solve-detail-line",
+                    strategy.iterations + " itérations · " +
+                    strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
+                    strategy.treeNodes + " nœuds dans l'arbre")
+            );
+
+            strategy.actions.forEach(item => {
+                details.appendChild(element("p", "pl-solve-detail-line",
+                    item.action + " : " +
+                    (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % · EV " +
+                    item.ev.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons"));
+            });
+
+            details.append(
+                element("p", "pl-solve-detail-line pl-solve-detail-emphasis",
+                    "EV estimée depuis cette décision : " +
+                    strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons"),
+                element("p", "pl-solve-detail-line", strategy.abstraction),
+                element("p", "pl-solve-detail-line", strategy.convergence)
+            );
+        } else {
+            details.append(
+                element("h5", "pl-solve-details-heading", "Piste heuristique"),
+                element("p", "pl-solve-detail-line", result.decision.action + " — " + result.decision.explanation)
+            );
             if (strategyError) {
-                container.append(element("p", "text-xs text-red-400 mt-2",
+                details.appendChild(element("p", "pl-solve-detail-line pl-solve-detail-error",
                     "Analyse stratégique indisponible : " + strategyError));
             }
         }
 
-        if (strategy) {
-            const divider = element("div", "border-t border-white/10 my-4");
-            const strategyHeading = element("h5", "font-bold mb-2", "Stratégie CFR+ — " + strategy.street);
-            const strategyMeta = element("p", "text-xs text-textMuted mb-2",
-                strategy.iterations + " itérations · " +
-                strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
-                strategy.treeNodes + " nœuds dans l'arbre");
-            const strategyActions = element("div", "space-y-1 mb-3");
-            for (const item of strategy.actions) {
-                const line = element("p", "text-sm",
-                    item.action.replace(/_/g, " ") + " : " +
-                    (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % · EV " +
-                    item.ev.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons");
-                strategyActions.append(line);
-            }
-            const ev = element("p", "text-sm font-semibold mb-2",
-                "EV estimée depuis cette décision : " +
-                strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons");
-            const abstraction = element("p", "text-xs text-textMuted mb-2", strategy.abstraction);
-            const convergence = element("p", "text-xs text-textMuted", strategy.convergence);
-            container.append(divider, strategyHeading, strategyMeta, strategyActions, ev, abstraction, convergence);
-        } else {
-            const strategyInfo = element("p", "text-xs text-textMuted mb-2",
-                "L'analyse stratégique n'a pas pu être calculée dans cette situation. L'analyse d'équité reste disponible.");
-            container.append(strategyInfo);
-        }
+        details.appendChild(element("p", "pl-solve-detail-note", result.note));
 
-        container.append(disclaimer);
+        detailsButton.addEventListener("click", () => {
+            const expanded = details.classList.contains("hidden");
+            details.classList.toggle("hidden", !expanded);
+            detailsButton.textContent = expanded ? "Masquer les détails" : "Afficher tous les détails";
+            detailsButton.setAttribute("aria-expanded", String(expanded));
+        });
+
+        container.append(heading, summary, frequencies, detailsButton, details);
     }
 
     async function run(button, panel) {
