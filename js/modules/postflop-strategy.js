@@ -65,7 +65,7 @@
         return { label, type, amount };
     }
 
-    function buildDecisionTree(input, rootOptions) {
+    function buildDecisionTree(input, rootOptions, priorHistory = []) {
         const initial = {
             actor: 0,
             pot: Number(input.pot) || 0,
@@ -74,7 +74,7 @@
             heroInvested: 0,
             raises: 0,
             checks: 0,
-            history: [],
+            history: priorHistory.slice(),
             root: true
         };
         const nodes = { count: 0 };
@@ -153,7 +153,6 @@
 
                 if (action.type === "bet") {
                     applyContribution(next, actor, action.amount);
-                    next.raises++;
                     next.checks = 0;
                     next.actor = other;
                     node.actions.push({ action, child: build(next, depth + 1) });
@@ -326,7 +325,15 @@
         const iterations = Math.max(20, Math.min(1000, Number(options.iterations) || DEFAULT_ITERATIONS));
         const samples = Math.max(8, Math.min(160, Number(options.samples) || DEFAULT_SAMPLES));
         const deals = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
-        const { tree, nodeCount } = buildDecisionTree(state, hero.actionOptions || {});
+        const priorHistory = (history || [])
+            .filter(event => event.type === "player_action" && event.street === state.street)
+            .map(event => {
+                const data = event.data || {};
+                const player = state.players.find(item => item.id === data.playerId);
+                return (player ? player.position || player.id : data.playerId) +
+                    ":" + data.action + (Number.isFinite(data.amount) ? ":" + data.amount : "");
+            });
+        const { tree, nodeCount } = buildDecisionTree(state, hero.actionOptions || {}, priorHistory);
         if (tree.terminal || !tree.actions || !tree.actions.length) {
             throw new Error("Aucune décision stratégique disponible dans cette situation.");
         }
