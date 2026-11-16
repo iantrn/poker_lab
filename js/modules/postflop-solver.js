@@ -257,7 +257,8 @@
             "playerId", "playerName", "action", "amount", "pot",
             "potBefore", "potAfter", "currentBetBefore", "currentBetAfter",
             "streetBetBefore", "streetBetAfter", "stackBefore", "stackAfter",
-            "totalContributionAfter", "betTo", "raiseTo", "raiseSize",
+            "totalContributionBefore", "totalContributionAfter",
+            "betTo", "raiseTo", "raiseSize",
             "isFullRaise", "lastFullRaiseBefore", "lastFullRaiseAfter", "allIn",
             "street", "board", "smallBlind", "smallBlindAmount",
             "bigBlind", "bigBlindAmount", "winnerId"
