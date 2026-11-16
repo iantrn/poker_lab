@@ -128,3 +128,55 @@ test("le solveur actualise la range adverse après un call préflop", async () =
     assert.equal(result.rangeLabel, "bb/BB_call_vs_BU_RFI");
     assert.equal(result.equity, 1);
 });
+
+
+test("le solveur conserve les folds dans la séquence préflop", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_call_vs_BU_RFI_SB_fold", p: "BB", a: "call", s: "BU RFI › SB fold" }] }
+            : { version: 1, ranges: { "bb/BB_call_vs_BU_RFI_SB_fold": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts"), card(8, "clubs"), card(10, "diamonds")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BU";
+    current.players[1].position = "BB";
+    current.players.push({ id: "bot_2", isHuman: false, folded: true, holeCards: null, stack: 90, position: "SB" });
+    const history = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_2", action: "fold" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "call" } }
+    ];
+    const result = await app.PokerLabPostflopSolver.analyse(current, history, { iterations: 300 });
+    assert.equal(result.rangeUsed, true);
+    assert.equal(result.rangeLabel, "bb/BB_call_vs_BU_RFI_SB_fold");
+    assert.equal(result.equity, 1);
+});
+
+test("le solveur ne remplace pas une séquence absente par une range de profondeur similaire", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_call_vs_BU_RFI_CO_fold", p: "BB", a: "call", s: "BU RFI › CO fold" }] }
+            : { version: 1, ranges: { "bb/BB_call_vs_BU_RFI_CO_fold": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts"), card(8, "clubs"), card(10, "diamonds")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BU";
+    current.players[1].position = "BB";
+    current.players.push({ id: "bot_2", isHuman: false, folded: true, holeCards: null, stack: 90, position: "SB" });
+    const history = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_2", action: "fold" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "call" } }
+    ];
+    const result = await app.PokerLabPostflopSolver.analyse(current, history, { iterations: 300 });
+    assert.equal(result.rangeUsed, false);
+    assert.match(result.rangeLabel, /Range large/);
+});
