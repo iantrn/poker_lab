@@ -240,3 +240,28 @@ test("les mains terminées sont enregistrées avec un snapshot public du moteur"
     assert.match(engine, /Ne jamais exposer les cartes adverses avant le showdown/);
     assert.match(engine, /this\.handComplete\s*&&\s*this\.lastResult\?\.type\s*===\s*"showdown"/);
 });
+
+
+test("Game Review ne confirme pas une sauvegarde lorsque le stockage local échoue", () => {
+    const { module, localStorage } = loadModule(
+        "js/modules/game-review.js",
+        "PokerLabGameReview"
+    );
+
+    localStorage.setItem = () => {
+        throw new Error("QuotaExceededError");
+    };
+
+    const result = module.saveHand({
+        id: "quota-failure",
+        players: [
+            { id: "hero", name: "Vous", stack: 100 },
+            { id: "bot", name: "Bot", stack: 100 }
+        ],
+        board: [],
+        actions: []
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(module.getAllHands().length, 0);
+});
