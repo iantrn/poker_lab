@@ -85,7 +85,7 @@
         return { label, type, amount };
     }
 
-    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0) {
+    function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0, rootRaises = 0) {
         const initial = {
             actor: 0,
             pot: roundChips(input.pot),
@@ -96,7 +96,7 @@
             lastFullRaise: roundChips(input.lastFullRaise) || 1,
             bigBlind: roundChips(input.blinds && input.blinds.bigBlind) || 1,
             heroInvested: 0,
-            raises: 0,
+            raises: Math.max(0, Math.floor(Number(rootRaises) || 0)),
             checks: rootChecks,
             history: priorHistory.slice(),
             root: true
@@ -531,6 +531,9 @@
         const lastStreetAction = currentStreetActions[currentStreetActions.length - 1];
         const lastActorId = lastStreetAction && lastStreetAction.data
             ? lastStreetAction.data.playerId : null;
+        const rootRaises = currentStreetActions.filter(event =>
+            event.data && ["raise", "short_raise"].includes(event.data.action)
+        ).length;
         const rootChecks = Number(hero.amountToCall) === 0 && lastStreetAction &&
             lastStreetAction.data && lastStreetAction.data.action === "check" &&
             lastActorId !== hero.id ? 1 : 0;
@@ -575,7 +578,8 @@
                 hero.actionOptions || {},
                 priorHistory,
                 deal.runout,
-                rootChecks
+                rootChecks,
+                rootRaises
             );
             if (built.tree.terminal || !built.tree.actions || !built.tree.actions.length) {
                 throw new Error("Aucune décision stratégique disponible dans cette situation.");
@@ -617,7 +621,8 @@
                 hero.actionOptions || {},
                 priorHistory,
                 deal.runout,
-                rootChecks
+                rootChecks,
+                rootRaises
             );
             if (built.tree.actions.length !== rootTree.actions.length) continue;
             for (let actionIndex = 0; actionIndex < rootTree.actions.length; actionIndex++) {
