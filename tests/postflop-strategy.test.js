@@ -116,6 +116,7 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
     assert.equal(result.sampledOpponentHands, 8);
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
+    assert.ok(result.actions.every(action => Number.isFinite(action.ev)));
     assert.ok(result.treeNodes > 1);
     assert.equal(result.rangeUsed, true);
 });
