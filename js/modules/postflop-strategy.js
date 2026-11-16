@@ -942,6 +942,15 @@
             cfrCallbacks(hero.holeCards, state.board),
             deal => deal.heroImportanceWeight
         );
+        const exploitabilityWeightSum = exploitabilityDeals.reduce(
+            (sum, entry) => sum + entry.deal.heroImportanceWeight, 0
+        );
+        const exploitabilityWeightSquares = exploitabilityDeals.reduce(
+            (sum, entry) => sum + entry.deal.heroImportanceWeight ** 2, 0
+        );
+        const exploitabilityEffectiveSampleSize = exploitabilityWeightSquares > 0
+            ? exploitabilityWeightSum ** 2 / exploitabilityWeightSquares
+            : 0;
 
         const standardError = (sum, sumSquares) => {
             if (evaluatedDeals < 2) return 0;
@@ -991,6 +1000,7 @@
             heroEVLower95: heroEV - 1.96 * heroEVStandardError,
             heroEVUpper95: heroEV + 1.96 * heroEVStandardError,
             exploitabilitySamples: exploitabilityDeals.length,
+            exploitabilityEffectiveSampleSize,
             exploitabilityMethod: "Meilleures réponses exactes dans l'arbre abstrait sur un échantillon indépendant pondéré par les ranges et les bloqueurs ; mesure conditionnelle à cet échantillon.",
             profileEV: exploitability.profileValue,
             heroBestResponseEV: exploitability.player0BestResponse,
