@@ -2107,3 +2107,92 @@ main:has(> #training:not([hidden])) {
         min-width: 0 !important;
     }
 }
+
+
+/* PokerLab — modale solveur minimaliste : fréquences d'abord, détails à la demande. */
+#training-actions .pl-solve-heading {
+    margin: 0 0 4px;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+#training-actions .pl-solve-summary {
+    margin: 0 0 14px;
+    color: var(--text-muted);
+    font-size: .78rem;
+}
+#training-actions .pl-solve-frequencies {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+}
+#training-actions .pl-solve-frequency-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 38px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-medium);
+    border-radius: 8px;
+    background: var(--bg-surface-light);
+}
+#training-actions .pl-solve-frequency-action {
+    color: var(--text-primary);
+    font-size: .88rem;
+    font-weight: 650;
+    text-transform: capitalize;
+}
+#training-actions .pl-solve-frequency-value {
+    color: var(--accent-gold);
+    font-size: .95rem;
+    font-variant-numeric: tabular-nums;
+}
+#training-actions .pl-solve-details-toggle {
+    display: block;
+    margin: 12px 0 0 auto;
+    padding: 7px 10px;
+    border: 1px solid var(--border-medium);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 650;
+}
+#training-actions .pl-solve-details-toggle:hover {
+    background: var(--bg-surface-light);
+    color: var(--text-primary);
+}
+#training-actions .pl-solve-details {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-medium);
+}
+#training-actions .pl-solve-details.hidden { display: none; }
+#training-actions .pl-solve-details-heading {
+    margin: 10px 0 5px;
+    color: var(--text-primary);
+    font-size: .82rem;
+    font-weight: 750;
+}
+#training-actions .pl-solve-detail-line,
+#training-actions .pl-solve-detail-note {
+    margin: 4px 0;
+    color: var(--text-muted);
+    font-size: .72rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+#training-actions .pl-solve-detail-emphasis { color: var(--accent-gold); font-weight: 700; }
+#training-actions .pl-solve-detail-error { color: #F87171; }
+#training-actions .pl-solve-unavailable {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: .82rem;
+}
+@media (max-width: 600px) {
+    #training-actions .pl-solve-frequency-row { min-height: 36px; padding: 7px 10px; }
+    #training-actions .pl-solve-frequency-action { font-size: .82rem; }
+    #training-actions .pl-solve-frequency-value { font-size: .88rem; }
+}
