@@ -1,0 +1,367 @@
+/* =========================================================
+   POKERLAB - POSTFLOP STRATEGY (CFR+)
+   Version : 0.1.0
+   First strategic subgame: heads-up river, one raise maximum.
+   This is an abstracted CFR+ model, not a full GTO solver.
+   ========================================================= */
+"use strict";
+
+(function (global) {
+    const DEFAULT_ITERATIONS = 120;
+    const DEFAULT_SAMPLES = 48;
+    const BET_FRACTION = 0.5;
+    const ACTION_LIMIT = 3;
+
+    function cardId(card) {
+        return card.value + "_" + card.suit;
+    }
+
+    function handId(cards) {
+        return cards.map(cardId).sort().join(",");
+    }
+
+    function boardId(cards) {
+        return cards.map(cardId).sort().join(",");
+    }
+
+    function cloneState(state) {
+        return {
+            actor: state.actor,
+            pot: state.pot,
+            stacks: state.stacks.slice(),
+            bets: state.bets.slice(),
+            heroInvested: state.heroInvested,
+            raises: state.raises,
+            checks: state.checks,
+            history: state.history.slice(),
+            root: state.root
+        };
+    }
+
+    function amountToCall(state, actor) {
+        return Math.max(0, state.bets[1 - actor] - state.bets[actor]);
+    }
+
+    function terminal(type, state, winner = null) {
+        return {
+            terminal: true,
+            type,
+            winner,
+            pot: state.pot,
+            heroInvested: state.heroInvested
+        };
+    }
+
+    function applyContribution(state, actor, amount) {
+        const paid = Math.max(0, Math.min(state.stacks[actor], amount));
+        state.stacks[actor] -= paid;
+        state.bets[actor] += paid;
+        state.pot += paid;
+        if (actor === 0) state.heroInvested += paid;
+        return paid;
+    }
+
+    function makeAction(label, type, amount = 0) {
+        return { label, type, amount };
+    }
+
+    function buildDecisionTree(input, rootOptions) {
+        const initial = {
+            actor: 0,
+            pot: Number(input.pot) || 0,
+            stacks: input.players.map(player => Number(player.stack) || 0),
+            bets: input.players.map(player => Number(player.streetBet) || 0),
+            heroInvested: 0,
+            raises: 0,
+            checks: 0,
+            history: [],
+            root: true
+        };
+        const nodes = { count: 0 };
+
+        function build(state, depth) {
+            nodes.count++;
+            if (depth > 8 || state.stacks[0] <= 0 || state.stacks[1] <= 0) {
+                return terminal("showdown", state);
+            }
+
+            const actor = state.actor;
+            const other = 1 - actor;
+            const toCall = amountToCall(state, actor);
+
+            if (toCall === 0 && state.checks >= 1) {
+                return terminal("showdown", state);
+            }
+
+            const actions = [];
+            const canRaise = state.raises < 1 && state.stacks[other] > 0;
+
+            if (toCall > 0) {
+                actions.push(makeAction("fold", "fold"));
+                actions.push(makeAction("call", "call", toCall));
+
+                const rootRaiseAllowed = !state.root || rootOptions.canRaise;
+                const minRaise = Math.max(toCall, state.pot * BET_FRACTION);
+                if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
+                    const raiseExtra = Math.min(state.stacks[actor] - toCall, minRaise);
+                    if (raiseExtra > 0.000001) {
+                        actions.push(makeAction("raise", "raise", toCall + raiseExtra));
+                    }
+                }
+            } else {
+                actions.push(makeAction("check", "check"));
+                const rootBetAllowed = !state.root || rootOptions.canBet;
+                if (canRaise && rootBetAllowed && state.stacks[actor] > 0) {
+                    const bet = Math.min(state.stacks[actor], Math.max(1, state.pot * BET_FRACTION));
+                    actions.push(makeAction("bet_50", "bet", bet));
+                    if (state.stacks[actor] > bet * 1.8 && state.stacks[other] > bet) {
+                        actions.push(makeAction("all_in", "bet", state.stacks[actor]));
+                    }
+                }
+            }
+
+            const node = {
+                terminal: false,
+                actor,
+                history: state.history.join("/"),
+                actions: [],
+                infoKey: null
+            };
+
+            for (const action of actions.slice(0, ACTION_LIMIT)) {
+                const next = cloneState(state);
+                next.root = false;
+                next.history.push(actor + ":" + action.label);
+
+                if (action.type === "fold") {
+                    node.actions.push({ action, child: terminal("fold", next, other) });
+                    continue;
+                }
+
+                if (action.type === "check") {
+                    next.checks++;
+                    next.actor = other;
+                    node.actions.push({ action, child: build(next, depth + 1) });
+                    continue;
+                }
+
+                if (action.type === "call") {
+                    applyContribution(next, actor, action.amount);
+                    node.actions.push({ action, child: terminal("showdown", next) });
+                    continue;
+                }
+
+                if (action.type === "bet") {
+                    applyContribution(next, actor, action.amount);
+                    next.raises++;
+                    next.checks = 0;
+                    next.actor = other;
+                    node.actions.push({ action, child: build(next, depth + 1) });
+                    continue;
+                }
+
+                if (action.type === "raise") {
+                    applyContribution(next, actor, action.amount);
+                    next.raises++;
+                    next.checks = 0;
+                    next.actor = other;
+                    node.actions.push({ action, child: build(next, depth + 1) });
+                }
+            }
+
+            if (!node.actions.length) return terminal("showdown", state);
+            return node;
+        }
+
+        const tree = build(initial, 0);
+        return { tree, nodeCount: nodes.count };
+    }
+
+    function weightedSample(items) {
+        const total = items.reduce((sum, item) => sum + item.weight, 0);
+        if (!(total > 0)) return items[Math.floor(Math.random() * items.length)].cards;
+        let cursor = Math.random() * total;
+        for (const item of items) {
+            cursor -= item.weight;
+            if (cursor <= 0) return item.cards;
+        }
+        return items[items.length - 1].cards;
+    }
+
+    function sampleDeals(hero, board, range, sampleCount) {
+        const blocked = new Set([...hero, ...board].map(cardId));
+        let candidates = Array.isArray(range) ? range.filter(item =>
+            item.cards && item.cards.length === 2 &&
+            item.cards.every(card => !blocked.has(cardId(card))) &&
+            cardId(item.cards[0]) !== cardId(item.cards[1]) &&
+            Number(item.weight) > 0
+        ) : [];
+
+        const suits = ["clubs", "diamonds", "hearts", "spades"];
+        if (!candidates.length) {
+            candidates = [];
+            for (const suitA of suits) for (let a = 2; a <= 14; a++) {
+                for (const suitB of suits) for (let b = 2; b <= 14; b++) {
+                    if (a === b && suits.indexOf(suitB) <= suits.indexOf(suitA)) continue;
+                    const cards = [{ value: a, suit: suitA }, { value: b, suit: suitB }];
+                    if (cardId(cards[0]) === cardId(cards[1])) continue;
+                    if (cards.some(card => blocked.has(cardId(card)))) continue;
+                    candidates.push({ cards, weight: 1 });
+                }
+            }
+        }
+        if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
+
+        const deals = [];
+        for (let i = 0; i < sampleCount; i++) {
+            deals.push({ villain: weightedSample(candidates) });
+        }
+        return deals;
+    }
+
+    function utility(node, deal, hero, board) {
+        if (node.type === "fold") {
+            return node.winner === 0
+                ? node.pot - node.heroInvested
+                : -node.heroInvested;
+        }
+        const result = global.PokerLabHandEvaluator.compareScores(
+            global.PokerLabHandEvaluator.evaluate([...hero, ...board]).score,
+            global.PokerLabHandEvaluator.evaluate([...deal.villain, ...board]).score
+        );
+        const payout = result > 0 ? node.pot : result === 0 ? node.pot / 2 : 0;
+        return payout - node.heroInvested;
+    }
+
+    function regretMatched(regrets, count) {
+        const positive = regrets ? Array.from(regrets, value => Math.max(0, value)) : [];
+        const total = positive.reduce((sum, value) => sum + value, 0);
+        if (total <= 0) return Array(count).fill(1 / count);
+        return positive.map(value => value / total);
+    }
+
+    function informationKey(node, deal, hero, board) {
+        const privateHand = node.actor === 0 ? handId(hero) : handId(deal.villain);
+        return node.actor + "|" + privateHand + "|" + boardId(board) + "|" + node.history;
+    }
+
+    function runCfr(node, deal, traverser, reach, maps, hero, board) {
+        if (node.terminal) return utility(node, deal, hero, board);
+
+        const key = informationKey(node, deal, hero, board);
+        const count = node.actions.length;
+        let regrets = maps.regrets.get(key);
+        if (!regrets) {
+            regrets = new Float64Array(count);
+            maps.regrets.set(key, regrets);
+        }
+        let strategySum = maps.strategy.get(key);
+        if (!strategySum) {
+            strategySum = new Float64Array(count);
+            maps.strategy.set(key, strategySum);
+        }
+        const strategy = regretMatched(regrets, count);
+        const ownReach = reach[node.actor];
+        for (let i = 0; i < count; i++) strategySum[i] += ownReach * strategy[i];
+
+        const values = new Float64Array(count);
+        let nodeValue = 0;
+        for (let i = 0; i < count; i++) {
+            const nextReach = reach.slice();
+            nextReach[node.actor] *= strategy[i];
+            values[i] = runCfr(node.actions[i].child, deal, traverser, nextReach, maps, hero, board);
+            nodeValue += strategy[i] * values[i];
+        }
+
+        if (node.actor === traverser) {
+            const opponentReach = reach[1 - node.actor];
+            const sign = node.actor === 0 ? 1 : -1;
+            for (let i = 0; i < count; i++) {
+                regrets[i] = Math.max(0, regrets[i] + sign * opponentReach * (values[i] - nodeValue));
+            }
+        }
+        return nodeValue;
+    }
+
+    function averageStrategy(node, deal, maps, hero, board) {
+        if (node.terminal) return utility(node, deal, hero, board);
+        const key = informationKey(node, deal, hero, board);
+        const sums = maps.strategy.get(key);
+        const strategy = sums
+            ? Array.from(sums, value => value / (Array.from(sums).reduce((a, b) => a + b, 0) || 1))
+            : Array(node.actions.length).fill(1 / node.actions.length);
+        return node.actions.reduce((sum, entry, index) =>
+            sum + strategy[index] * averageStrategy(entry.child, deal, maps, hero, board), 0);
+    }
+
+    function getRootStrategy(tree, deal, maps, hero, board) {
+        const key = informationKey(tree, deal, hero, board);
+        const sums = maps.strategy.get(key);
+        if (!sums) return tree.actions.map(() => 1 / tree.actions.length);
+        const total = Array.from(sums).reduce((a, b) => a + b, 0);
+        return Array.from(sums, value => total > 0 ? value / total : 1 / sums.length);
+    }
+
+    function validate(state) {
+        if (!state || state.street !== "river" || !Array.isArray(state.board) || state.board.length !== 5) {
+            throw new Error("Le moteur CFR+ est d'abord disponible à la river.");
+        }
+        const active = state.players.filter(player => !player.folded);
+        if (active.length !== 2) throw new Error("Le moteur CFR+ est limité au heads-up.");
+        const hero = state.players.find(player => player.isHuman);
+        if (!hero || !hero.holeCards || hero.holeCards.length !== 2) {
+            throw new Error("Les cartes du joueur sont indisponibles.");
+        }
+        if (state.currentPlayerId !== hero.id) {
+            throw new Error("Le calcul stratégique doit être lancé au tour du joueur humain.");
+        }
+        const opponent = active.find(player => player.id !== hero.id);
+        if (!opponent) throw new Error("Adversaire heads-up introuvable.");
+        return { hero, opponent };
+    }
+
+    async function solveRiver(state, history = [], options = {}) {
+        const { hero, opponent } = validate(state);
+        const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
+        const iterations = Math.max(20, Math.min(1000, Number(options.iterations) || DEFAULT_ITERATIONS));
+        const samples = Math.max(8, Math.min(160, Number(options.samples) || DEFAULT_SAMPLES));
+        const deals = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
+        const { tree, nodeCount } = buildDecisionTree(state, hero.actionOptions || {});
+        if (tree.terminal || !tree.actions || !tree.actions.length) {
+            throw new Error("Aucune décision stratégique disponible dans cette situation.");
+        }
+
+        const maps = { regrets: new Map(), strategy: new Map() };
+        for (let iteration = 0; iteration < iterations; iteration++) {
+            for (const deal of deals) {
+                runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board);
+                runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board);
+            }
+        }
+
+        const rootStrategy = getRootStrategy(tree, deals[0], maps, hero.holeCards, state.board);
+        const actions = tree.actions.map((entry, index) => ({
+            action: entry.action.label,
+            frequency: rootStrategy[index]
+        })).sort((a, b) => b.frequency - a.frequency);
+
+        let ev = 0;
+        for (const deal of deals) ev += averageStrategy(tree, deal, maps, hero.holeCards, state.board);
+        ev /= deals.length;
+
+        return {
+            algorithm: "CFR+",
+            abstraction: "River HU · une taille de mise (50 % pot) · une relance maximale",
+            iterations,
+            sampledOpponentHands: samples,
+            treeNodes: nodeCount,
+            rangeLabel: rangeInfo.label,
+            rangeUsed: Boolean(rangeInfo.combos),
+            heroEV: ev,
+            actions,
+            convergence: "Approximation CFR+ sur un échantillon de mains adverses ; convergence non certifiée."
+        };
+    }
+
+    global.PokerLabPostflopStrategy = { solveRiver, validate, buildDecisionTree };
+})(window);
