@@ -7,6 +7,7 @@ on:
       - "js/core/evaluator.js"
       - "js/core/poker-rules.js"
       - "js/bots/bot-engine.js"
+      - "js/bots/bot-profiles.js"
       - "js/core/game-engine.js"
       - "js/modules/training.js"
       - "js/modules/postflop-solver.js"
@@ -42,6 +43,8 @@ jobs:
         run: node --check js/core/poker-rules.js
       - name: Check bot engine syntax
         run: node --check js/bots/bot-engine.js
+      - name: Check bot profiles syntax
+        run: node --check js/bots/bot-profiles.js
       - name: Check game engine syntax
         run: node --check js/core/game-engine.js
       - name: Check training module syntax
