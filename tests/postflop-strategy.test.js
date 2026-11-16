@@ -851,6 +851,8 @@ test("CFR+ entraîne les deux ranges et suréchantillonne la main réelle avec c
     assert.ok(result.actions.every(action => Number.isFinite(action.frequency)));
     assert.ok(Math.abs(result.actions.reduce((sum, action) => sum + action.frequency, 0) - 1) < 1e-6);
     assert.ok(result.exploitabilitySamples >= 8);
+    assert.ok(result.exploitabilityEffectiveSampleSize > 0);
+    assert.ok(result.exploitabilityEffectiveSampleSize <= result.exploitabilitySamples);
     assert.ok(Number.isFinite(result.profileEV));
     assert.ok(Number.isFinite(result.heroBestResponseEV));
     assert.ok(Number.isFinite(result.opponentBestResponseEV));
