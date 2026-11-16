@@ -9,7 +9,7 @@ L'application permet de jouer contre des adversaires automatisés, de consulter 
 - Parties de Texas Hold'em No-Limit contre des bots.
 - Formats 6-max et heads-up.
 - Profils de bots variés et niveaux de difficulté.
-- Gestion des blinds, des mises, des relances, des tapis et des pots secondaires.
+- Gestion des blinds, des mises, des relances, des tapis et des pots secondaires, avec détail des pots au résultat.
 - Évaluation des mains et détermination des gagnants.
 - Historique des actions d'une main.
 - Consultation des ranges préflop depuis le module Apprentissage.

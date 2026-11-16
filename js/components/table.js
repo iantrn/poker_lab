@@ -720,6 +720,38 @@
             description
         );
 
+        // Afficher le détail des pots uniquement lorsqu'il existe un side pot.
+        if (Array.isArray(result.pots) && result.pots.length > 1) {
+            const potDetails = createElement(
+                "div",
+                "pl-hand-result-pots"
+            );
+
+            result.pots.forEach((pot, index) => {
+                const potWinners = (pot.winnerIds || []).map(id => {
+                    const player = players.find(item => item.id === id);
+                    return player ? player.name : id;
+                });
+
+                const potLabel = index === 0
+                    ? "Pot principal"
+                    : `Pot secondaire ${index}`;
+                const winnersLabel = potWinners.length > 0
+                    ? ` — gagnant${potWinners.length > 1 ? "s" : ""} : ${potWinners.join(", ")}`
+                    : "";
+
+                potDetails.appendChild(
+                    createElement(
+                        "span",
+                        "pl-hand-result-pot",
+                        `${potLabel} : ${formatAmount(pot.amount)} BB${winnersLabel}`
+                    )
+                );
+            });
+
+            container.appendChild(potDetails);
+        }
+
         return container;
 
     }
