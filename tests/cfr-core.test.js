@@ -89,8 +89,13 @@ function trainKuhn(iterations) {
 
     const expectedValue = deals.reduce((sum, { root, deal }) =>
         sum + core.averageStrategy(root, deal, maps, callbacks), 0) / deals.length;
+    const exploitability = core.estimateExploitability(
+        deals.map(({ root, deal }) => ({ root, deal, weight: 1 })),
+        maps,
+        callbacks
+    );
 
-    return { core, maps, callbacks, deals, expectedValue };
+    return { core, maps, callbacks, deals, expectedValue, exploitability };
 }
 
 test("CFR+ converge vers la valeur théorique de Kuhn Poker", () => {
@@ -99,6 +104,10 @@ test("CFR+ converge vers la valeur théorique de Kuhn Poker", () => {
     assert.ok(
         Math.abs(result.expectedValue + 1 / 18) < 0.015,
         "Valeur estimée : " + result.expectedValue
+    );
+    assert.ok(
+        result.exploitability.nashConv < 0.04,
+        "NashConv estimé : " + result.exploitability.nashConv
     );
 });
 
@@ -152,6 +161,12 @@ test("CFR+ apprend une stratégie mixte sur Matching Pennies", () => {
     assert.ok(Math.abs(rootStrategy[1] - 0.5) < 0.02);
     assert.ok(Math.abs(responseStrategy[0] - 0.5) < 0.02);
     assert.ok(Math.abs(responseStrategy[1] - 0.5) < 0.02);
+    const exploitability = core.estimateExploitability(
+        [{ root, deal: {}, weight: 1 }],
+        maps,
+        callbacks
+    );
+    assert.ok(exploitability.nashConv < 0.02);
 });
 
 test("un information set ne peut pas changer le nombre d'actions", () => {
