@@ -506,7 +506,39 @@ test("une mise complète rouvre le droit de relance d'un joueur ayant déjà che
 });
 
 
-test("l'arbre interdit une seconde relance après une relance déjà effectuée dans la street", () => {
+test("l'arbre interdit une troisième relance après deux relances déjà effectuées dans la street", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].streetBet = 5;
+    state.players[0].hasActed = true;
+    state.players[0].lastActedBet = 5;
+    state.players[1].streetBet = 15;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 25,
+        maximumRaiseTo: 100
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions,
+        ["BTN:bet:5", "BB:raise:15"],
+        [],
+        0,
+        2
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["fold", "call"]
+    );
+});
+
+
+test("l'arbre autorise une seconde relance lorsque le plafond de la street n'est pas atteint", () => {
     const app = loadStrategy();
     const state = riverState();
     state.pot = 20;
@@ -533,7 +565,7 @@ test("l'arbre interdit une seconde relance après une relance déjà effectuée 
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call"]
+        ["fold", "call", "raise"]
     );
 });
 
@@ -578,7 +610,7 @@ test("solvePostflop tient compte des relances déjà présentes dans l'historiqu
 
     assert.deepEqual(
         Array.from(result.actions, action => action.action).sort(),
-        ["call", "fold"]
+        ["call", "fold", "raise"]
     );
 });
 
