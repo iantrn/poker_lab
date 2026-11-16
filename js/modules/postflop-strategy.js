@@ -474,7 +474,7 @@
     }
 
     function informationKey(node, deal, hero, board) {
-        const privateHand = node.actor === 0 ? handId(deal.hero || hero) : handId(deal.villain);
+        const privateHand = node.actor === 0 ? handId(deal && deal.hero || hero) : handId(deal.villain);
         const publicState = [
             roundChips(node.pot),
             (node.stacks || []).map(roundChips).join(","),
