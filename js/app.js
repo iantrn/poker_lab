@@ -1,7 +1,7 @@
 
 /* =========================================================
    POKERLAB - APPLICATION PRINCIPALE
-   Version : 1.1.0
+   Version : 1.2.0
    ========================================================= */
 
 "use strict";
@@ -15,7 +15,7 @@ const APP_CONFIG = {
 
     name: "PokerLab",
 
-    version: "1.1.0",
+    version: "1.2.0",
 
     storagePrefix: "pokerlab_",
 
