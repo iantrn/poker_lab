@@ -197,6 +197,12 @@
                 terminal: false,
                 actor,
                 board: board.slice(),
+                pot: state.pot,
+                stacks: state.stacks.slice(),
+                bets: state.bets.slice(),
+                lastFullRaise: state.lastFullRaise,
+                raises: state.raises,
+                checks: state.checks,
                 history: state.history.join("/"),
                 actions: []
             };
@@ -353,7 +359,16 @@
 
     function informationKey(node, deal, hero, board) {
         const privateHand = node.actor === 0 ? handId(hero) : handId(deal.villain);
-        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) + "|" + node.history;
+        const publicState = [
+            roundChips(node.pot),
+            (node.stacks || []).map(roundChips).join(","),
+            (node.bets || []).map(roundChips).join(","),
+            roundChips(node.lastFullRaise),
+            node.raises || 0,
+            node.checks || 0
+        ].join(":");
+        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) +
+            "|" + publicState + "|" + node.history;
     }
 
     function runCfr(node, deal, traverser, reach, maps, hero, board, averageWeight) {
