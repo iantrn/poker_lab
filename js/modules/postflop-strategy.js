@@ -80,6 +80,12 @@
         const nodes = { count: 0 };
 
         function firstToAct() {
+            if (input.postflopFirstActorId) {
+                const firstIndex = input.players.findIndex(player =>
+                    player.id === input.postflopFirstActorId
+                );
+                if (firstIndex >= 0) return firstIndex;
+            }
             const index = input.players.findIndex(player =>
                 ["BTN/SB", "SB", "BTN"].includes(player.position)
             );
@@ -411,7 +417,24 @@
             });
 
         // Normalize the internal seat order: hero = 0, opponent = 1.
-        const normalizedState = { ...state, players: [hero, opponent] };
+        // Preserve the real postflop action order from the original table seats,
+        // including hands where the small blind/button has already folded.
+        let postflopFirstActorId = null;
+        if (Number.isInteger(state.dealerIndex) && state.players.length > 0) {
+            const activeIds = new Set([hero.id, opponent.id]);
+            for (let offset = 1; offset <= state.players.length; offset++) {
+                const seat = (state.dealerIndex + offset) % state.players.length;
+                if (activeIds.has(state.players[seat].id)) {
+                    postflopFirstActorId = state.players[seat].id;
+                    break;
+                }
+            }
+        }
+        const normalizedState = {
+            ...state,
+            players: [hero, opponent],
+            postflopFirstActorId
+        };
         const trees = deals.map(deal =>
             buildDecisionTree(normalizedState, hero.actionOptions || {}, priorHistory, deal.runout)
         );
