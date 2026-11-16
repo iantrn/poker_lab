@@ -756,3 +756,41 @@ test("une relance qui consomme exactement le stack du héros est étiquetée all
     assert.equal(raise.action.label, "all_in_raise");
     assert.equal(raise.action.amount, 12.5);
 });
+
+
+test("l'arbre limite à quatre relances les réponses modélisées dans une street", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].stack = 1000;
+    state.players[1].stack = 1000;
+    state.players[0].actionOptions = {
+        canCheck: true,
+        canBet: true,
+        canCall: false,
+        canRaise: true,
+        minimumBet: 1,
+        minimumRaiseTo: 1,
+        maximumRaiseTo: 1000
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+    let maximumRaises = 0;
+
+    function visit(node, raises) {
+        if (!node || node.terminal) return;
+        for (const entry of node.actions) {
+            const nextRaises = node.street === entry.child.street
+                ? raises + (entry.action.type === "raise" ? 1 : 0)
+                : 0;
+            maximumRaises = Math.max(maximumRaises, nextRaises);
+            visit(entry.child, nextRaises);
+        }
+    }
+
+    visit(built.tree, 0);
+    assert.equal(maximumRaises, 4);
+});
