@@ -343,11 +343,13 @@
         }
 
         const oldButton = actions.querySelector("[data-postflop-solve]");
+        const oldDialog = actions.querySelector("[data-postflop-dialog]");
         const oldPanel = actions.querySelector("[data-postflop-result]");
 
         if (!eligible(state)) {
+            if (oldDialog?.open) oldDialog.close();
             if (oldButton) oldButton.remove();
-            if (oldPanel) oldPanel.remove();
+            if (oldDialog) oldDialog.remove();
             return;
         }
 
@@ -355,8 +357,11 @@
             if (oldButton.dataset.solveStateKey !== currentKey) {
                 oldButton.dataset.solveStateKey = currentKey;
                 if (oldPanel) {
-                    oldPanel.replaceChildren();
-                    oldPanel.classList.add("hidden");
+                    oldPanel.replaceChildren(element(
+                        "p",
+                        "text-sm text-textMuted",
+                        "La situation a changé. Ferme cette fenêtre puis relance SOLVE pour analyser le nouveau spot."
+                    ));
                 }
             }
             return;
@@ -369,11 +374,41 @@
         button.dataset.postflopSolve = "true";
         button.dataset.solveStateKey = currentKey;
         button.setAttribute("aria-label", "Analyser cette situation postflop");
-        const panel = element("section",
-            "hidden mt-4 rounded-xl border border-primary/30 bg-background p-4");
+
+        const dialog = element("dialog", "pl-solve-dialog");
+        dialog.dataset.postflopDialog = "true";
+        dialog.setAttribute("aria-labelledby", "pl-solve-dialog-title");
+
+        const header = element("header", "pl-solve-dialog-header");
+        const title = element("h3", "pl-solve-dialog-title", "Analyse SOLVE");
+        title.id = "pl-solve-dialog-title";
+
+        const closeButton = element("button", "pl-solve-dialog-close", "Fermer");
+        closeButton.type = "button";
+        closeButton.setAttribute("aria-label", "Fermer l'analyse SOLVE");
+        closeButton.addEventListener("click", () => dialog.close());
+
+        header.append(title, closeButton);
+
+        const panel = element("section", "pl-solve-result");
         panel.dataset.postflopResult = "true";
-        button.addEventListener("click", () => run(button, panel));
-        actions.append(button, panel);
+
+        dialog.append(header, panel);
+
+        button.addEventListener("click", () => {
+            if (!dialog.open) dialog.showModal();
+            run(button, panel);
+        });
+
+        dialog.addEventListener("click", event => {
+            if (event.target === dialog) dialog.close();
+        });
+
+        dialog.addEventListener("close", () => {
+            if (busy) cancelSolverWorker();
+        });
+
+        actions.append(button, dialog);
     }
 
     function init() {
