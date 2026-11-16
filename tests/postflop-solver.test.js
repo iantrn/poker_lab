@@ -194,13 +194,16 @@ test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses"
     const history = [{
         type: "player_action",
         street: "flop",
-        data: { playerId: "bot_1", action: "check", amount: 0, secret: "must-not-pass" }
+        data: { playerId: "bot_1", action: "check", amount: 0, potBefore: 2, potAfter: 2, currentBetBefore: 0, currentBetAfter: 0, streetBetBefore: 0, streetBetAfter: 0, stackBefore: 100, stackAfter: 100, betTo: null, raiseTo: null, raiseSize: null, isFullRaise: null, lastFullRaiseBefore: 1, lastFullRaiseAfter: 1, allIn: false, secret: "must-not-pass" }
     }];
     const input = app.PokerLabPostflopSolver.createInput(current, history);
     assert.equal(input.schemaVersion, 1);
     assert.equal(input.state.players[1].holeCards, null);
     assert.notEqual(input.state.board, current.board);
     assert.equal(input.history[0].data.secret, undefined);
+    assert.equal(input.history[0].data.potBefore, 2);
+    assert.equal(input.history[0].data.currentBetAfter, 0);
+    assert.equal(input.history[0].data.stackAfter, 100);
     input.state.board[0].value = 3;
     assert.equal(current.board[0].value, 2);
 });
