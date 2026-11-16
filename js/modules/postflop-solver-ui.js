@@ -112,7 +112,8 @@
                     "Range héros : " + strategy.heroRangeLabel +
                     " · main réelle incluse : " + (strategy.actualHandInHeroRange ? "oui" : "non") +
                     " · échantillons de la main réelle : " +
-                    strategy.sampledActualHeroHand + "/" + strategy.sampledHeroHands),
+                    strategy.sampledActualHeroHand + "/" + strategy.sampledHeroHands +
+                    " · ESS pondéré : " + strategy.heroRangeEffectiveSampleSize.toLocaleString("fr-FR", { maximumFractionDigits: 1 })),
                 element("p", "pl-solve-detail-line",
                     "Range adverse : " + strategy.rangeLabel)
             );
