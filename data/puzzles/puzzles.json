@@ -88,7 +88,7 @@
         },
         {
           "action": "raise",
-          "label": "3-bet"
+          "label": "Sur-relancer"
         },
         {
           "action": "all-in",
@@ -212,11 +212,11 @@
       "options": [
         {
           "action": "check",
-          "label": "Check uniquement pour contrôler le pot"
+          "label": "Checker uniquement pour contrôler le pot"
         },
         {
           "action": "bet",
-          "label": "Miser pour value"
+          "label": "Miser pour valorisation"
         },
         {
           "action": "fold",
