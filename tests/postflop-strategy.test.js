@@ -839,3 +839,48 @@ test("la stratégie conserve un fallback si l'API de range héro n'est pas dispo
     assert.equal(result.sampledHeroHands, 80);
     assert.equal(result.sampledActualHeroHand, 80);
 });
+
+
+test("le sampling bilatéral corrige les bloqueurs dans la distribution jointe des ranges", () => {
+    const app = loadStrategy();
+    const actualHero = [card(2, "clubs"), card(3, "clubs")];
+    const alternativeHero = [card(9, "clubs"), card(10, "clubs")];
+    const board = [
+        card(14, "spades"),
+        card(13, "spades"),
+        card(12, "spades")
+    ];
+    const heroRange = [
+        { cards: actualHero, weight: 1 },
+        { cards: alternativeHero, weight: 1 }
+    ];
+    const opponentRange = [
+        { cards: [card(2, "clubs"), card(4, "diamonds")], weight: 1 },
+        { cards: [card(5, "clubs"), card(6, "diamonds")], weight: 1 },
+        { cards: [card(7, "clubs"), card(8, "diamonds")], weight: 1 }
+    ];
+
+    const actualDeal = app.PokerLabPostflopStrategy.sampleDeals(
+        actualHero, board, opponentRange, 1, true, () => 0, heroRange
+    ).deals[0];
+    const alternativeDeal = app.PokerLabPostflopStrategy.sampleDeals(
+        actualHero, board, opponentRange, 1, true, () => 0.99, heroRange
+    ).deals[0];
+
+    // L'actual hand bloque une combinaison adverse : Z(actual)=2.
+    // L'autre main n'en bloque aucune : Z(alternative)=3.
+    assert.equal(actualDeal.heroImportanceWeight, 1.6);
+    assert.equal(alternativeDeal.heroImportanceWeight, 4);
+});
+
+test("le solveur rapporte l'effectif efficace des échantillons de range pondérés", async () => {
+    const app = loadStrategy();
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        consistentRiverState(),
+        [],
+        { iterations: 10, samples: 8, seed: 20261118 }
+    );
+
+    assert.ok(result.heroRangeEffectiveSampleSize > 0);
+    assert.ok(result.heroRangeEffectiveSampleSize <= result.sampledHeroHands);
+});
