@@ -14,7 +14,33 @@
         return positive.map(value => value / total);
     }
 
-    function ensureInfoSet(key, actionCount, maps) {
+    function actionSignature(actions) {
+        return JSON.stringify(actions.map(entry => {
+            const action = entry && entry.action ? entry.action : (entry || {});
+            const numeric = value => value === undefined || value === null
+                ? null
+                : Number.isFinite(Number(value)) ? Number(value) : String(value);
+            return [
+                String(action.type || ""),
+                String(action.label || action.id || ""),
+                numeric(action.amount),
+                numeric(action.raiseTo)
+            ];
+        }));
+    }
+
+    function ensureInfoSet(key, actions, maps) {
+        const actionCount = actions.length;
+        if (!(maps.actionSignatures instanceof Map)) {
+            maps.actionSignatures = new Map();
+        }
+        const signature = actionSignature(actions);
+        const previousSignature = maps.actionSignatures.get(key);
+        if (previousSignature !== undefined && previousSignature !== signature) {
+            throw new Error("Un même information set ne peut pas avoir des ensembles d'actions différents (type, ordre, label ou sizing).");
+        }
+        maps.actionSignatures.set(key, signature);
+
         let regrets = maps.regrets.get(key);
         if (!regrets) {
             regrets = new Float64Array(actionCount);
@@ -44,7 +70,7 @@
         }
 
         const key = callbacks.informationKey(node, deal);
-        const { regrets, strategySum } = ensureInfoSet(key, node.actions.length, maps);
+        const { regrets, strategySum } = ensureInfoSet(key, node.actions, maps);
         const strategy = regretMatched(regrets, node.actions.length);
         const ownReach = reach[node.actor];
 
@@ -90,7 +116,7 @@
     function averageStrategy(node, deal, maps, callbacks) {
         if (node.terminal) return callbacks.utility(node, deal);
         const key = callbacks.informationKey(node, deal);
-        const sums = maps.strategy.get(key);
+        const { strategySum: sums } = ensureInfoSet(key, node.actions, maps);
         const total = sums
             ? Array.from(sums).reduce((sum, value) => sum + value, 0)
             : 0;
@@ -105,7 +131,7 @@
     function getStrategy(node, deal, maps, callbacks) {
         if (node.terminal) return [];
         const key = callbacks.informationKey(node, deal);
-        const sums = maps.strategy.get(key);
+        const { strategySum: sums } = ensureInfoSet(key, node.actions, maps);
         const total = sums
             ? Array.from(sums).reduce((sum, value) => sum + value, 0)
             : 0;
@@ -115,7 +141,7 @@
     }
 
     function createMaps() {
-        return { regrets: new Map(), strategy: new Map() };
+        return { regrets: new Map(), strategy: new Map(), actionSignatures: new Map() };
     }
 
     global.PokerLabCFRCore = {
