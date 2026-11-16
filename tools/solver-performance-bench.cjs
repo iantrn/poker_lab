@@ -132,6 +132,19 @@ async function benchmarkStreet(street, repeats = 3) {
         }
     };
 
+    // Warm up JIT and one-time runtime paths before collecting samples.
+    await context.PokerLabPostflopStrategy.solvePostflop(
+        makeState(street),
+        [],
+        {
+            iterations: 10,
+            samples: 8,
+            evaluationSamples: 16,
+            exploitabilitySamples: 8,
+            seed: 20261115
+        }
+    );
+
     const durations = [];
     const perRun = [];
     for (let run = 0; run < repeats; run++) {
