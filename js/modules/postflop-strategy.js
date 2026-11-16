@@ -370,9 +370,12 @@
     }
 
     function validate(state) {
-        if (!state || state.street !== "river" || !Array.isArray(state.board) || state.board.length !== 5) {
-            throw new Error("Le moteur CFR+ est d'abord disponible à la river.");
+        const expectedBoardLength = { flop: 3, turn: 4, river: 5 };
+        if (!state || !Object.prototype.hasOwnProperty.call(expectedBoardLength, state.street) ||
+            !Array.isArray(state.board) || state.board.length !== expectedBoardLength[state.street]) {
+            throw new Error("Le moteur CFR+ est disponible à partir du flop.");
         }
+        if (!Array.isArray(state.players)) throw new Error("La liste des joueurs est invalide.");
         const active = state.players.filter(player => !player.folded);
         if (active.length !== 2) throw new Error("Le moteur CFR+ est limité au heads-up.");
         const hero = state.players.find(player => player.isHuman);
@@ -387,11 +390,16 @@
         return { hero, opponent };
     }
 
-    async function solveRiver(state, history = [], options = {}) {
+    async function solvePostflop(state, history = [], options = {}) {
         const { hero, opponent } = validate(state);
+        const defaults = {
+            flop: { iterations: 30, samples: 12 },
+            turn: { iterations: 60, samples: 24 },
+            river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
+        }[state.street];
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
-        const iterations = Math.max(20, Math.min(1000, Number(options.iterations) || DEFAULT_ITERATIONS));
-        const samples = Math.max(8, Math.min(160, Number(options.samples) || DEFAULT_SAMPLES));
+        const iterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
+        const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
         const deals = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
         const priorHistory = (history || [])
             .filter(event => event.type === "player_action" && event.street === state.street)
@@ -401,14 +409,22 @@
                 return (player ? player.position || player.id : data.playerId) +
                     ":" + data.action + (Number.isFinite(data.amount) ? ":" + data.amount : "");
             });
-        const { tree, nodeCount } = buildDecisionTree(state, hero.actionOptions || {}, priorHistory);
-        if (tree.terminal || !tree.actions || !tree.actions.length) {
+
+        // Normalize the internal seat order: hero = 0, opponent = 1.
+        const normalizedState = { ...state, players: [hero, opponent] };
+        const trees = deals.map(deal =>
+            buildDecisionTree(normalizedState, hero.actionOptions || {}, priorHistory, deal.runout)
+        );
+        if (trees.some(item => item.tree.terminal || !item.tree.actions || !item.tree.actions.length)) {
             throw new Error("Aucune décision stratégique disponible dans cette situation.");
         }
-
+        const nodeCount = trees.reduce((sum, item) => sum + item.nodeCount, 0);
         const maps = { regrets: new Map(), strategy: new Map() };
+
         for (let iteration = 0; iteration < iterations; iteration++) {
-            for (const deal of deals) {
+            for (let index = 0; index < deals.length; index++) {
+                const tree = trees[index].tree;
+                const deal = deals[index];
                 runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
                 runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
             }
@@ -418,15 +434,17 @@
             }
         }
 
-        const rootStrategy = getRootStrategy(tree, deals[0], maps, hero.holeCards, state.board);
-        const actionValues = tree.actions.map(entry => {
+        const rootTree = trees[0].tree;
+        const rootStrategy = getRootStrategy(rootTree, deals[0], maps, hero.holeCards, state.board);
+        const actionValues = rootTree.actions.map((entry, actionIndex) => {
             let total = 0;
-            for (const deal of deals) {
-                total += averageStrategy(entry.child, deal, maps, hero.holeCards, state.board);
+            for (let dealIndex = 0; dealIndex < deals.length; dealIndex++) {
+                const child = trees[dealIndex].tree.actions[actionIndex].child;
+                total += averageStrategy(child, deals[dealIndex], maps, hero.holeCards, state.board);
             }
             return total / deals.length;
         });
-        const actions = tree.actions.map((entry, index) => ({
+        const actions = rootTree.actions.map((entry, index) => ({
             action: entry.action.label,
             frequency: rootStrategy[index],
             ev: actionValues[index]
@@ -436,19 +454,21 @@
             sum + rootStrategy[index] * value, 0);
 
         return {
-            algorithm: "CFR+",
+            algorithm: "Chance-sampled CFR+",
             averageStrategyWeighting: "linear",
-            abstraction: "River HU · check · mise 50 % pot ou tapis · une relance maximale",
+            street: state.street,
+            abstraction: state.street.toUpperCase() +
+                " → river HU · runouts échantillonnés · check · mise 50 % pot ou tapis effectif · une relance maximale par street",
             iterations,
             sampledOpponentHands: samples,
-            treeNodes: nodeCount,
+            treeNodes: Math.round(nodeCount / samples),
             rangeLabel: rangeInfo.label,
             rangeUsed: Boolean(rangeInfo.combos),
             heroEV: ev,
             actions,
-            convergence: "Approximation CFR+ sur un échantillon de mains adverses ; convergence non certifiée."
+            convergence: "Approximation CFR+ avec échantillonnage des mains et des runouts ; exploitabilité et convergence non certifiées."
         };
     }
 
-    global.PokerLabPostflopStrategy = { solveRiver, validate, buildDecisionTree, buildUniformRange };
+    global.PokerLabPostflopStrategy = { solvePostflop, solveRiver: solvePostflop, validate, buildDecisionTree, buildUniformRange };
 })(window);
