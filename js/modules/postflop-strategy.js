@@ -509,6 +509,7 @@
         const maps = { regrets: new Map(), strategy: new Map() };
         let rootTree = null;
         let averageNodeCount = 0;
+        let sampledRangeUsed = true;
 
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = sampleDeals(
@@ -519,6 +520,7 @@
                 rangeInfo.rangeUsed !== false
             );
             const deal = sampled.deals[0];
+            sampledRangeUsed = sampled.rangeUsed;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
                 global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
@@ -612,8 +614,12 @@
             sampledOpponentHands: trainingIterations,
             evaluationSamples: evaluatedDeals,
             treeNodes: Math.round(averageNodeCount / trainingIterations),
-            rangeLabel: rangeInfo.label,
-            rangeUsed: rangeInfo.rangeUsed !== false,
+            rangeLabel: rangeInfo.rangeUsed === false
+                ? rangeInfo.label
+                : sampledRangeUsed
+                    ? rangeInfo.label
+                    : "Range large (combinaisons bloquées)",
+            rangeUsed: rangeInfo.rangeUsed === false ? false : sampledRangeUsed,
             postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
             heroEV,
             actions,
