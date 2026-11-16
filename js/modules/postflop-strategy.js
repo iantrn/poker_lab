@@ -200,6 +200,23 @@
         return items[items.length - 1].cards;
     }
 
+    function buildUniformRange(knownCards) {
+        const blocked = new Set(knownCards.map(cardId));
+        const suits = ["clubs", "diamonds", "hearts", "spades"];
+        const deck = [];
+        for (const suit of suits) for (let value = 2; value <= 14; value++) {
+            const card = { value, suit };
+            if (!blocked.has(cardId(card))) deck.push(card);
+        }
+        const combos = [];
+        for (let first = 0; first < deck.length; first++) {
+            for (let second = first + 1; second < deck.length; second++) {
+                combos.push({ cards: [deck[first], deck[second]], weight: 1 });
+            }
+        }
+        return combos;
+    }
+
     function sampleDeals(hero, board, range, sampleCount) {
         const blocked = new Set([...hero, ...board].map(cardId));
         let candidates = Array.isArray(range) ? range.filter(item =>
@@ -209,18 +226,8 @@
             Number(item.weight) > 0
         ) : [];
 
-        const suits = ["clubs", "diamonds", "hearts", "spades"];
         if (!candidates.length) {
-            candidates = [];
-            for (const suitA of suits) for (let a = 2; a <= 14; a++) {
-                for (const suitB of suits) for (let b = 2; b <= 14; b++) {
-                    if (a === b && suits.indexOf(suitB) <= suits.indexOf(suitA)) continue;
-                    const cards = [{ value: a, suit: suitA }, { value: b, suit: suitB }];
-                    if (cardId(cards[0]) === cardId(cards[1])) continue;
-                    if (cards.some(card => blocked.has(cardId(card)))) continue;
-                    candidates.push({ cards, weight: 1 });
-                }
-            }
+            candidates = buildUniformRange([...hero, ...board]);
         }
         if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
 
@@ -396,5 +403,5 @@
         };
     }
 
-    global.PokerLabPostflopStrategy = { solveRiver, validate, buildDecisionTree };
+    global.PokerLabPostflopStrategy = { solveRiver, validate, buildDecisionTree, buildUniformRange };
 })(window);
