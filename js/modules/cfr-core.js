@@ -6,16 +6,31 @@
 
 (function (global) {
     function regretMatched(regrets, actionCount) {
-        const positive = regrets
-            ? Array.from(regrets, value => Math.max(0, value))
-            : [];
-        const total = positive.reduce((sum, value) => sum + value, 0);
-        if (!(total > 0)) return Array(actionCount).fill(1 / actionCount);
-        return positive.map(value => value / total);
+        const strategy = new Float64Array(actionCount);
+        let total = 0;
+        if (regrets) {
+            for (let index = 0; index < actionCount; index++) {
+                const positive = Math.max(0, regrets[index]);
+                strategy[index] = positive;
+                total += positive;
+            }
+        }
+        if (!(total > 0)) {
+            strategy.fill(1 / actionCount);
+            return strategy;
+        }
+        for (let index = 0; index < actionCount; index++) {
+            strategy[index] /= total;
+        }
+        return strategy;
     }
 
+    const actionSignatureCache = new WeakMap();
+
     function actionSignature(actions) {
-        return JSON.stringify(actions.map(entry => {
+        const cached = actionSignatureCache.get(actions);
+        if (cached !== undefined) return cached;
+        const signature = JSON.stringify(actions.map(entry => {
             const action = entry && entry.action ? entry.action : (entry || {});
             const numeric = value => value === undefined || value === null
                 ? null
@@ -27,6 +42,8 @@
                 numeric(action.raiseTo)
             ];
         }));
+        actionSignatureCache.set(actions, signature);
+        return signature;
     }
 
     function ensureInfoSet(key, actions, maps) {
@@ -60,7 +77,7 @@
         return { regrets, strategySum };
     }
 
-    function runCfr(node, deal, traverser, reach, maps, callbacks, averageWeight = 1, chanceWeight = 1) {
+    function runCfrRecursive(node, deal, traverser, reach, maps, callbacks, averageWeight, chanceWeight) {
         if (node.terminal) return callbacks.utility(node, deal);
         if (node.actor !== 0 && node.actor !== 1) {
             throw new Error("Un nœud CFR doit appartenir au joueur 0 ou au joueur 1.");
@@ -83,18 +100,18 @@
         const actionValues = new Float64Array(node.actions.length);
         let nodeValue = 0;
         for (let index = 0; index < node.actions.length; index++) {
-            const nextReach = reach.slice();
-            nextReach[node.actor] *= strategy[index];
-            actionValues[index] = runCfr(
+            reach[node.actor] = ownReach * strategy[index];
+            actionValues[index] = runCfrRecursive(
                 node.actions[index].child,
                 deal,
                 traverser,
-                nextReach,
+                reach,
                 maps,
                 callbacks,
                 averageWeight,
                 chanceWeight
             );
+            reach[node.actor] = ownReach;
             nodeValue += strategy[index] * actionValues[index];
         }
 
@@ -113,31 +130,54 @@
         return nodeValue;
     }
 
+    function runCfr(node, deal, traverser, reach, maps, callbacks, averageWeight = 1, chanceWeight = 1) {
+        const workingReach = [Number(reach[0]), Number(reach[1])];
+        return runCfrRecursive(
+            node,
+            deal,
+            traverser,
+            workingReach,
+            maps,
+            callbacks,
+            averageWeight,
+            chanceWeight
+        );
+    }
+
     function averageStrategy(node, deal, maps, callbacks) {
         if (node.terminal) return callbacks.utility(node, deal);
         const key = callbacks.informationKey(node, deal);
         const { strategySum: sums } = ensureInfoSet(key, node.actions, maps);
-        const total = sums
-            ? Array.from(sums).reduce((sum, value) => sum + value, 0)
-            : 0;
-        const strategy = sums && total > 0
-            ? Array.from(sums, value => value / total)
-            : Array(node.actions.length).fill(1 / node.actions.length);
+        let total = 0;
+        for (let index = 0; index < sums.length; index++) total += sums[index];
 
-        return node.actions.reduce((sum, entry, index) =>
-            sum + strategy[index] * averageStrategy(entry.child, deal, maps, callbacks), 0);
+        let value = 0;
+        const fallback = 1 / node.actions.length;
+        for (let index = 0; index < node.actions.length; index++) {
+            const probability = total > 0 ? sums[index] / total : fallback;
+            value += probability * averageStrategy(
+                node.actions[index].child, deal, maps, callbacks
+            );
+        }
+        return value;
     }
 
     function getStrategy(node, deal, maps, callbacks) {
         if (node.terminal) return [];
         const key = callbacks.informationKey(node, deal);
         const { strategySum: sums } = ensureInfoSet(key, node.actions, maps);
-        const total = sums
-            ? Array.from(sums).reduce((sum, value) => sum + value, 0)
-            : 0;
-        return sums && total > 0
-            ? Array.from(sums, value => value / total)
-            : Array(node.actions.length).fill(1 / node.actions.length);
+        let total = 0;
+        for (let index = 0; index < sums.length; index++) total += sums[index];
+
+        const strategy = new Float64Array(node.actions.length);
+        if (total > 0) {
+            for (let index = 0; index < sums.length; index++) {
+                strategy[index] = sums[index] / total;
+            }
+        } else {
+            strategy.fill(1 / node.actions.length);
+        }
+        return strategy;
     }
 
     function evaluateProfile(deals, maps, callbacks, weightOf = () => 1) {
