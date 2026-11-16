@@ -47,6 +47,31 @@ function loadStrategy() {
     return context;
 }
 
+function loadIntegratedStrategy(fetcher) {
+    const context = {
+        console,
+        Math,
+        Set,
+        Map,
+        Promise,
+        Float64Array,
+        setTimeout,
+        Uint32Array,
+        fetch: fetcher
+    };
+    context.window = context;
+    vm.createContext(context);
+    for (const path of [
+        "js/core/evaluator.js",
+        "js/modules/cfr-core.js",
+        "js/modules/postflop-solver.js",
+        "js/modules/postflop-strategy.js"
+    ]) {
+        vm.runInContext(fs.readFileSync(path, "utf8"), context, { filename: path });
+    }
+    return context;
+}
+
 function card(value, suit) {
     return { value, suit };
 }
@@ -129,10 +154,10 @@ test("face à une mise, l'arbre propose fold, call et raise si la relance est l�
     state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: true };
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
     assert.deepEqual(
-        Array.from(built.tree.actions, entry => entry.action.type),
-        ["fold", "call", "raise"]
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["fold", "call", "min_raise", "raise_50", "all_in_raise"]
     );
-    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    const raiseBranch = built.tree.actions.find(entry => entry.action.label === "raise_50");
     assert.deepEqual(
         Array.from(raiseBranch.child.actions, entry => entry.action.label),
         ["fold", "call", "raise_effective"]
@@ -553,9 +578,9 @@ test("la racine respecte le droit réel de relancer même après deux relances a
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call", "raise"]
+        ["fold", "call", "min_raise", "raise_50", "all_in_raise"]
     );
-    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    const raiseBranch = built.tree.actions.find(entry => entry.action.label === "min_raise");
     assert.deepEqual(
         Array.from(raiseBranch.child.actions, entry => entry.action.label),
         ["fold", "call", "raise"]
@@ -656,6 +681,9 @@ test("une seed identique reproduit exactement le même calcul CFR+", async () =>
     assert.equal(first.randomSeed, 20261116);
     assert.equal(second.randomSeed, 20261116);
     assert.equal(first.heroEV, second.heroEV);
+    assert.equal(first.nashConv, second.nashConv);
+    assert.equal(first.exploitability, second.exploitability);
+    assert.equal(first.exploitabilityEffectiveSampleSize, second.exploitabilityEffectiveSampleSize);
     assert.equal(JSON.stringify(first.actions), JSON.stringify(second.actions));
 });
 
@@ -763,10 +791,9 @@ test("une relance qui consomme exactement le stack du héros est étiquetée all
         state,
         state.players[0].actionOptions
     );
-    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+    const raise = built.tree.actions.find(entry => entry.action.label === "all_in_raise");
 
     assert.ok(raise);
-    assert.equal(raise.action.label, "all_in_raise");
     assert.equal(raise.action.amount, 12.5);
 });
 
@@ -825,6 +852,17 @@ test("CFR+ entraîne les deux ranges et suréchantillonne la main réelle avec c
     assert.equal(result.sampledOpponentHands, 160);
     assert.ok(result.actions.every(action => Number.isFinite(action.frequency)));
     assert.ok(Math.abs(result.actions.reduce((sum, action) => sum + action.frequency, 0) - 1) < 1e-6);
+    assert.ok(result.exploitabilitySamples >= 8);
+    assert.ok(result.exploitabilityEffectiveSampleSize > 0);
+    assert.ok(result.exploitabilityEffectiveSampleSize <= result.exploitabilitySamples);
+    assert.ok(Number.isFinite(result.profileEV));
+    assert.ok(Number.isFinite(result.heroBestResponseEV));
+    assert.ok(Number.isFinite(result.opponentBestResponseEV));
+    assert.ok(Number.isFinite(result.nashConv));
+    assert.ok(Number.isFinite(result.exploitability));
+    assert.ok(Math.abs(result.exploitability - result.nashConv / 2) < 1e-9);
+    assert.ok(result.heroDeviationGain >= -1e-8);
+    assert.ok(result.opponentDeviationGain >= -1e-8);
 });
 
 test("la stratégie conserve un fallback si l'API de range héro n'est pas disponible", async () => {
@@ -883,4 +921,146 @@ test("le solveur rapporte l'effectif efficace des échantillons de range pondér
 
     assert.ok(result.heroRangeEffectiveSampleSize > 0);
     assert.ok(result.heroRangeEffectiveSampleSize <= result.sampledHeroHands);
+});
+
+
+test("le solveur range-vs-range retrouve une EV exacte sur un spot river déterministe", async () => {
+    const heroRangeId = "bu/BU_RFI";
+    const opponentRangeId = "bb/BB_call_vs_BU_RFI";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? {
+                version: 1,
+                spots: [
+                    { id: heroRangeId, p: "BU", a: "RFI", s: "" },
+                    { id: opponentRangeId, p: "BB", a: "call", s: "BU RFI" }
+                ]
+            }
+            : {
+                version: 1,
+                ranges: {
+                    [heroRangeId]: { AA: 100 },
+                    [opponentRangeId]: { KK: 100 }
+                }
+            }
+    });
+    const app = loadIntegratedStrategy(fetcher);
+    const current = {
+        street: "river",
+        board: [
+            card(2, "clubs"),
+            card(3, "diamonds"),
+            card(4, "hearts"),
+            card(8, "spades"),
+            card(9, "clubs")
+        ],
+        pot: 10,
+        currentBet: 0,
+        lastFullRaise: 1,
+        minimumRaiseTo: 1,
+        blinds: { smallBlind: 0.5, bigBlind: 1 },
+        dealerIndex: 0,
+        currentPlayerId: "hero",
+        handComplete: false,
+        players: [
+            {
+                id: "hero",
+                name: "Hero",
+                isHuman: true,
+                isBot: false,
+                folded: false,
+                holeCards: [card(14, "spades"), card(14, "hearts")],
+                stack: 100,
+                streetBet: 0,
+                totalContribution: 5,
+                amountToCall: 0,
+                lastActedBet: 0,
+                hasActed: false,
+                actionOptions: {
+                    callAmount: 0,
+                    minimumBet: 1,
+                    minimumRaiseTo: 1,
+                    maximumRaiseTo: 100,
+                    canCheck: true,
+                    canCall: false,
+                    canBet: false,
+                    canRaise: false
+                }
+            },
+            {
+                id: "bot_1",
+                name: "Bot",
+                isHuman: false,
+                isBot: true,
+                position: "BB",
+                folded: false,
+                holeCards: null,
+                stack: 0,
+                streetBet: 0,
+                totalContribution: 5,
+                amountToCall: 0,
+                lastActedBet: 0,
+                hasActed: false,
+                allIn: true
+            }
+        ]
+    };
+    current.players[0].position = "BTN";
+
+    const history = [
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "hero", action: "raise", allIn: false }
+        },
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "bot_1", action: "call", allIn: false }
+        }
+    ];
+
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        current,
+        history,
+        { iterations: 10, samples: 8, evaluationSamples: 64, seed: 4242 }
+    );
+
+    assert.equal(result.heroRangeUsed, true);
+    assert.equal(result.rangeUsed, true);
+    assert.equal(result.actualHandInHeroRange, true);
+    assert.equal(result.heroEV, 10);
+    assert.equal(result.heroEVStandardError, 0);
+    assert.deepEqual(Array.from(result.actions, action => action.action), ["check"]);
+});
+
+
+test("à la racine, une relance légale propose le minimum, 50 % pot et le tapis effectif", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 15;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 6,
+        maximumRaiseTo: 20
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+    const raises = built.tree.actions.filter(entry => entry.action.type === "raise");
+
+    assert.deepEqual(
+        Array.from(raises, entry => [entry.action.label, entry.action.amount]),
+        [
+            ["min_raise", 6],
+            ["raise_50", 15],
+            ["all_in_raise", 20]
+        ]
+    );
 });

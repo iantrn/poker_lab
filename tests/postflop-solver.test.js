@@ -23,6 +23,7 @@ function loadSolver(fetcher = async url => ({
     context.window = context;
     vm.createContext(context);
     vm.runInContext(fs.readFileSync("js/core/evaluator.js", "utf8"), context);
+    vm.runInContext(fs.readFileSync("js/bots/bot-profiles.js", "utf8"), context);
     vm.runInContext(fs.readFileSync("js/modules/postflop-solver.js", "utf8"), context);
     return context;
 }
@@ -191,6 +192,9 @@ test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses"
         [card(14, "spades"), card(14, "hearts")]
     );
     current.players[1].holeCards = [card(3, "clubs"), card(4, "clubs")];
+    current.players[1].isBot = true;
+    current.players[1].botProfile = "nit";
+    current.players[1].botDifficulty = "hard";
     const history = [{
         type: "player_action",
         street: "flop",
@@ -199,6 +203,8 @@ test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses"
     const input = app.PokerLabPostflopSolver.createInput(current, history);
     assert.equal(input.schemaVersion, 1);
     assert.equal(input.state.players[1].holeCards, null);
+    assert.equal(input.state.players[1].botProfile, "nit");
+    assert.equal(input.state.players[1].botDifficulty, "hard");
     assert.notEqual(input.state.board, current.board);
     assert.equal(input.history[0].data.secret, undefined);
     assert.equal(input.history[0].data.potBefore, 2);
@@ -255,7 +261,7 @@ test("le solveur conserve une range uniforme hors ligne si le bundle préflop es
     );
     assert.equal(range.rangeUsed, false);
     assert.match(range.label, /bundle préflop indisponible/);
-    assert.equal(range.combos.length, 1081);
+    assert.equal(range.combos.length, 1176);
 });
 
 
@@ -558,4 +564,161 @@ test("la range héro retombe en range large si elle exclut la main réellement d
         item.cards.some(card => card.value === 14 && card.suit === "clubs") &&
         item.cards.some(card => card.value === 14 && card.suit === "hearts")
     ));
+});
+
+
+test("le fallback uniforme de la range adverse n'est pas bloqué par la main réelle du héros", async () => {
+    const app = loadSolver();
+    const heroCards = [card(14, "spades"), card(14, "hearts")];
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        heroCards
+    );
+
+    const range = await app.PokerLabPostflopSolver.getPlayerRange(
+        current,
+        [],
+        current.players[1]
+    );
+    const handKey = cards => cards
+        .map(item => item.value + "_" + item.suit)
+        .sort()
+        .join("|");
+
+    assert.equal(range.rangeUsed, false);
+    assert.ok(range.combos.some(item => handKey(item.cards) === handKey(heroCards)));
+});
+
+
+test("le conditionnement postflop tient compte du profil et de la difficulté du bot", () => {
+    const app = loadSolver();
+    const board = [
+        card(2, "clubs"),
+        card(7, "diamonds"),
+        card(9, "hearts")
+    ];
+    const strongHand = [card(9, "spades"), card(9, "diamonds")];
+    const mediumHand = [card(7, "spades"), card(3, "clubs")];
+    const range = {
+        label: "test-range",
+        combos: [
+            { cards: strongHand, weight: 1 },
+            { cards: mediumHand, weight: 1 }
+        ]
+    };
+    const state = { board };
+    const history = [{
+        type: "player_action",
+        street: "flop",
+        data: {
+            playerId: "bot",
+            action: "bet",
+            amount: 10,
+            potBefore: 10,
+            potAfter: 20,
+            currentBetBefore: 0,
+            currentBetAfter: 10,
+            streetBetBefore: 0,
+            streetBetAfter: 10,
+            stackBefore: 100,
+            stackAfter: 90,
+            betTo: 10,
+            raiseSize: 10,
+            isFullRaise: true,
+            lastFullRaiseBefore: 1,
+            allIn: false
+        }
+    }];
+
+    const nit = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
+        state,
+        history,
+        { id: "bot", isBot: true, botProfile: "nit", botDifficulty: "hard" },
+        range
+    );
+    const lag = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
+        state,
+        history,
+        { id: "bot", isBot: true, botProfile: "lag", botDifficulty: "medium" },
+        range
+    );
+
+    const ratio = result => result.combos[0].weight / result.combos[1].weight;
+    assert.equal(nit.profileModeledActions, 1);
+    assert.equal(lag.profileModeledActions, 1);
+    assert.match(nit.conditioning, /profil et la difficulté/);
+    assert.ok(ratio(nit) > ratio(lag));
+});
+
+
+test("le modèle bot respecte la réouverture des relances après des relances courtes cumulées", () => {
+    const app = loadSolver();
+    const board = [
+        card(2, "clubs"),
+        card(7, "diamonds"),
+        card(9, "hearts")
+    ];
+    const range = {
+        combos: [
+            { cards: [card(9, "spades"), card(9, "diamonds")], weight: 1 },
+            { cards: [card(7, "spades"), card(3, "clubs")], weight: 1 }
+        ]
+    };
+    const state = { board };
+    const previousBet = {
+        type: "player_action",
+        street: "flop",
+        data: {
+            playerId: "bot",
+            action: "bet",
+            amount: 10,
+            potBefore: 10,
+            currentBetBefore: 0,
+            streetBetBefore: 0,
+            streetBetAfter: 10,
+            stackBefore: 100,
+            betTo: 10,
+            lastFullRaiseBefore: 1
+        }
+    };
+    const makeRaise = currentBet => ({
+        type: "player_action",
+        street: "flop",
+        data: {
+            playerId: "bot",
+            action: "raise",
+            amount: 1,
+            raiseSize: 1,
+            potBefore: 20,
+            currentBetBefore: currentBet,
+            streetBetBefore: 10,
+            streetBetAfter: currentBet + 1,
+            stackBefore: 100,
+            lastFullRaiseBefore: 1
+        }
+    });
+    const opponent = {
+        id: "bot",
+        isBot: true,
+        botProfile: "lag",
+        botDifficulty: "hard"
+    };
+
+    const notReopened = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
+        state,
+        [previousBet, makeRaise(10.5)],
+        opponent,
+        range
+    );
+    const reopened = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
+        state,
+        [previousBet, makeRaise(11)],
+        opponent,
+        range
+    );
+
+    const likelihoodRatio = result =>
+        result.combos[0].weight / result.combos[1].weight;
+
+    assert.ok(likelihoodRatio(reopened) > likelihoodRatio(notReopened));
 });

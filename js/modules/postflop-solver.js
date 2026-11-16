@@ -367,10 +367,150 @@
         return Math.max(0.05, Math.min(0.995, strength));
     }
 
+    function clampProbability(value) {
+        return Math.max(0, Math.min(1, Number(value) || 0));
+    }
+
+    function attachRaiseRights(history) {
+        const lastActionByPlayerStreet = new Map();
+        return (history || []).map(event => {
+            if (!event || event.type !== "player_action" || !event.data) return event;
+            const data = event.data;
+            const key = String(data.playerId) + "|" + String(event.street || "");
+            const previous = lastActionByPlayerStreet.get(key);
+            let canRaiseBefore = true;
+
+            const currentBetBefore = Number(data.currentBetBefore);
+            const lastFullRaiseBefore = Number(data.lastFullRaiseBefore);
+            if (previous && Number.isFinite(currentBetBefore) && Number.isFinite(lastFullRaiseBefore)) {
+                const previousStreetBet = Number.isFinite(Number(previous.streetBetAfter))
+                    ? Number(previous.streetBetAfter)
+                    : (Number(previous.streetBetBefore) || 0) + (Number(previous.amount) || 0);
+                canRaiseBefore =
+                    currentBetBefore - previousStreetBet >= lastFullRaiseBefore - 0.000001;
+            }
+
+            lastActionByPlayerStreet.set(key, data);
+            return { ...event, canRaiseBefore };
+        });
+    }
+
+    function createBotActionModel(opponent, event) {
+        const profiles = global.PokerLabBotProfiles;
+        if (!profiles || !opponent || opponent.isHuman ||
+            !opponent.botProfile || typeof profiles.getProfile !== "function") {
+            return null;
+        }
+
+        const profile = profiles.getProfile(opponent.botProfile);
+        const difficulty = profiles.getDifficulty(opponent.botDifficulty || "medium");
+        if (!profile || !difficulty || !profile.stats) return null;
+
+        const data = event.data || {};
+        const potBefore = Number(data.potBefore);
+        const currentBetBefore = Number(data.currentBetBefore);
+        const streetBetBefore = Number(data.streetBetBefore);
+        const stackBefore = Number(data.stackBefore);
+        if (![potBefore, currentBetBefore, streetBetBefore, stackBefore].every(Number.isFinite)) {
+            return null;
+        }
+
+        const callAmount = Math.max(0, currentBetBefore - streetBetBefore);
+        const effectiveCall = Math.min(callAmount, stackBefore);
+        const potOdds = effectiveCall / Math.max(0.5, potBefore + effectiveCall);
+        const showdownAdjustment = (Number(profile.stats.showdownFrequency) - 27) * 0.001;
+        const continueThreshold = Math.max(0.10, Math.min(0.78, potOdds + 0.07 + showdownAdjustment));
+        const aggression = Number(profile.stats.aggression) || 3;
+        const raiseThreshold = Math.max(0.65, Math.min(0.85, 0.78 - (aggression - 2.5) * 0.035));
+        const continuationBet = Number(profile.stats.continuationBet) || 68;
+        const bettingFrequency = Math.max(
+            0.15,
+            Math.min(0.90, continuationBet / 100 + (aggression - 2.5) * 0.05)
+        );
+        const foldToBet = clampProbability((Number(profile.stats.foldToBet) || 0) / 100);
+        const noise = Math.max(0, Math.min(0.5, (Number(difficulty.decisionNoise) || 0) / 100));
+        const mistakeRate = clampProbability((Number(difficulty.mistakeRate) || 0) / 100);
+        let bluffProbability = clampProbability(
+            (Number(profile.stats.bluffFrequency) || 0) / 100 +
+            (Number(difficulty.bluffAdjustment) || 0) / 100
+        );
+        if (event.street === "river") bluffProbability *= 0.8;
+
+        const action = data.action;
+        const target = ["bet", "short_all_in_bet"].includes(action)
+            ? "bet"
+            : ["raise", "short_raise"].includes(action)
+                ? "raise"
+                : ["call", "all_in_call"].includes(action)
+                    ? "call"
+                    : action;
+        if (!["check", "bet", "raise", "call", "fold"].includes(target)) return null;
+
+        const isFacingBet = callAmount > 0.000001;
+        const canRaise = event.canRaiseBefore !== false;
+        const noiseSamples = 7;
+        const mistakeSamples = 5;
+
+        function probabilityForStrength(strength, isBluff) {
+            if (!isFacingBet) {
+                const shouldBet = strength >= 0.58 || (isBluff && strength >= 0.30);
+                if (!shouldBet) return target === "check" ? 1 : 0;
+                const betProbability = strength < 0.75 && !isBluff ? bettingFrequency : 1;
+                return target === "bet"
+                    ? betProbability
+                    : target === "check" ? 1 - betProbability : 0;
+            }
+
+            const shouldFold = strength < continueThreshold && !isBluff;
+            if (shouldFold) return target === "fold" ? 1 : 0;
+            if (stackBefore <= effectiveCall + 0.000001) {
+                return target === "call" ? 1 : 0;
+            }
+
+            const shouldRaise = canRaise &&
+                (strength >= raiseThreshold || (isBluff && strength >= 0.40));
+            if (shouldRaise) return target === "raise" ? 1 : 0;
+
+            const secondaryFoldProbability =
+                strength < 0.50 && !isBluff ? foldToBet * 0.15 : 0;
+            if (target === "fold") return secondaryFoldProbability;
+            if (target === "call") return 1 - secondaryFoldProbability;
+            return 0;
+        }
+
+        return strength => {
+            let likelihood = 0;
+            for (let noiseIndex = 0; noiseIndex < noiseSamples; noiseIndex++) {
+                const noiseOffset = noise === 0
+                    ? 0
+                    : (((noiseIndex + 0.5) / noiseSamples) * 2 - 1) * noise;
+                const noisyStrength = Math.max(0, Math.min(1, strength + noiseOffset));
+
+                likelihood += (1 - mistakeRate) / noiseSamples * (
+                    (1 - bluffProbability) * probabilityForStrength(noisyStrength, false) +
+                    bluffProbability * probabilityForStrength(noisyStrength, true)
+                );
+
+                if (mistakeRate > 0) {
+                    for (let mistakeIndex = 0; mistakeIndex < mistakeSamples; mistakeIndex++) {
+                        const mistakeOffset = ((mistakeIndex + 0.5) / mistakeSamples * 2 - 1) * 0.25;
+                        const mistakenStrength = Math.max(0, Math.min(1, noisyStrength + mistakeOffset));
+                        likelihood += mistakeRate / (noiseSamples * mistakeSamples) * (
+                            (1 - bluffProbability) * probabilityForStrength(mistakenStrength, false) +
+                            bluffProbability * probabilityForStrength(mistakenStrength, true)
+                        );
+                    }
+                }
+            }
+            return Math.max(0.01, likelihood);
+        };
+    }
+
     function conditionRangeOnPostflopActions(state, history, opponent, range) {
         if (!range || !Array.isArray(range.combos)) return range;
         const streetOrder = { flop: 3, turn: 4, river: 5 };
-        const actions = (history || []).filter(event =>
+        const enrichedHistory = attachRaiseRights(history);
+        const actions = enrichedHistory.filter(event =>
             event.type === "player_action" &&
             event.data &&
             event.data.playerId === opponent.id &&
@@ -380,9 +520,16 @@
         );
         if (!actions.length) return { ...range, postflopActionsUsed: 0 };
 
+        const actionModels = actions.map(event => ({
+            event,
+            model: createBotActionModel(opponent, event)
+        }));
+        const profileModeledActions = actionModels.filter(item => item.model).length;
+
         const conditioned = range.combos.map(item => {
             let logWeight = Math.log(Math.max(Number(item.weight) || 0, 1e-12));
-            for (const event of actions) {
+            for (const actionModel of actionModels) {
+                const event = actionModel.event;
                 const boardLength = streetOrder[event.street];
                 const board = state.board.slice(0, boardLength);
                 let strength = 0.5;
@@ -392,18 +539,24 @@
                     // An invalid historical board must not silently discard a combo.
                     strength = 0.5;
                 }
-                const action = event.data.action;
-                let likelihood;
-                if (action === "check") {
-                    likelihood = 0.25 + (1 - strength) * 0.75;
-                } else if (action === "call" || action === "all_in_call") {
-                    likelihood = 0.20 + strength * 0.80;
-                } else {
-                    likelihood = 0.12 + strength * 0.88;
 
-                    // Les sizings observés apportent un signal supplémentaire :
-                    // un sizing plus élevé augmente légèrement le poids des mains
-                    // fortes, sans supposer qu'une grosse mise exclut les bluffs.
+                const action = event.data.action;
+                let likelihood = actionModel.model
+                    ? actionModel.model(strength)
+                    : null;
+
+                if (!Number.isFinite(likelihood)) {
+                    if (action === "check") {
+                        likelihood = 0.25 + (1 - strength) * 0.75;
+                    } else if (action === "call" || action === "all_in_call") {
+                        likelihood = 0.20 + strength * 0.80;
+                    } else {
+                        likelihood = 0.12 + strength * 0.88;
+                    }
+                }
+
+                if (["bet", "raise", "short_raise", "short_all_in_bet"].includes(action)) {
+                    // Le sizing observé complète le modèle d'action sans exclure les bluffs.
                     const potBefore = Number(event.data.potBefore);
                     const sizeAmount = Number(
                         action === "bet" || action === "short_all_in_bet"
@@ -418,7 +571,9 @@
                         likelihood *= Math.max(0.5, Math.min(1.5, sizingMultiplier));
                     }
                 }
-                logWeight += Math.log(Math.max(0.05, likelihood));
+
+                const minimumLikelihood = actionModel.model ? 0.01 : 0.05;
+                logWeight += Math.log(Math.max(minimumLikelihood, likelihood));
             }
             return { cards: item.cards, logWeight };
         });
@@ -433,7 +588,12 @@
             ...range,
             combos,
             postflopActionsUsed: actions.length,
-            conditioning: "heuristique basée sur la force de main, les actions et les sizings observés"
+            profileModeledActions,
+            conditioning: profileModeledActions === actions.length
+                ? "modèle probabiliste fondé sur le profil et la difficulté du bot, les actions et les sizings"
+                : profileModeledActions > 0
+                    ? "modèle mixte : profil du bot et heuristique générique"
+                    : "heuristique générique fondée sur la force de main, les actions et les sizings"
         };
     }
 
@@ -461,10 +621,9 @@
         let rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
         let sourceRange = rangeUsed ? baseRange : {
             ...baseRange,
-            combos: buildUniformCombos([
-                ...(player.isHuman ? [] : (state.players.find(item => item.isHuman)?.holeCards || [])),
-                ...state.board
-            ])
+            // Une range source adverse ne doit pas être bloquée par la main réelle
+            // du héros : sampleDeals applique les bloqueurs pour chaque main héros tirée.
+            combos: buildUniformCombos(state.board)
         };
 
         // The known human hand must belong to the modeled hero range. If the
@@ -540,10 +699,12 @@
                     ? range.label
                     : "Range large (combinaisons bloquées)",
             rangeUsed: preflopRangeUsed,
+            rangeConditioning: range.conditioning || "aucune action postflop exploitable dans l'historique",
+            profileModeledActions: range.profileModeledActions || 0,
             decision,
             note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique non calibré des actions et des sizings postflop observés. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
         };
     }
 
-    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange, getPlayerRange, createInput, resolveInput };
+    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange, getPlayerRange, createInput, resolveInput, conditionRangeOnPostflopActions };
 })(window);

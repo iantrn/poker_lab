@@ -100,6 +100,20 @@ test("CFR+ converge vers la valeur théorique de Kuhn Poker", () => {
         Math.abs(result.expectedValue + 1 / 18) < 0.015,
         "Valeur estimée : " + result.expectedValue
     );
+
+    const exploitability = result.core.measureExploitability(
+        result.deals,
+        result.maps,
+        result.callbacks
+    );
+    assert.ok(Math.abs(exploitability.profileValue - result.expectedValue) < 1e-9);
+    assert.ok(exploitability.player0Gain >= -1e-9);
+    assert.ok(exploitability.player1Gain >= -1e-9);
+    assert.ok(exploitability.nashConv >= -1e-9);
+    assert.ok(
+        exploitability.nashConv < 0.04,
+        "NashConv estimée : " + exploitability.nashConv
+    );
 });
 
 test("CFR+ apprend une stratégie mixte sur Matching Pennies", () => {
@@ -152,6 +166,20 @@ test("CFR+ apprend une stratégie mixte sur Matching Pennies", () => {
     assert.ok(Math.abs(rootStrategy[1] - 0.5) < 0.02);
     assert.ok(Math.abs(responseStrategy[0] - 0.5) < 0.02);
     assert.ok(Math.abs(responseStrategy[1] - 0.5) < 0.02);
+
+    const exploitability = core.measureExploitability(
+        [{ root, deal: {} }],
+        maps,
+        callbacks
+    );
+    assert.ok(Math.abs(exploitability.profileValue) < 0.02);
+    assert.ok(exploitability.player0Gain >= -1e-9);
+    assert.ok(exploitability.player1Gain >= -1e-9);
+    assert.ok(exploitability.nashConv >= -1e-9);
+    assert.ok(
+        exploitability.nashConv < 0.05,
+        "NashConv estimée : " + exploitability.nashConv
+    );
 });
 
 test("un information set ne peut pas changer le nombre d'actions", () => {
@@ -176,4 +204,136 @@ test("un information set ne peut pas changer le nombre d'actions", () => {
         () => core.runCfr(second, {}, 0, [1, 1], maps, callbacks, 1),
         /ensembles d'actions différents/
     );
+});
+
+
+test("un information set refuse des actions différentes avec la même cardinalité", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "same",
+        utility: () => 0
+    };
+    const first = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_33", terminal(1, 0)]
+    ]);
+    const second = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_75", terminal(1, 0)]
+    ]);
+
+    core.runCfr(first, {}, 0, [1, 1], maps, callbacks, 1);
+    assert.throws(
+        () => core.runCfr(second, {}, 0, [1, 1], maps, callbacks, 1),
+        /type, ordre, label ou sizing/
+    );
+});
+
+
+test("getStrategy refuse un ensemble d'actions modifié dans un information set existant", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "same",
+        utility: () => 0
+    };
+    const first = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_33", terminal(1, 0)]
+    ]);
+    const changed = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_75", terminal(1, 0)]
+    ]);
+
+    core.runCfr(first, {}, 0, [1, 1], maps, callbacks, 1);
+    assert.throws(
+        () => core.getStrategy(changed, {}, maps, callbacks),
+        /type, ordre, label ou sizing/
+    );
+});
+
+test("averageStrategy refuse un sizing différent pour un information set existant", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "same",
+        utility: () => 0
+    };
+    const first = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_33", terminal(1, 0)]
+    ]);
+    const changed = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_75", terminal(1, 0)]
+    ]);
+
+    core.runCfr(first, {}, 0, [1, 1], maps, callbacks, 1);
+    assert.throws(
+        () => core.averageStrategy(changed, {}, maps, callbacks),
+        /type, ordre, label ou sizing/
+    );
+});
+
+
+test("les poids de chance pondèrent les regrets et la stratégie moyenne", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "weighted-root",
+        utility: node => node.payoff
+    };
+    const makeTree = (firstPayoff, secondPayoff) => ({
+        terminal: false,
+        actor: 0,
+        actions: [
+            { action: { type: "bet", label: "A", amount: 1 }, child: { terminal: true, payoff: firstPayoff } },
+            { action: { type: "check", label: "B", amount: 0 }, child: { terminal: true, payoff: secondPayoff } }
+        ]
+    });
+
+    core.runCfr(makeTree(1, -1), {}, 0, [1, 1], maps, callbacks, 1, 2);
+    core.runCfr(makeTree(-1, 1), {}, 0, [1, 1], maps, callbacks, 1, 3);
+
+    const regrets = Array.from(maps.regrets.get("weighted-root"));
+    const strategySum = Array.from(maps.strategy.get("weighted-root"));
+
+    assert.deepEqual(regrets, [2, 6]);
+    assert.deepEqual(strategySum, [4, 1]);
+});
+
+
+test("la meilleure réponse agrège les poids de chance avant de choisir dans un information set partagé", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "shared-private-information-set",
+        utility: node => node.payoff
+    };
+    const makeTree = (firstPayoff, secondPayoff) => ({
+        terminal: false,
+        actor: 0,
+        actions: [
+            { action: { type: "check", label: "A" }, child: { terminal: true, payoff: firstPayoff } },
+            { action: { type: "bet", label: "B", amount: 1 }, child: { terminal: true, payoff: secondPayoff } }
+        ]
+    });
+    const deals = [
+        { root: makeTree(1, 0), deal: { weight: 1 } },
+        { root: makeTree(0, 1), deal: { weight: 4 } }
+    ];
+
+    const bestResponse = core.bestResponseValue(
+        deals,
+        maps,
+        callbacks,
+        0,
+        deal => deal.weight
+    );
+
+    assert.equal(bestResponse.informationSets, 1);
+    assert.equal(bestResponse.totalWeight, 5);
+    assert.ok(Math.abs(bestResponse.value - 0.8) < 1e-9);
 });

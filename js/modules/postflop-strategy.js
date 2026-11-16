@@ -11,7 +11,7 @@
     const DEFAULT_SAMPLES = 24;
     const BET_FRACTION = 0.5;
     const BET_SIZINGS = [0.33, 0.75];
-    const ACTION_LIMIT = 4;
+    const ACTION_LIMIT = 5;
     const MAX_RAISES_PER_STREET = 4;
 
     const CHIP_UNIT = 0.5;
@@ -180,22 +180,74 @@
                     ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor], effectiveMaximum)
                     : Math.min(state.stacks[actor], effectiveMaximum));
                 if (canRaise && state.stacks[actor] > toCall) {
-                    const desiredRaiseTotal = ceilChips(toCall + Math.max(toCall, state.pot * BET_FRACTION,
-                        requiredRaiseTotal - toCall, state.lastFullRaise));
-                    if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
-                        const isAllIn = Math.abs(desiredRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
-                        actions.push(makeAction(
-                            isAllIn ? "all_in_raise" : "raise",
-                            "raise",
-                            desiredRaiseTotal
+                    if (state.root) {
+                        const minimumRaiseIncrement = Math.max(
+                            state.lastFullRaise,
+                            requiredRaiseTotal - toCall
+                        );
+                        const rootRaiseOptions = [
+                            {
+                                label: "min_raise",
+                                amount: ceilChips(toCall + minimumRaiseIncrement)
+                            },
+                            {
+                                label: "raise_50",
+                                amount: ceilChips(toCall + Math.max(
+                                    minimumRaiseIncrement,
+                                    toCall,
+                                    (state.pot + toCall) * BET_FRACTION
+                                ))
+                            }
+                        ];
+                        const uniqueRaises = new Map();
+
+                        for (const option of rootRaiseOptions) {
+                            if (option.amount <= toCall + CHIP_EPSILON ||
+                                option.amount > maximumRaiseTotal + CHIP_EPSILON) continue;
+                            let label = option.label;
+                            if (Math.abs(option.amount - state.stacks[actor]) <= CHIP_EPSILON) {
+                                label = "all_in_raise";
+                            } else if (Math.abs(option.amount - effectiveMaximum) <= CHIP_EPSILON) {
+                                label = "raise_effective";
+                            }
+                            if (!uniqueRaises.has(option.amount)) {
+                                uniqueRaises.set(option.amount, label);
+                            }
+                        }
+
+                        if (maximumRaiseTotal > toCall + CHIP_EPSILON) {
+                            const maximumLabel =
+                                Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON
+                                    ? "all_in_raise"
+                                    : "raise_effective";
+                            uniqueRaises.set(maximumRaiseTotal, maximumLabel);
+                        }
+
+                        for (const [amount, label] of uniqueRaises) {
+                            actions.push(makeAction(label, "raise", amount));
+                        }
+                    } else {
+                        const desiredRaiseTotal = ceilChips(toCall + Math.max(
+                            toCall,
+                            state.pot * BET_FRACTION,
+                            requiredRaiseTotal - toCall,
+                            state.lastFullRaise
                         ));
-                    } else if (maximumRaiseTotal > toCall) {
-                        const maximumIsAllIn = Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
-                        actions.push(makeAction(
-                            maximumIsAllIn ? "all_in_raise" : "raise_effective",
-                            "raise",
-                            maximumRaiseTotal
-                        ));
+                        if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
+                            const isAllIn = Math.abs(desiredRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                            actions.push(makeAction(
+                                isAllIn ? "all_in_raise" : "raise",
+                                "raise",
+                                desiredRaiseTotal
+                            ));
+                        } else if (maximumRaiseTotal > toCall) {
+                            const maximumIsAllIn = Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                            actions.push(makeAction(
+                                maximumIsAllIn ? "all_in_raise" : "raise_effective",
+                                "raise",
+                                maximumRaiseTotal
+                            ));
+                        }
                     }
                 }
             } else {
@@ -893,6 +945,65 @@
             throw new Error("Impossible d'évaluer la stratégie sur les échantillons indépendants.");
         }
 
+        // Estimation indépendante du NashConv sur les ranges des deux joueurs.
+        // Les meilleures réponses sont exactes dans l'arbre abstrait construit
+        // pour ces deals, mais la mesure reste conditionnelle à cet échantillon.
+        const requestedExploitabilitySamples = Number.isInteger(options.exploitabilitySamples)
+            ? Math.max(8, Math.min(128, options.exploitabilitySamples))
+            : Math.max(12, Math.min(32, samples));
+        const exploitabilityRandom = Number.isInteger(options.seed)
+            ? createRandom((options.seed ^ 0x9E3779B9) >>> 0)
+            : Math.random;
+        const exploitabilityDeals = [];
+
+        for (let sampleIndex = 0; sampleIndex < requestedExploitabilitySamples; sampleIndex++) {
+            const sampled = sampleDeals(
+                hero.holeCards,
+                state.board,
+                rangeInfo.combos,
+                1,
+                rangeInfo.rangeUsed !== false,
+                exploitabilityRandom,
+                heroRangeInfo.combos
+            );
+            const deal = sampled.deals[0];
+            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
+                global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            );
+            const built = buildDecisionTree(
+                normalizedState,
+                hero.actionOptions || {},
+                priorHistory,
+                deal.runout,
+                rootChecks,
+                rootRaises
+            );
+            if (rootActionSignature(built.tree) !== expectedRootSignature) {
+                throw new Error("L'arbre de meilleure réponse ne correspond pas aux actions légales apprises.");
+            }
+            exploitabilityDeals.push({ root: built.tree, deal });
+            if ((sampleIndex + 1) % 4 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        const exploitability = global.PokerLabCFRCore.measureExploitability(
+            exploitabilityDeals,
+            maps,
+            cfrCallbacks(hero.holeCards, state.board),
+            deal => deal.heroImportanceWeight
+        );
+        const exploitabilityWeightSum = exploitabilityDeals.reduce(
+            (sum, entry) => sum + entry.deal.heroImportanceWeight, 0
+        );
+        const exploitabilityWeightSquares = exploitabilityDeals.reduce(
+            (sum, entry) => sum + entry.deal.heroImportanceWeight ** 2, 0
+        );
+        const exploitabilityEffectiveSampleSize = exploitabilityWeightSquares > 0
+            ? exploitabilityWeightSum ** 2 / exploitabilityWeightSquares
+            : 0;
+
         const standardError = (sum, sumSquares) => {
             if (evaluatedDeals < 2) return 0;
             const mean = sum / evaluatedDeals;
@@ -923,7 +1034,7 @@
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · quatre relances maximales dans les réponses modélisées ; racine conforme aux droits réels",
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale et sizing 50 % du pot après call à la racine · sizing simplifié dans les réponses futures · tapis effectif · quatre relances maximales dans les réponses modélisées",
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
@@ -940,17 +1051,29 @@
             heroEVStandardError,
             heroEVLower95: heroEV - 1.96 * heroEVStandardError,
             heroEVUpper95: heroEV + 1.96 * heroEVStandardError,
+            exploitabilitySamples: exploitabilityDeals.length,
+            exploitabilityEffectiveSampleSize,
+            exploitabilityMethod: "Meilleures réponses exactes dans l'arbre abstrait sur un échantillon indépendant pondéré par les ranges et les bloqueurs ; mesure conditionnelle à cet échantillon.",
+            profileEV: exploitability.profileValue,
+            heroBestResponseEV: exploitability.player0BestResponse,
+            opponentBestResponseEV: exploitability.player1BestResponse,
+            heroDeviationGain: exploitability.player0Gain,
+            opponentDeviationGain: exploitability.player1Gain,
+            nashConv: exploitability.nashConv,
+            exploitability: exploitability.exploitability,
             treeNodes: Math.round(averageNodeCount / trainingIterations),
             rangeLabel: rangeInfo.rangeUsed === false
                 ? rangeInfo.label
                 : sampledRangeUsed
                     ? rangeInfo.label
                     : "Range large (combinaisons bloquées)",
+            rangeConditioning: rangeInfo.conditioning || "aucune action postflop exploitable dans l'historique",
+            profileModeledActions: rangeInfo.profileModeledActions || 0,
             rangeUsed: rangeInfo.rangeUsed === false ? false : sampledRangeUsed,
             postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
             heroEV,
             actions,
-            convergence: "CFR+ échantillonné sur les ranges des deux joueurs, avec suréchantillonnage corrigé de la main réelle du héros et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
+            convergence: "CFR+ échantillonné sur les ranges des deux joueurs. Le NashConv est estimé par meilleures réponses sur un échantillon indépendant et l'arbre abstrait ; il ne certifie pas l'exploitabilité du jeu complet ni la convergence globale. Les fréquences restent dépendantes de l'abstraction et du budget d'échantillonnage."
         };
     }
 

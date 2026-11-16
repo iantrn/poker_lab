@@ -115,7 +115,8 @@
                     strategy.sampledActualHeroHand + "/" + strategy.sampledHeroHands +
                     " · ESS pondéré : " + strategy.heroRangeEffectiveSampleSize.toLocaleString("fr-FR", { maximumFractionDigits: 1 })),
                 element("p", "pl-solve-detail-line",
-                    "Range adverse : " + strategy.rangeLabel)
+                    "Range adverse : " + strategy.rangeLabel),
+                element("p", "pl-solve-detail-line", strategy.rangeConditioning)
             );
 
             strategy.actions.forEach(item => {
@@ -134,6 +135,23 @@
                     strategy.heroEVLower95.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " ; " +
                     strategy.heroEVUpper95.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + "]"),
                 element("p", "pl-solve-detail-line", strategy.evaluationMethod),
+                ...(Number.isFinite(strategy.nashConv) ? [
+                    element("h5", "pl-solve-details-heading", "Diagnostic de meilleure réponse"),
+                    element("p", "pl-solve-detail-line pl-solve-detail-emphasis",
+                        "NashConv estimée : " +
+                        strategy.nashConv.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
+                        " jetons · exploitabilité estimée : " +
+                        strategy.exploitability.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
+                        " jetons · " + strategy.exploitabilitySamples + " deals indépendants · ESS " +
+                        strategy.exploitabilityEffectiveSampleSize.toLocaleString("fr-FR", { maximumFractionDigits: 1 })),
+                    element("p", "pl-solve-detail-line",
+                        "Gain d'une déviation optimale estimée — héros : +" +
+                        strategy.heroDeviationGain.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
+                        " · adversaire : +" +
+                        strategy.opponentDeviationGain.toLocaleString("fr-FR", { maximumFractionDigits: 3 }) +
+                        " jetons par main."),
+                    element("p", "pl-solve-detail-line", strategy.exploitabilityMethod)
+                ] : []),
                 element("p", "pl-solve-detail-line",
                     strategy.postflopActionsUsed
                         ? strategy.postflopActionsUsed + " actions postflop adverses intégrées à l'ajustement heuristique de la range."
