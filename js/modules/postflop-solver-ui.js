@@ -51,7 +51,7 @@
         ].join(";");
     }
 
-    function renderResult(container, result, strategy = null) {
+    function renderResult(container, result, strategy = null, strategyError = null) {
         container.replaceChildren();
         const heading = element("h4", "font-bold text-lg mb-3", "Analyse postflop");
         const equity = element("p", "text-2xl font-bold mb-2",
@@ -74,6 +74,10 @@
             const heuristicLabel = element("p", "font-semibold text-primaryHover mb-1",
                 "Piste heuristique fondée sur l'équité : " + result.decision.action);
             container.append(heuristicLabel, explanation);
+            if (strategyError) {
+                container.append(element("p", "text-xs text-red-400 mt-2",
+                    "Analyse stratégique indisponible : " + strategyError));
+            }
         }
 
         if (strategy) {
@@ -130,9 +134,14 @@
             }
 
             let strategy = null;
+            let strategyError = null;
             if (global.PokerLabPostflopStrategy) {
                 panel.textContent = "Calcul CFR+ de l'arbre de décisions et échantillonnage des runouts…";
-                strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
+                try {
+                    strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
+                } catch (error) {
+                    strategyError = error.message;
+                }
             }
             const latestState = global.PokerLabTraining.getGameState();
 
@@ -144,7 +153,7 @@
                 return;
             }
 
-            renderResult(panel, result, strategy);
+            renderResult(panel, result, strategy, strategyError);
         } catch (error) {
             if (button.isConnected) {
                 panel.replaceChildren(element("p", "text-red-400 text-sm", error.message));
