@@ -120,10 +120,19 @@
         try {
             const history = global.PokerLabTraining.getHandHistory();
             const result = await global.PokerLabPostflopSolver.analyse(initialState, history);
+            const stateAfterEquity = global.PokerLabTraining.getGameState();
+            if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
+                if (button.isConnected) {
+                    panel.replaceChildren(element("p", "text-sm text-textMuted",
+                        "La situation a changé pendant le calcul. Relance SOLVE pour analyser la nouvelle situation."));
+                }
+                return;
+            }
+
             let strategy = null;
-            if (initialState.street === "river" && global.PokerLabPostflopStrategy) {
-                panel.textContent = "Calcul CFR+ de l'arbre de décisions river…";
-                strategy = await global.PokerLabPostflopStrategy.solveRiver(initialState, history);
+            if (global.PokerLabPostflopStrategy) {
+                panel.textContent = "Calcul CFR+ de l'arbre de décisions et échantillonnage des runouts…";
+                strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
             }
             const latestState = global.PokerLabTraining.getGameState();
 
