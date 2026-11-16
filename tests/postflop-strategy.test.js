@@ -204,3 +204,29 @@ test("la range uniforme énumère chaque combinaison légale exactement une fois
     assert.equal(combos.length, 990);
     assert.equal(new Set(identifiers).size, 990);
 });
+
+
+test("les mises à tapis sont plafonnées au tapis effectif en heads-up", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[0].stack = 100;
+    state.players[1].stack = 12;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const allIn = built.tree.actions.find(entry => entry.action.label === "all_in");
+    assert.ok(allIn);
+    assert.equal(allIn.action.amount, 12);
+});
+
+test("un call à tapis court restitue la partie non couverte de la mise adverse", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].stack = 5;
+    state.players[1].streetBet = 10;
+    state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: false };
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const call = built.tree.actions.find(entry => entry.action.label === "call");
+    assert.ok(call);
+    assert.equal(call.child.pot, 20);
+    assert.equal(call.child.heroInvested, 5);
+});
