@@ -281,7 +281,7 @@
             if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
                 if (button.isConnected) {
                     panel.replaceChildren(element("p", "text-sm text-textMuted",
-                        "La situation a changé pendant le calcul. Relance l’analyse pour analyser la nouvelle situation."));
+                        "La situation a changé pendant le calcul. Clique sur « Analyser » pour lancer une nouvelle analyse."));
                 }
                 return;
             }
@@ -305,7 +305,7 @@
             if (!button.isConnected || stateKey(latestState) !== initialKey) {
                 if (button.isConnected) {
                     panel.replaceChildren(element("p", "text-sm text-textMuted",
-                        "La situation a changé pendant le calcul. Relance l’analyse pour analyser la nouvelle situation."));
+                        "La situation a changé pendant le calcul. Clique sur « Analyser » pour lancer une nouvelle analyse."));
                 }
                 return;
             }
@@ -314,7 +314,7 @@
         } catch (error) {
             if (button.isConnected) {
                 const message = error.name === "AbortError"
-                    ? "La situation a changé pendant le calcul. Relance l’analyse pour analyser la nouvelle situation."
+                    ? "La situation a changé pendant le calcul. Clique sur « Analyser » pour lancer une nouvelle analyse."
                     : error.message;
                 panel.replaceChildren(element(
                     "p",
@@ -360,7 +360,7 @@
                     oldPanel.replaceChildren(element(
                         "p",
                         "text-sm text-textMuted",
-                        "La situation a changé. Ferme cette fenêtre puis relance l’analyse pour analyser le nouveau spot."
+                        "La situation a changé. Ferme cette fenêtre puis clique sur « Analyser » pour étudier la nouvelle situation."
                     ));
                 }
             }
