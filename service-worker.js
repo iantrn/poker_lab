@@ -1,5 +1,5 @@
 /**
- * PokerLab Service Worker - v30
+ * PokerLab Service Worker - v36
  * Cache offline-first, avec bundle complet des ranges préflop.
  */
 
