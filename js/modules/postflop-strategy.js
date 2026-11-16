@@ -299,8 +299,9 @@
         if (node.terminal) return utility(node, deal, hero, board);
         const key = informationKey(node, deal, hero, board);
         const sums = maps.strategy.get(key);
-        const strategy = sums
-            ? Array.from(sums, value => value / (Array.from(sums).reduce((a, b) => a + b, 0) || 1))
+        const total = sums ? Array.from(sums).reduce((a, b) => a + b, 0) : 0;
+        const strategy = sums && total > 0
+            ? Array.from(sums, value => value / total)
             : Array(node.actions.length).fill(1 / node.actions.length);
         return node.actions.reduce((sum, entry, index) =>
             sum + strategy[index] * averageStrategy(entry.child, deal, maps, hero, board), 0);
