@@ -318,7 +318,7 @@
                     : error.message;
                 panel.replaceChildren(element(
                     "p",
-                    error.name === "AbortError" ? "text-sm textTextMuted" : "text-red-400 text-sm",
+                    error.name === "AbortError" ? "text-sm text-textMuted" : "text-red-400 text-sm",
                     message
                 ));
             }
