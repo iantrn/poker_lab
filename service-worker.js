@@ -1,9 +1,9 @@
 /**
- * PokerLab Service Worker - v59
+ * PokerLab Service Worker - v60
  * Cache offline-first, avec bundle complet des ranges préflop.
  */
 
-const CACHE_NAME = "pokerlab-cache-v59";
+const CACHE_NAME = "pokerlab-cache-v60";
 const CACHE_PREFIX = "pokerlab-cache-";
 
 const ASSETS_TO_CACHE = [
