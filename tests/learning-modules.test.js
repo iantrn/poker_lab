@@ -331,3 +331,36 @@ test("le reset de progression ne supprime pas l'état en mémoire si la sauvegar
     assert.equal(afterReset.completed, 1);
     assert.equal(module.isCompleted(data.lessons[0].id), true);
 });
+
+
+test("le premier enregistrement Game Review conserve les mains déjà sauvegardées", () => {
+    const { module, localStorage } = loadModule(
+        "js/modules/game-review.js",
+        "PokerLabGameReview"
+    );
+    const existingHand = {
+        id: "previous-session-hand",
+        players: [
+            { id: "hero", name: "Vous", stack: 100 },
+            { id: "bot", name: "Bot", stack: 100 }
+        ],
+        board: [],
+        actions: []
+    };
+    localStorage.setItem("pokerlab_game_review", JSON.stringify([existingHand]));
+
+    const result = module.saveHand({
+        id: "new-session-hand",
+        players: [
+            { id: "hero", name: "Vous", stack: 90 },
+            { id: "bot", name: "Bot", stack: 110 }
+        ],
+        board: [],
+        actions: []
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(module.getAllHands().length, 2);
+    assert.equal(module.getAllHands()[0].id, "new-session-hand");
+    assert.equal(module.getAllHands()[1].id, "previous-session-hand");
+});
