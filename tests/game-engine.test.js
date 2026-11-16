@@ -340,3 +340,43 @@ test("les relances courtes cumulées ne rouvrent les enchères qu'au seuil compl
     engine.currentBet = 10;
     assert.equal(engine.canPlayerRaise(hero), true);
 });
+
+
+test("la distribution de tous les pots conserve exactement les jetons", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 20;
+    second.totalContribution = 20;
+    third.totalContribution = 50;
+    hero.stack = 80;
+    second.stack = 80;
+    third.stack = 50;
+
+    const totalBefore = engine.players.reduce(
+        (sum, player) => sum + player.stack + player.totalContribution,
+        0
+    );
+    const pots = engine.buildSidePots();
+    const evaluations = [
+        { player: hero, evaluation: { score: [2, 14] } },
+        { player: second, evaluation: { score: [1, 14] } },
+        { player: third, evaluation: { score: [3, 10] } }
+    ];
+
+    for (const pot of pots) {
+        engine.distributePot(pot, evaluations);
+    }
+
+    const totalAfter = engine.players.reduce(
+        (sum, player) => sum + player.stack,
+        0
+    );
+
+    assert.equal(totalBefore, 300);
+    assert.equal(totalAfter, totalBefore);
+    assert.equal(hero.stack, 140);
+    assert.equal(third.stack, 80);
+});
