@@ -559,3 +559,26 @@ test("la range héro retombe en range large si elle exclut la main réellement d
         item.cards.some(card => card.value === 14 && card.suit === "hearts")
     ));
 });
+
+
+test("le fallback uniforme de la range adverse n'est pas bloqué par la main réelle du héros", async () => {
+    const app = loadSolver();
+    const heroCards = [card(14, "spades"), card(14, "hearts")];
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        heroCards
+    );
+
+    const range = await app.PokerLabPostflopSolver.getPlayerRange(
+        current,
+        [],
+        current.players[1]
+    );
+    const handKey = cards => cards
+        .map(item => item.value + "_" + item.suit)
+        .sort()
+        .join("|");
+
+    assert.equal(range.rangeUsed, false);
+    assert.ok(range.combos.some(item => handKey(item.cards) === handKey(heroCards)));
+});
