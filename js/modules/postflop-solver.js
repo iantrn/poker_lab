@@ -193,7 +193,10 @@
     }
 
     function resolveInput(input, history = []) {
-        if (input && input.schemaVersion === 1 && input.state) {
+        if (input && Object.prototype.hasOwnProperty.call(input, "schemaVersion")) {
+            if (input.schemaVersion !== 1 || !input.state) {
+                throw new Error("Version du contrat de données du solveur non prise en charge.");
+            }
             return {
                 state: input.state,
                 history: Array.isArray(input.history) ? input.history : []
@@ -207,6 +210,15 @@
             throw new Error("Impossible de construire les données du solveur : état invalide.");
         }
 
+        const chipAmount = (value, label) => {
+            const amount = value === undefined || value === null ? 0 : Number(value);
+            if (!Number.isFinite(amount) || amount < 0 ||
+                Math.abs(amount * 2 - Math.round(amount * 2)) > 0.000001) {
+                throw new Error("Contrat du solveur invalide : " + label + " doit respecter les incréments de 0,5 jeton.");
+            }
+            return amount;
+        };
+
         const players = state.players.map(player => ({
             id: player.id,
             name: player.name,
@@ -215,13 +227,13 @@
             botProfile: player.botProfile || null,
             botDifficulty: player.botDifficulty || null,
             position: player.position || null,
-            stack: Number(player.stack) || 0,
-            streetBet: Number(player.streetBet) || 0,
-            totalContribution: Number(player.totalContribution) || 0,
+            stack: chipAmount(player.stack, "stack"),
+            streetBet: chipAmount(player.streetBet, "streetBet"),
+            totalContribution: chipAmount(player.totalContribution, "totalContribution"),
             folded: Boolean(player.folded),
             allIn: Boolean(player.allIn),
             hasActed: Boolean(player.hasActed),
-            amountToCall: Number(player.amountToCall) || 0,
+            amountToCall: chipAmount(player.amountToCall, "amountToCall"),
             holeCards: player.isHuman && Array.isArray(player.holeCards)
                 ? player.holeCards.map(card => ({ value: card.value, suit: card.suit }))
                 : null,
@@ -257,10 +269,10 @@
             handNumber: state.handNumber,
             street: state.street,
             board: (state.board || []).map(card => ({ value: card.value, suit: card.suit })),
-            pot: Number(state.pot) || 0,
-            currentBet: Number(state.currentBet) || 0,
-            lastFullRaise: Number(state.lastFullRaise) || 0,
-            minimumRaiseTo: Number(state.minimumRaiseTo) || 0,
+            pot: chipAmount(state.pot, "pot"),
+            currentBet: chipAmount(state.currentBet, "currentBet"),
+            lastFullRaise: chipAmount(state.lastFullRaise, "lastFullRaise"),
+            minimumRaiseTo: chipAmount(state.minimumRaiseTo, "minimumRaiseTo"),
             blinds: state.blinds ? { ...state.blinds } : { smallBlind: 0.5, bigBlind: 1 },
             dealerIndex: state.dealerIndex,
             currentPlayerId: state.currentPlayerId,
