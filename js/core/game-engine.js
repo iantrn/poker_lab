@@ -2243,6 +2243,8 @@ const position = positionNames[index];
 
             minimumRaiseTo: this.getMinimumRaiseTo(),
 
+            blinds: { ...this.blinds },
+
             dealerIndex: this.dealerIndex,
 
             currentPlayerId: this.currentPlayerId,
