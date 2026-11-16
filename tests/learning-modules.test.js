@@ -285,3 +285,49 @@ test("le module de leçons restaure la progression en mémoire si le stockage é
     assert.equal(module.isCompleted(data.lessons[0].id), false);
     assert.equal(module.getProgress().completed, 0);
 });
+
+
+test("Game Review restaure l'historique si une suppression ou un effacement échoue", () => {
+    const { module, localStorage } = loadModule(
+        "js/modules/game-review.js",
+        "PokerLabGameReview"
+    );
+    const hand = {
+        id: "delete-rollback",
+        players: [
+            { id: "hero", name: "Vous", stack: 100 },
+            { id: "bot", name: "Bot", stack: 100 }
+        ],
+        board: [],
+        actions: []
+    };
+
+    assert.equal(module.saveHand(hand).success, true);
+    localStorage.setItem = () => {
+        throw new Error("QuotaExceededError");
+    };
+
+    assert.equal(module.deleteHand(hand.id), false);
+    assert.equal(module.getAllHands().length, 1);
+    assert.equal(module.clearHistory(), false);
+    assert.equal(module.getAllHands().length, 1);
+});
+
+test("le reset de progression ne supprime pas l'état en mémoire si la sauvegarde échoue", async () => {
+    const data = JSON.parse(read("data/lessons/lessons.json"));
+    const { module, localStorage } = loadModule(
+        "js/modules/lessons.js",
+        "PokerLabLessons",
+        async () => ({ ok: true, json: async () => data })
+    );
+
+    await module.loadLessons();
+    module.completeLesson(data.lessons[0].id);
+    localStorage.setItem = () => {
+        throw new Error("QuotaExceededError");
+    };
+
+    const afterReset = module.resetProgress();
+    assert.equal(afterReset.completed, 1);
+    assert.equal(module.isCompleted(data.lessons[0].id), true);
+});
