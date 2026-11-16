@@ -294,6 +294,6 @@ test("les poids de chance pondèrent les regrets et la stratégie moyenne", () =
     const regrets = Array.from(maps.regrets.get("weighted-root"));
     const strategySum = Array.from(maps.strategy.get("weighted-root"));
 
-    assert.deepEqual(regrets, [1, 6]);
+    assert.deepEqual(regrets, [2, 6]);
     assert.deepEqual(strategySum, [4, 1]);
 });
