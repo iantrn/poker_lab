@@ -60,6 +60,7 @@ async function main() {
     const inputDir = args['input-dir'];
     const outputDir = args['output-dir'];
     const spots = [];
+    const compactRanges = {};
     const folders = (await fs.readdir(inputDir, { withFileTypes: true })).filter(entry => entry.isDirectory());
     for (const folder of folders.sort((a, b) => a.name.localeCompare(b.name))) {
         const files = (await fs.readdir(path.join(inputDir, folder.name))).filter(file => file.endsWith('.json')).sort();
@@ -77,6 +78,7 @@ async function main() {
                 if (frequency > 0) matrix[hand] = round(frequency * 100);
             }
             await fs.writeFile(path.join(outputDir, folder.name, `${id}.json`), JSON.stringify(matrix));
+            compactRanges[`${folder.name}/${id}`] = matrix;
             const parsed = parseSpotName(node.spot?.originalFilename || id);
             spots.push({
                 id: `${folder.name}/${id}`,
@@ -95,7 +97,21 @@ async function main() {
         spots
     };
     await fs.writeFile(path.join(outputDir, 'index.json'), JSON.stringify(index));
-    console.log(JSON.stringify({ spots: spots.length, positions: index.positions, actions: index.actions }, null, 2));
+    const rangeBundle = {
+        version: 1,
+        source: 'artgto-personal-archive',
+        ranges: compactRanges
+    };
+    const bundlePath = path.join(outputDir, 'ranges.json');
+    await fs.writeFile(bundlePath, JSON.stringify(rangeBundle));
+    const bundleStats = await fs.stat(bundlePath);
+    console.log(JSON.stringify({
+        spots: spots.length,
+        bundledRanges: Object.keys(compactRanges).length,
+        bundleBytes: bundleStats.size,
+        positions: index.positions,
+        actions: index.actions
+    }, null, 2));
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('build-matrix.mjs')) {

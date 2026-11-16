@@ -31,6 +31,7 @@ window.PokerLabRangesViewer = (function () {
     let root = null;
     let matrixHandle = null;
     const spotCache = new Map();
+    let bundlePromise = null;
 
     const state = {
         position: "BB",
@@ -98,10 +99,40 @@ window.PokerLabRangesViewer = (function () {
 
     function loadSpot(id) {
         if (!spotCache.has(id)) {
-            spotCache.set(id, fetchJson(`${BASE_URL}${id}.json`).catch(error => {
+            const promise = (async () => {
+                if (!bundlePromise) {
+                    bundlePromise = fetchJson(`${BASE_URL}ranges.json`)
+                        .then(bundle => {
+                            if (
+                                !bundle ||
+                                bundle.version !== 1 ||
+                                !bundle.ranges ||
+                                typeof bundle.ranges !== "object" ||
+                                Array.isArray(bundle.ranges)
+                            ) {
+                                throw new Error("Bundle de ranges invalide.");
+                            }
+                            return bundle.ranges;
+                        })
+                        .catch(() => null);
+                }
+
+                const bundledRanges = await bundlePromise;
+                if (bundledRanges) {
+                    if (!Object.prototype.hasOwnProperty.call(bundledRanges, id)) {
+                        throw new Error(`Range absente du bundle : ${id}`);
+                    }
+                    return bundledRanges[id];
+                }
+
+                // Compatibilité avec les anciennes publications sans bundle.
+                return fetchJson(`${BASE_URL}${id}.json`);
+            })().catch(error => {
                 spotCache.delete(id);
                 throw error;
-            }));
+            });
+
+            spotCache.set(id, promise);
         }
         return spotCache.get(id);
     }
@@ -162,7 +193,7 @@ window.PokerLabRangesViewer = (function () {
             });
             paintCells(range);
         } catch (error) {
-            ui.error.textContent = "Impossible de charger cette range. Vérifie ta connexion puis réessaie.";
+            ui.error.textContent = "Cette range n'est pas disponible. Vérifie que les données ont été téléchargées ou réessaie avec une connexion Internet.";
             ui.error.hidden = false;
             console.error("[PokerLab] Range :", error);
         }
