@@ -51,7 +51,7 @@
         ].join(";");
     }
 
-    function renderResult(container, result) {
+    function renderResult(container, result, strategy = null) {
         container.replaceChildren();
         const heading = element("h4", "font-bold text-lg mb-3", "Analyse postflop");
         const equity = element("p", "text-2xl font-bold mb-2",
@@ -69,7 +69,35 @@
             : "Aucune mise à payer";
         const details = element("p", "text-xs text-textMuted mb-2", odds);
         const disclaimer = element("p", "text-xs text-textMuted", result.note);
-        container.append(heading, equity, range, stats, action, explanation, details, disclaimer);
+        container.append(heading, equity, range, stats, action, explanation, details);
+
+        if (strategy) {
+            const divider = element("div", "border-t border-white/10 my-4");
+            const strategyHeading = element("h5", "font-bold mb-2", "Stratégie CFR+ — river");
+            const strategyMeta = element("p", "text-xs text-textMuted mb-2",
+                strategy.iterations + " itérations · " +
+                strategy.sampledOpponentHands + " mains adverses échantillonnées · " +
+                strategy.treeNodes + " nœuds dans l'arbre");
+            const strategyActions = element("div", "space-y-1 mb-3");
+            for (const item of strategy.actions) {
+                const line = element("p", "text-sm",
+                    item.action.replace("_", " ") + " : " +
+                    (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
+                strategyActions.append(line);
+            }
+            const ev = element("p", "text-sm font-semibold mb-2",
+                "EV estimée depuis cette décision : " +
+                strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons");
+            const abstraction = element("p", "text-xs text-textMuted mb-2", strategy.abstraction);
+            const convergence = element("p", "text-xs text-textMuted", strategy.convergence);
+            container.append(divider, strategyHeading, strategyMeta, strategyActions, ev, abstraction, convergence);
+        } else {
+            const strategyInfo = element("p", "text-xs text-textMuted mb-2",
+                "Le calcul CFR+ est actuellement limité à la river. Sur le flop et le turn, cette version affiche uniquement l'analyse d'équité.");
+            container.append(strategyInfo);
+        }
+
+        container.append(disclaimer);
     }
 
     async function run(button, panel) {
@@ -86,6 +114,11 @@
         try {
             const history = global.PokerLabTraining.getHandHistory();
             const result = await global.PokerLabPostflopSolver.analyse(initialState, history);
+            let strategy = null;
+            if (initialState.street === "river" && global.PokerLabPostflopStrategy) {
+                panel.textContent = "Calcul CFR+ de l'arbre de décisions river…";
+                strategy = await global.PokerLabPostflopStrategy.solveRiver(initialState, history);
+            }
             const latestState = global.PokerLabTraining.getGameState();
 
             if (!button.isConnected || stateKey(latestState) !== initialKey) {
@@ -96,7 +129,7 @@
                 return;
             }
 
-            renderResult(panel, result);
+            renderResult(panel, result, strategy);
         } catch (error) {
             if (button.isConnected) {
                 panel.replaceChildren(element("p", "text-red-400 text-sm", error.message));
