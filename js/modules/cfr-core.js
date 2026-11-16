@@ -5,8 +5,7 @@
 "use strict";
 
 (function (global) {
-    function regretMatched(regrets, actionCount) {
-        const strategy = new Float64Array(actionCount);
+    function regretMatchedInto(regrets, actionCount, strategy) {
         let total = 0;
         if (regrets) {
             for (let index = 0; index < actionCount; index++) {
@@ -14,15 +13,44 @@
                 strategy[index] = positive;
                 total += positive;
             }
+        } else {
+            for (let index = 0; index < actionCount; index++) strategy[index] = 0;
         }
         if (!(total > 0)) {
-            strategy.fill(1 / actionCount);
+            strategy.fill(1 / actionCount, 0, actionCount);
             return strategy;
         }
         for (let index = 0; index < actionCount; index++) {
             strategy[index] /= total;
         }
         return strategy;
+    }
+
+    function regretMatched(regrets, actionCount) {
+        return regretMatchedInto(regrets, actionCount, new Float64Array(actionCount));
+    }
+
+    // One scratch buffer per recursion depth. A parent keeps its strategy and
+    // action values while children execute at the next depth, so sibling
+    // branches can safely reuse the same child-level buffers.
+    const cfrWorkspaceByMaps = new WeakMap();
+
+    function getCfrWorkspace(maps) {
+        let workspace = cfrWorkspaceByMaps.get(maps);
+        if (!workspace) {
+            workspace = { strategies: [], actionValues: [] };
+            cfrWorkspaceByMaps.set(maps, workspace);
+        }
+        return workspace;
+    }
+
+    function getWorkspaceBuffer(buffers, depth, length) {
+        let buffer = buffers[depth];
+        if (!buffer || buffer.length < length) {
+            buffer = new Float64Array(length);
+            buffers[depth] = buffer;
+        }
+        return buffer;
     }
 
     const actionSignatureCache = new WeakMap();
@@ -96,7 +124,10 @@
         return { regrets, strategySum };
     }
 
-    function runCfrRecursive(node, deal, traverser, reach, maps, callbacks, averageWeight, chanceWeight) {
+    function runCfrRecursive(
+        node, deal, traverser, reach, maps, callbacks,
+        averageWeight, chanceWeight, workspace, depth
+    ) {
         if (node.terminal) return callbacks.utility(node, deal);
         if (node.actor !== 0 && node.actor !== 1) {
             throw new Error("Un nœud CFR doit appartenir au joueur 0 ou au joueur 1.");
@@ -105,20 +136,22 @@
             throw new Error("Un nœud CFR non terminal doit proposer au moins une action.");
         }
 
+        const actionCount = node.actions.length;
         const key = getInformationKey(node, deal, callbacks);
         const { regrets, strategySum } = ensureInfoSet(key, node.actions, maps);
-        const strategy = regretMatched(regrets, node.actions.length);
+        const strategy = getWorkspaceBuffer(workspace.strategies, depth, actionCount);
+        regretMatchedInto(regrets, actionCount, strategy);
+        const actionValues = getWorkspaceBuffer(workspace.actionValues, depth, actionCount);
         const ownReach = reach[node.actor];
 
         if (traverser === 0) {
-            for (let index = 0; index < strategy.length; index++) {
+            for (let index = 0; index < actionCount; index++) {
                 strategySum[index] += averageWeight * ownReach * strategy[index] * chanceWeight;
             }
         }
 
-        const actionValues = new Float64Array(node.actions.length);
         let nodeValue = 0;
-        for (let index = 0; index < node.actions.length; index++) {
+        for (let index = 0; index < actionCount; index++) {
             reach[node.actor] = ownReach * strategy[index];
             actionValues[index] = runCfrRecursive(
                 node.actions[index].child,
@@ -128,7 +161,9 @@
                 maps,
                 callbacks,
                 averageWeight,
-                chanceWeight
+                chanceWeight,
+                workspace,
+                depth + 1
             );
             reach[node.actor] = ownReach;
             nodeValue += strategy[index] * actionValues[index];
@@ -137,7 +172,7 @@
         if (node.actor === traverser) {
             const opponentReach = reach[1 - node.actor];
             const utilitySign = node.actor === 0 ? 1 : -1;
-            for (let index = 0; index < actionValues.length; index++) {
+            for (let index = 0; index < actionCount; index++) {
                 const instantaneousRegret = utilitySign *
                     opponentReach *
                     (actionValues[index] - nodeValue) *
@@ -151,6 +186,7 @@
 
     function runCfr(node, deal, traverser, reach, maps, callbacks, averageWeight = 1, chanceWeight = 1) {
         const workingReach = [Number(reach[0]), Number(reach[1])];
+        const workspace = getCfrWorkspace(maps);
         return runCfrRecursive(
             node,
             deal,
@@ -159,7 +195,9 @@
             maps,
             callbacks,
             averageWeight,
-            chanceWeight
+            chanceWeight,
+            workspace,
+            0
         );
     }
 
