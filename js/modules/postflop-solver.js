@@ -433,11 +433,18 @@
         }
         const range = await getOpponentRange(state, history, opponent);
         const baseDeck = makeDeck(seen);
+        const availableCombos = Array.isArray(range.combos)
+            ? range.combos.filter(item =>
+                item.cards.every(card => baseDeck.some(candidate => cardKey(candidate) === cardKey(card)))
+            )
+            : [];
+        const weightedRange = availableCombos.length ? availableCombos : null;
+        const preflopRangeUsed = range.rangeUsed !== false && availableCombos.length > 0;
         const iterations = Math.max(300, Math.min(10000, Number(options.iterations) || DEFAULT_ITERATIONS));
         let wins = 0, ties = 0, losses = 0;
         for (let i = 0; i < iterations; i++) {
             const deck = baseDeck.slice();
-            const villain = sampleOpponentHand(deck, range.combos);
+            const villain = sampleOpponentHand(deck, weightedRange);
             const villainKeys = new Set(villain.map(cardKey));
             const remaining = deck.filter(card => !villainKeys.has(cardKey(card)));
             shuffle(remaining);
@@ -451,8 +458,12 @@
         const decision = recommend(equity, state, hero);
         return {
             iterations, wins, ties, losses, equity,
-            rangeLabel: range.label,
-            rangeUsed: range.rangeUsed === undefined ? Boolean(range.combos) : range.rangeUsed,
+            rangeLabel: range.rangeUsed === false
+                ? range.label
+                : preflopRangeUsed
+                    ? range.label
+                    : "Range large (combinaisons bloquées)",
+            rangeUsed: preflopRangeUsed,
             decision,
             note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique des actions postflop observées. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
         };
