@@ -281,3 +281,28 @@ test("CFR+ échantillonne les runouts et calcule une stratégie dès le flop", a
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.treeNodes > 10);
 });
+
+
+test("CFR+ échantillonne la river et calcule une stratégie depuis le turn", async () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.street = "turn";
+    state.board = [
+        card(2, "spades"),
+        card(7, "diamonds"),
+        card(9, "hearts"),
+        card(10, "clubs")
+    ];
+    state.players[0].position = "BTN/SB";
+    state.players[1].position = "BB";
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(state, [], {
+        iterations: 20,
+        samples: 8
+    });
+    const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
+    assert.equal(result.street, "turn");
+    assert.equal(result.sampledOpponentHands, 8);
+    assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
+    assert.ok(Number.isFinite(result.heroEV));
+    assert.ok(result.treeNodes > 10);
+});
