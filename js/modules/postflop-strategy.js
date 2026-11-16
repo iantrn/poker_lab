@@ -306,15 +306,19 @@
         };
     }
 
-    function weightedSample(items, random = Math.random) {
+    function weightedSampleEntry(items, random = Math.random) {
         const total = items.reduce((sum, item) => sum + item.weight, 0);
-        if (!(total > 0)) return items[Math.floor(random() * items.length)].cards;
+        if (!(total > 0)) return items[Math.floor(random() * items.length)];
         let cursor = random() * total;
         for (const item of items) {
             cursor -= item.weight;
-            if (cursor <= 0) return item.cards;
+            if (cursor <= 0) return item;
         }
-        return items[items.length - 1].cards;
+        return items[items.length - 1];
+    }
+
+    function weightedSample(items, random = Math.random) {
+        return weightedSampleEntry(items, random).cards;
     }
 
     function buildUniformRange(knownCards) {
@@ -334,26 +338,88 @@
         return combos;
     }
 
-    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true, random = Math.random) {
-        const blocked = new Set([...hero, ...board].map(cardId));
-        let candidates = Array.isArray(range) ? range.filter(item =>
-            item.cards && item.cards.length === 2 &&
-            item.cards.every(card => !blocked.has(cardId(card))) &&
-            cardId(item.cards[0]) !== cardId(item.cards[1]) &&
-            Number(item.weight) > 0
-        ) : [];
+    function sampleDeals(
+        actualHero,
+        board,
+        opponentRange,
+        sampleCount,
+        rangeUsedHint = true,
+        random = Math.random,
+        heroRange = null
+    ) {
+        const boardBlocked = new Set(board.map(cardId));
+        const validCombos = (range, blocked) => Array.isArray(range)
+            ? range.filter(item =>
+                item.cards && item.cards.length === 2 &&
+                item.cards.every(card => card && !blocked.has(cardId(card))) &&
+                cardId(item.cards[0]) !== cardId(item.cards[1]) &&
+                Number.isFinite(Number(item.weight)) && Number(item.weight) > 0
+            )
+            : [];
 
-        const hasRangeCandidates = candidates.length > 0;
-        const rangeUsed = hasRangeCandidates && rangeUsedHint;
-        if (!hasRangeCandidates) {
-            candidates = buildUniformRange([...hero, ...board]);
+        let heroCandidates = validCombos(heroRange, boardBlocked);
+        if (!heroCandidates.length) {
+            heroCandidates = [{ cards: actualHero, weight: 1 }];
         }
-        if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
+
+        const heroTotal = heroCandidates.reduce((sum, item) => sum + Number(item.weight), 0);
+        const actualHeroKey = handId(actualHero);
+        const actualHeroEntry = heroCandidates.find(item => handId(item.cards) === actualHeroKey);
+        const actualHeroProbability = actualHeroEntry
+            ? Number(actualHeroEntry.weight) / heroTotal
+            : 0;
+
+        // Oversample the observed holding so its root information set receives
+        // enough updates. Importance weights restore the original range prior.
+        const actualHandBoost = actualHeroEntry ? 0.25 : 0;
+        const proposalHeroRange = heroCandidates.map(item => {
+            const priorProbability = Number(item.weight) / heroTotal;
+            const isActual = handId(item.cards) === actualHeroKey;
+            return {
+                ...item,
+                priorProbability,
+                proposalProbability: (1 - actualHandBoost) * priorProbability +
+                    (isActual ? actualHandBoost : 0)
+            };
+        });
 
         const deals = [];
         const suits = ["clubs", "diamonds", "hearts", "spades"];
+        let actualHeroSamples = 0;
+        let opponentRangeSamples = 0;
+
         for (let i = 0; i < sampleCount; i++) {
-            const villain = weightedSample(candidates, random);
+            const selectedHero = weightedSampleEntry(
+                proposalHeroRange.map(item => ({
+                    cards: item.cards,
+                    weight: item.proposalProbability,
+                    priorProbability: item.priorProbability,
+                    proposalProbability: item.proposalProbability
+                })),
+                random
+            );
+            const hero = selectedHero.cards;
+            const isActualHero = handId(hero) === actualHeroKey;
+            if (isActualHero) actualHeroSamples++;
+
+            const heroImportanceWeight = selectedHero.proposalProbability > 0
+                ? selectedHero.priorProbability / selectedHero.proposalProbability
+                : 1;
+
+            const blocked = new Set([...hero, ...board].map(cardId));
+            let villainCandidates = validCombos(opponentRange, blocked);
+            const hasRangeCandidates = villainCandidates.length > 0;
+            if (!hasRangeCandidates) {
+                const uniform = buildUniformRange([...hero, ...board]);
+                villainCandidates = uniform;
+            }
+            if (!villainCandidates.length) {
+                throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
+            }
+
+            const villain = weightedSample(villainCandidates, random);
+            if (hasRangeCandidates && rangeUsedHint) opponentRangeSamples++;
+
             const excluded = new Set([...hero, ...board, ...villain].map(cardId));
             const deck = [];
             for (const suit of suits) for (let value = 2; value <= 14; value++) {
@@ -365,9 +431,23 @@
                 [deck[index], deck[swap]] = [deck[swap], deck[index]];
             }
             const runout = deck.slice(0, 5 - board.length);
-            deals.push({ villain, runout, finalBoard: [...board, ...runout] });
+            deals.push({
+                hero,
+                villain,
+                runout,
+                finalBoard: [...board, ...runout],
+                heroImportanceWeight,
+                isActualHero
+            });
         }
-        return { deals, rangeUsed };
+
+        return {
+            deals,
+            rangeUsed: opponentRangeSamples === sampleCount && rangeUsedHint,
+            heroRangeUsed: Array.isArray(heroRange) && heroRange.length > 0,
+            actualHeroInRange: Boolean(actualHeroEntry),
+            actualHeroSamples
+        };
     }
 
     function utility(node, deal, hero, board) {
@@ -379,7 +459,7 @@
         const result = Number.isInteger(deal.showdownResult)
             ? deal.showdownResult
             : global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...hero, ...(deal.finalBoard || board)]).score,
+                global.PokerLabHandEvaluator.evaluate([...(deal.hero || hero), ...(deal.finalBoard || board)]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...(deal.finalBoard || board)]).score
             );
         const payout = result > 0 ? node.pot : result === 0 ? node.pot / 2 : 0;
@@ -394,7 +474,7 @@
     }
 
     function informationKey(node, deal, hero, board) {
-        const privateHand = node.actor === 0 ? handId(hero) : handId(deal.villain);
+        const privateHand = node.actor === 0 ? handId(deal.hero || hero) : handId(deal.villain);
         const publicState = [
             roundChips(node.pot),
             (node.stacks || []).map(roundChips).join(","),
@@ -426,9 +506,12 @@
         }
         const strategy = regretMatched(regrets, count);
         const ownReach = reach[node.actor];
+        const chanceWeight = Number(deal.heroImportanceWeight) > 0
+            ? Number(deal.heroImportanceWeight)
+            : 1;
         if (traverser === 0) {
             for (let i = 0; i < count; i++) {
-                strategySum[i] += averageWeight * ownReach * strategy[i];
+                strategySum[i] += averageWeight * ownReach * strategy[i] * chanceWeight;
             }
         }
 
@@ -445,7 +528,7 @@
             const opponentReach = reach[1 - node.actor];
             const sign = node.actor === 0 ? 1 : -1;
             for (let i = 0; i < count; i++) {
-                regrets[i] = Math.max(0, regrets[i] + sign * opponentReach * (values[i] - nodeValue));
+                regrets[i] = Math.max(0, regrets[i] + chanceWeight * sign * opponentReach * (values[i] - nodeValue));
             }
         }
         return nodeValue;
