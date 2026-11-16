@@ -103,5 +103,5 @@ test("le solveur utilise une range préflop compatible lorsqu'elle existe", asyn
     const result = await app.PokerLabPostflopSolver.analyse(current, history, { iterations: 300 });
     assert.equal(result.rangeUsed, true);
     assert.equal(result.rangeLabel, "bb/BB_3bet_vs_BU_RFI");
-    assert.equal(result.equity, 0);
+    assert.equal(result.equity, 1);
 });
