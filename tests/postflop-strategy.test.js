@@ -547,3 +547,23 @@ test("solvePostflop tient compte des relances déjà présentes dans l'historiqu
         ["call", "fold"]
     );
 });
+
+
+test("une seed identique reproduit exactement le même calcul CFR+", async () => {
+    const app = loadStrategy();
+    const first = await app.PokerLabPostflopStrategy.solvePostflop(
+        riverState(),
+        [],
+        { iterations: 10, samples: 8, seed: 20261116 }
+    );
+    const second = await app.PokerLabPostflopStrategy.solvePostflop(
+        riverState(),
+        [],
+        { iterations: 10, samples: 8, seed: 20261116 }
+    );
+
+    assert.equal(first.randomSeed, 20261116);
+    assert.equal(second.randomSeed, 20261116);
+    assert.equal(first.heroEV, second.heroEV);
+    assert.equal(JSON.stringify(first.actions), JSON.stringify(second.actions));
+});
