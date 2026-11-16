@@ -902,9 +902,11 @@ window.PokerLabPuzzles = (function () {
                     difficulty: difficultySelect ? difficultySelect.value : null
                 });
                 renderStatistics();
-                if (!results.length) {
-                    const container = document.querySelector(SELECTORS.container);
-                    if (container) container.textContent = "Aucun exercice ne correspond à ces filtres.";
+                const container = document.querySelector(SELECTORS.container);
+                if (container) {
+                    container.textContent = results.length
+                        ? `${results.length} exercice(s) correspondent aux filtres. Clique sur « Commencer un exercice » pour continuer.`
+                        : "Aucun exercice ne correspond à ces filtres.";
                 }
 
             });
@@ -924,9 +926,11 @@ window.PokerLabPuzzles = (function () {
                     difficulty: difficultySelect.value
                 });
                 renderStatistics();
-                if (!results.length) {
-                    const container = document.querySelector(SELECTORS.container);
-                    if (container) container.textContent = "Aucun exercice ne correspond à ces filtres.";
+                const container = document.querySelector(SELECTORS.container);
+                if (container) {
+                    container.textContent = results.length
+                        ? `${results.length} exercice(s) correspondent aux filtres. Clique sur « Commencer un exercice » pour continuer.`
+                        : "Aucun exercice ne correspond à ces filtres.";
                 }
 
             });
