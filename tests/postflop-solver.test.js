@@ -649,3 +649,72 @@ test("le conditionnement postflop tient compte du profil et de la difficulté du
     assert.match(nit.conditioning, /profil et la difficulté/);
     assert.ok(ratio(nit) > ratio(lag));
 });
+
+
+test("le modèle bot respecte la réouverture des relances après des relances courtes cumulées", () => {
+    const app = loadSolver();
+    const board = [
+        card(2, "clubs"),
+        card(7, "diamonds"),
+        card(9, "hearts")
+    ];
+    const range = {
+        combos: [
+            { cards: [card(9, "spades"), card(9, "diamonds")], weight: 1 },
+            { cards: [card(7, "spades"), card(3, "clubs")], weight: 1 }
+        ]
+    };
+    const state = { board };
+    const previousBet = {
+        type: "player_action",
+        street: "flop",
+        data: {
+            playerId: "bot",
+            action: "bet",
+            amount: 10,
+            potBefore: 10,
+            currentBetBefore: 0,
+            streetBetBefore: 0,
+            streetBetAfter: 10,
+            stackBefore: 100,
+            betTo: 10,
+            lastFullRaiseBefore: 1
+        }
+    };
+    const makeCall = currentBet => ({
+        type: "player_action",
+        street: "flop",
+        data: {
+            playerId: "bot",
+            action: "call",
+            amount: currentBet - 10,
+            potBefore: 20,
+            currentBetBefore: currentBet,
+            streetBetBefore: 10,
+            streetBetAfter: currentBet,
+            stackBefore: 100,
+            lastFullRaiseBefore: 1
+        }
+    });
+    const opponent = {
+        id: "bot",
+        isBot: true,
+        botProfile: "lag",
+        botDifficulty: "hard"
+    };
+
+    const notReopened = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
+        state,
+        [previousBet, makeCall(10.5)],
+        opponent,
+        range
+    );
+    const reopened = app.PokerLabPostflopSolver.conditionRangeOnPostflopActions(
+        state,
+        [previousBet, makeCall(11)],
+        opponent,
+        range
+    );
+
+    assert.ok(notReopened.combos[0].weight > reopened.combos[0].weight);
+});
