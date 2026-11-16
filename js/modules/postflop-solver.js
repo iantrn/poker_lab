@@ -91,11 +91,12 @@
     }
 
     function actionCode(action, aggressorNumber) {
-        if (action === "bet") return "RFI";
-        if (action === "raise" || action === "short_raise") {
-            return aggressorNumber <= 1 ? "3bet" : aggressorNumber === 2 ? "4bet" : "5bet";
-        }
-        return null;
+        if (!["bet", "raise", "short_raise"].includes(action)) return null;
+        if (aggressorNumber === 1) return "RFI";
+        if (aggressorNumber === 2) return "3bet";
+        if (aggressorNumber === 3) return "4bet";
+        if (aggressorNumber === 4) return "5bet";
+        return "6bet";
     }
 
     function findOpponentRange(state, history, opponent, matrix) {
