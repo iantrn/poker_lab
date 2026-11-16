@@ -45,7 +45,7 @@ Ouvrir ensuite :
 http://localhost:8000
 ```
 
-Pour arrêter le serveur, utiliser `Ctrl+C dans le terminal.
+Pour arrêter le serveur, utiliser `Ctrl+C` dans le terminal.
 
 ### Avec Visual Studio Code
 
