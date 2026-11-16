@@ -566,6 +566,42 @@
                 throw new Error("Une mise de street dépasse la contribution totale du joueur.");
             }
         }
+
+        const options = hero.actionOptions;
+        if (options) {
+            if (Number.isFinite(Number(options.callAmount)) &&
+                Number.isFinite(Number(hero.amountToCall)) &&
+                Math.abs(Number(options.callAmount) - Number(hero.amountToCall)) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas au montant à égaliser.");
+            }
+            if (Number.isFinite(Number(options.minimumRaiseTo)) &&
+                Number.isFinite(Number(state.minimumRaiseTo)) &&
+                Math.abs(Number(options.minimumRaiseTo) - Number(state.minimumRaiseTo)) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas au minimum de relance.");
+            }
+            if (Number.isFinite(Number(options.maximumRaiseTo)) &&
+                Number.isFinite(Number(hero.streetBet)) &&
+                Number.isFinite(Number(hero.stack)) &&
+                Math.abs(Number(options.maximumRaiseTo) -
+                    (Number(hero.streetBet) + Number(hero.stack))) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas au tapis du héros.");
+            }
+            if (options.canCheck === true && Number(hero.amountToCall) > CHIP_EPSILON) {
+                throw new Error("Le héros ne peut pas checker lorsqu'une mise reste à égaliser.");
+            }
+            if (options.canCall === true && Number(hero.amountToCall) <= CHIP_EPSILON) {
+                throw new Error("Le moteur autorise un call alors qu'aucune mise n'est à égaliser.");
+            }
+            if (options.canBet === true && Number.isFinite(Number(state.currentBet)) &&
+                Number(state.currentBet) > CHIP_EPSILON) {
+                throw new Error("Le moteur autorise une mise d'ouverture alors qu'une mise existe déjà.");
+            }
+            if (Number.isFinite(Number(options.minimumBet)) &&
+                state.blinds && Number.isFinite(Number(state.blinds.bigBlind)) &&
+                Math.abs(Number(options.minimumBet) - Number(state.blinds.bigBlind)) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas à la grosse blind.");
+            }
+        }
         return { hero, opponent };
     }
 
