@@ -611,7 +611,12 @@
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
         const heroRangeInfo = typeof global.PokerLabPostflopSolver.getPlayerRange === "function"
             ? await global.PokerLabPostflopSolver.getPlayerRange(state, history, hero)
-            : { ...rangeInfo, label: "Range héro uniforme (compatibilité)", rangeUsed: false };
+            : {
+                label: "Range héro non renseignée (main réelle uniquement)",
+                rangeUsed: false,
+                actualHandInRange: true,
+                combos: [{ cards: hero.holeCards, weight: 1 }]
+            };
         const requestedIterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
         const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
         // Chaque itération reçoit une nouvelle main adverse et un nouveau runout.
