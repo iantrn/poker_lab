@@ -2547,3 +2547,44 @@ main:has(> #training:not([hidden])) {
         padding: 14px;
     }
 }
+
+/* PokerLab v8 — réserve une zone verticale suffisante entre le héros et les actions.
+   Les commandes restent ancrées en bas de la table, mais le siège humain est
+   remonté afin que les cartes et les boutons ne se chevauchent plus au flop. */
+.pl-table-container {
+    height: 820px !important;
+    min-height: 820px !important;
+    max-height: 820px !important;
+}
+
+.pl-table-container .pl-seat-hero {
+    top: 56% !important;
+}
+
+.pl-table-container > .pl-hand-strength {
+    bottom: 155px !important;
+}
+
+#training-actions.pl-action-panel {
+    max-height: none !important;
+}
+
+@media (max-width: 600px) {
+    .pl-table-container {
+        height: 800px !important;
+        min-height: 800px !important;
+        max-height: 800px !important;
+    }
+
+    .pl-table-container .pl-seat-hero {
+        top: 55% !important;
+    }
+
+    .pl-table-container > .pl-hand-strength {
+        bottom: 155px !important;
+    }
+
+    #training-actions.pl-action-panel {
+        max-height: none !important;
+    }
+}
