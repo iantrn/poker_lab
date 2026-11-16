@@ -165,7 +165,7 @@
                         largestBet = Math.max(largestBet, amount);
                         actions.push(makeAction("bet_" + Math.round(fraction * 100), "bet", amount));
                     }
-                    if (largestBet > 0 && effectiveBetStack > largestBet * 1.8) {
+                    if (largestBet > 0 && effectiveBetStack > largestBet * 1.25) {
                         actions.push(makeAction("all_in", "bet", effectiveBetStack));
                     }
                 }
