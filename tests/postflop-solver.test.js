@@ -383,3 +383,48 @@ test("les positions BTN sont normalisées dans la séquence préflop face à une
     assert.equal(range.rangeUsed, true);
     assert.equal(range.label, "bb/BB_call_vs_BU_RFI");
 });
+
+
+test("le mapping distingue un 5bet non all-in d'un 5bet à tapis", async () => {
+    const sequence = "BU RFI › BB 3bet › BU 4bet";
+    const smallId = "bb/BB_5bet_small_vs_BU_RFI_BB_3bet_BU_4bet";
+    const jamId = "bb/BB_5bet_vs_BU_RFI_BB_3bet_BU_4bet";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? {
+                version: 1,
+                spots: [
+                    { id: smallId, p: "BB", a: "5bet_small", s: sequence },
+                    { id: jamId, p: "BB", a: "5bet", s: sequence }
+                ]
+            }
+            : { version: 1, ranges: { [smallId]: { AA: 100 }, [jamId]: { KK: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BTN";
+    current.players[1].position = "BB";
+
+    const makeHistory = allIn => [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise", allIn: false } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "raise", allIn: false } },
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise", allIn: false } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "raise", allIn } }
+    ];
+
+    const small = await app.PokerLabPostflopSolver.getOpponentRange(
+        current, makeHistory(false), current.players[1]
+    );
+    const jam = await app.PokerLabPostflopSolver.getOpponentRange(
+        current, makeHistory(true), current.players[1]
+    );
+
+    assert.equal(small.rangeUsed, true);
+    assert.equal(small.label, smallId);
+    assert.equal(jam.rangeUsed, true);
+    assert.equal(jam.label, jamId);
+});
