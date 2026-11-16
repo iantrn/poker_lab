@@ -888,9 +888,9 @@ button:disabled {
     transform: translateX(-50%);
 
     display: flex;
+    flex-direction: column;
     align-items: center;
-
-    gap: 9px;
+    gap: 4px;
 
     max-width: calc(100% - 20px);
 
@@ -903,7 +903,22 @@ button:disabled {
 
     box-shadow: var(--shadow-soft);
 
-    white-space: nowrap;
+    white-space: normal;
+}
+
+.pl-hand-result-pots {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 100%;
+    color: var(--text-secondary);
+    font-size: 0.64rem;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.pl-hand-result-pot {
+    overflow-wrap: anywhere;
 }
 
 .pl-hand-result-title {
@@ -2006,3 +2021,30 @@ button:disabled {
 
 .pl-rv-legend { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 0.7rem; color: var(--text-muted); }
 .pl-rv-legend-bar { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--bg-surface-light), var(--accent-green-light)); }
+
+
+/* =========================================================
+   22. LIENS ET CONTRÔLES NATIFS
+   Neutralise les couleurs et soulignements par défaut du navigateur.
+   ========================================================= */
+
+a,
+a:visited {
+    color: inherit;
+    text-decoration: none;
+}
+
+a:hover,
+a:active {
+    text-decoration: none;
+}
+
+button {
+    color: inherit;
+    text-decoration: none;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 3px;
+}
