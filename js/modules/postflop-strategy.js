@@ -266,7 +266,8 @@
             Number(item.weight) > 0
         ) : [];
 
-        if (!candidates.length) {
+        const rangeUsed = candidates.length > 0;
+        if (!rangeUsed) {
             candidates = buildUniformRange([...hero, ...board]);
         }
         if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
@@ -288,7 +289,7 @@
             const runout = deck.slice(0, 5 - board.length);
             deals.push({ villain, runout, finalBoard: [...board, ...runout] });
         }
-        return deals;
+        return { deals, rangeUsed };
     }
 
     function utility(node, deal, hero, board) {
@@ -406,7 +407,8 @@
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
         const iterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
         const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
-        const deals = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
+        const sampled = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
+        const deals = sampled.deals;
         const priorHistory = (history || [])
             .filter(event => event.type === "player_action" && event.street === state.street)
             .map(event => {
@@ -483,8 +485,9 @@
             iterations,
             sampledOpponentHands: samples,
             treeNodes: Math.round(nodeCount / samples),
-            rangeLabel: rangeInfo.label,
-            rangeUsed: Boolean(rangeInfo.combos),
+            rangeLabel: sampled.rangeUsed ? rangeInfo.label :
+                (rangeInfo.combos ? "Range large (combinaisons bloquées)" : rangeInfo.label),
+            rangeUsed: sampled.rangeUsed,
             heroEV: ev,
             actions,
             convergence: "Approximation CFR+ avec échantillonnage des mains et des runouts ; exploitabilité et convergence non certifiées."
