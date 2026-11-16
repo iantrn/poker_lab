@@ -12,7 +12,7 @@
     const BET_FRACTION = 0.5;
     const BET_SIZINGS = [0.33, 0.75];
     const ACTION_LIMIT = 4;
-    const MAX_RAISES_PER_STREET = 2;
+    const MAX_RAISES_PER_STREET = 4;
 
     const CHIP_UNIT = 0.5;
     const CHIP_EPSILON = 0.000001;
@@ -162,17 +162,16 @@
             const currentBet = Math.max(state.bets[0], state.bets[1]);
             const actorRaiseRights = !state.hasActed[actor] ||
                 currentBet - state.lastActedBets[actor] >= state.lastFullRaise - CHIP_EPSILON;
-            const canContinueAggression = state.raises < MAX_RAISES_PER_STREET &&
-                state.stacks[other] > 0 &&
-                actorRaiseRights;
+            const canContinueAggression = state.stacks[other] > 0 &&
+                actorRaiseRights &&
+                (state.root || state.raises < MAX_RAISES_PER_STREET);
             const canRaise = canContinueAggression &&
-                !(state.root && actor === 0 && rootOptions.canRaise === false);
+                (!state.root || rootOptions.canRaise === true);
 
             if (toCall > 0) {
                 actions.push(makeAction("fold", "fold"));
                 actions.push(makeAction("call", "call", toCall));
 
-                const rootRaiseAllowed = !state.root || rootOptions.canRaise;
                 const requiredRaiseTotal = ceilChips(state.root && Number.isFinite(rootOptions.minimumRaiseTo)
                     ? Math.max(toCall, rootOptions.minimumRaiseTo - state.bets[actor])
                     : toCall + state.lastFullRaise);
@@ -180,7 +179,7 @@
                 const maximumRaiseTotal = floorChips(state.root && Number.isFinite(rootOptions.maximumRaiseTo)
                     ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor], effectiveMaximum)
                     : Math.min(state.stacks[actor], effectiveMaximum));
-                if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
+                if (canRaise && state.stacks[actor] > toCall) {
                     const desiredRaiseTotal = ceilChips(toCall + Math.max(toCall, state.pot * BET_FRACTION,
                         requiredRaiseTotal - toCall, state.lastFullRaise));
                     if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
@@ -820,7 +819,7 @@
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · deux relances maximales par street",
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · quatre relances maximales dans les réponses modélisées ; racine conforme aux droits réels",
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
