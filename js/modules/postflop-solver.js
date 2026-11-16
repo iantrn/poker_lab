@@ -102,6 +102,15 @@
         return "6bet";
     }
 
+    function matrixPosition(position) {
+        const aliases = {
+            "BTN": "BU",
+            "BTN/SB": "BU",
+            "HJ": "MP"
+        };
+        return aliases[position] || position;
+    }
+
     function findOpponentRange(state, history, opponent, matrix) {
         const preflop = history.filter(event => event.type === "player_action" && event.street === "preflop");
         const actorIndex = preflop.map(event => event.data.playerId).lastIndexOf(opponent.id);
@@ -122,14 +131,15 @@
                 targetCode = code;
                 break;
             }
-            const position = positions.get(event.data.playerId);
+            const position = matrixPosition(positions.get(event.data.playerId));
             if (position && code) prefix.push(position + " " + code);
         }
 
         if (!targetCode) return { combos: null, label: "Range large (action non couverte)" };
         const sequence = prefix.join(" › ");
+        const opponentPosition = matrixPosition(opponent.position);
         const candidates = matrix.index.spots.filter(item =>
-            item.p === opponent.position && item.a === targetCode
+            item.p === opponentPosition && item.a === targetCode
         );
         // Never substitute a merely similar sequence: a different preflop line
         // can represent a materially different range. If the exact line is absent,
