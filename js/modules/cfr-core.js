@@ -27,6 +27,25 @@
 
     const actionSignatureCache = new WeakMap();
 
+    const informationKeyCache = new WeakMap();
+
+    function getInformationKey(node, deal, callbacks) {
+        if (!node || typeof node !== "object" ||
+            !deal || typeof deal !== "object") {
+            return callbacks.informationKey(node, deal);
+        }
+        let dealKeys = informationKeyCache.get(node);
+        if (!dealKeys) {
+            dealKeys = new WeakMap();
+            informationKeyCache.set(node, dealKeys);
+        }
+        if (dealKeys.has(deal)) return dealKeys.get(deal);
+        const key = callbacks.informationKey(node, deal);
+        dealKeys.set(deal, key);
+        return key;
+    }
+
+
     function actionSignature(actions) {
         const cached = actionSignatureCache.get(actions);
         if (cached !== undefined) return cached;
@@ -86,7 +105,7 @@
             throw new Error("Un nœud CFR non terminal doit proposer au moins une action.");
         }
 
-        const key = callbacks.informationKey(node, deal);
+        const key = getInformationKey(node, deal, callbacks);
         const { regrets, strategySum } = ensureInfoSet(key, node.actions, maps);
         const strategy = regretMatched(regrets, node.actions.length);
         const ownReach = reach[node.actor];
@@ -146,7 +165,7 @@
 
     function averageStrategy(node, deal, maps, callbacks) {
         if (node.terminal) return callbacks.utility(node, deal);
-        const key = callbacks.informationKey(node, deal);
+        const key = getInformationKey(node, deal, callbacks);
         const { strategySum: sums } = ensureInfoSet(key, node.actions, maps);
         let total = 0;
         for (let index = 0; index < sums.length; index++) total += sums[index];
@@ -164,7 +183,7 @@
 
     function getStrategy(node, deal, maps, callbacks) {
         if (node.terminal) return [];
-        const key = callbacks.informationKey(node, deal);
+        const key = getInformationKey(node, deal, callbacks);
         const { strategySum: sums } = ensureInfoSet(key, node.actions, maps);
         let total = 0;
         for (let index = 0; index < sums.length; index++) total += sums[index];
@@ -238,7 +257,7 @@
                 deal,
                 depth,
                 reach,
-                key: callbacks.informationKey(node, deal),
+                key: getInformationKey(node, deal, callbacks),
                 strategy,
                 children: [],
                 value: 0
