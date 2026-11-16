@@ -91,6 +91,7 @@
     }
 
     function actionCode(action, aggressorNumber) {
+        if (action === "call" || action === "all_in_call") return "call";
         if (!["bet", "raise", "short_raise", "short_all_in_bet"].includes(action)) return null;
         if (aggressorNumber === 1) return "RFI";
         if (aggressorNumber === 2) return "3bet";
@@ -101,28 +102,51 @@
 
     function findOpponentRange(state, history, opponent, matrix) {
         const preflop = history.filter(event => event.type === "player_action" && event.street === "preflop");
-        const aggressive = preflop.filter(event => ["bet", "raise", "short_raise", "short_all_in_bet"].includes(event.data.action));
-        const actorEvents = aggressive.filter(event => event.data.playerId === opponent.id);
-        if (!actorEvents.length) return { combos: null, label: "Range large (non renseignée)" };
+        const actorIndex = preflop.map(event => event.data.playerId).lastIndexOf(opponent.id);
+        if (actorIndex < 0) return { combos: null, label: "Range large (non renseignée)" };
 
-        const event = actorEvents[actorEvents.length - 1];
-        const aggressorNumber = aggressive.indexOf(event) + 1;
-        const code = actionCode(event.data.action, aggressorNumber);
-        if (!code) return { combos: null, label: "Range large (non renseignée)" };
+        const positions = new Map(state.players.map(player => [player.id, player.position]));
+        const prefix = [];
+        let aggressorNumber = 0;
+        let targetCode = null;
 
-        const spot = matrix.index.spots
-            .filter(item => item.p === opponent.position && item.a === code)
-            .sort((a, b) => (a.s ? a.s.length : 0) - (b.s ? b.s.length : 0))[0];
-        if (!spot || !matrix.ranges[spot.id]) return { combos: null, label: "Range large (spot absent)" };
+        for (let index = 0; index <= actorIndex; index++) {
+            const event = preflop[index];
+            const action = event.data.action;
+            const isAggressive = ["bet", "raise", "short_raise", "short_all_in_bet"].includes(action);
+            if (isAggressive) aggressorNumber++;
+            const code = actionCode(action, aggressorNumber);
+            if (index === actorIndex) {
+                targetCode = code;
+                break;
+            }
+            const position = positions.get(event.data.playerId);
+            if (position && code) prefix.push(position + " " + code);
+        }
+
+        if (!targetCode) return { combos: null, label: "Range large (action non couverte)" };
+        const sequence = prefix.join(" › ");
+        const candidates = matrix.index.spots.filter(item =>
+            item.p === opponent.position && item.a === targetCode
+        );
+        const exact = candidates.find(item => (item.s || "") === sequence);
+        const spot = exact || candidates.sort((a, b) => {
+            const depthA = a.s ? a.s.split("›").length : 0;
+            const depthB = b.s ? b.s.split("›").length : 0;
+            return Math.abs(depthA - prefix.length) - Math.abs(depthB - prefix.length);
+        })[0];
+
+        if (!spot || !matrix.ranges[spot.id]) {
+            return { combos: null, label: "Range large (spot absent)" };
+        }
 
         const weighted = [];
         const range = matrix.ranges[spot.id];
-        for (let a = 2; a <= 14; a++) for (let b = 2; b <= 14; b++) {
-            if (a < b) continue;
-            const cls = handClass(a, b, true);
+        for (let a = 2; a <= 14; a++) for (let b = 2; b <= a; b++) {
+            const pairClass = handClass(a, b, true);
             const suitedClass = handClass(a, b, true);
             const offClass = handClass(a, b, false);
-            const frequency = Number(range[cls] ?? range[suitedClass] ?? 0);
+            const frequency = Number(range[pairClass] ?? 0);
             const offFrequency = Number(range[offClass] ?? 0);
             if (a === b) {
                 if (frequency > 0) addClassCombos(weighted, a, b, frequency, false);
