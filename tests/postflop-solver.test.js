@@ -105,3 +105,26 @@ test("le solveur utilise une range préflop compatible lorsqu'elle existe", asyn
     assert.equal(result.rangeLabel, "bb/BB_3bet_vs_BU_RFI");
     assert.equal(result.equity, 1);
 });
+
+test("le solveur actualise la range adverse après un call préflop", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_call_vs_BU_RFI", p: "BB", a: "call", s: "BU RFI" }] }
+            : { version: 1, ranges: { "bb/BB_call_vs_BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts"), card(8, "clubs"), card(10, "diamonds")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BU";
+    const history = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "call" } }
+    ];
+    const result = await app.PokerLabPostflopSolver.analyse(current, history, { iterations: 300 });
+    assert.equal(result.rangeUsed, true);
+    assert.equal(result.rangeLabel, "bb/BB_call_vs_BU_RFI");
+    assert.equal(result.equity, 1);
+});
