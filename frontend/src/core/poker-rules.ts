@@ -121,7 +121,7 @@ const PokerLabValidation = {
     isNonNegativeAmount(value: unknown): value is number {
 
         return (
-            this.isFiniteNumber(value): value is number &&
+            this.isFiniteNumber(value) &&
             value >= 0
         );
 
@@ -134,7 +134,7 @@ const PokerLabValidation = {
     isChipAmount(value: unknown): value is number {
 
         if (
-            !this.isNonNegativeAmount(value): value is number
+            !this.isNonNegativeAmount(value)
         ) {
             return false;
         }
@@ -153,7 +153,7 @@ const PokerLabValidation = {
 
     roundChipAmount(value: number) {
 
-        if (!this.isFiniteNumber(value): value is number) {
+        if (!this.isFiniteNumber(value)) {
             throw new Error(
                 "Le montant doit être un nombre valide."
             );
