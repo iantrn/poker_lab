@@ -501,7 +501,7 @@ const PokerLabHandEvaluator = {
                 groups[1]![0]
             );
 
-            const kicker = groups[2][0];
+            const kicker = groups[2]![0];
 
             return {
 
