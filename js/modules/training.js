@@ -794,7 +794,7 @@ function renderGame(state = null) {
         amountInput.type = "number";
         amountInput.min = String(minimum);
         amountInput.max = String(maximum);
-        amountInput.step = "0.1";
+        amountInput.step = "0.5";
         amountInput.inputMode = "decimal";
         amountInput.setAttribute("aria-label", "Montant de la mise ou de la relance");
         amountInput.value = String(Math.min(maximum, Math.max(minimum, minimum)));
@@ -803,7 +803,7 @@ function renderGame(state = null) {
         slider.type = "range";
         slider.min = String(minimum);
         slider.max = String(maximum);
-        slider.step = "0.1";
+        slider.step = "0.5";
         slider.value = amountInput.value;
         slider.setAttribute("aria-label", "Ajuster le montant de la mise ou de la relance");
 
@@ -824,7 +824,7 @@ function renderGame(state = null) {
             if (!Number.isFinite(parsed)) return null;
 
             const bounded = Math.min(maximum, Math.max(minimum, parsed));
-            const rounded = Math.round(bounded * 10) / 10;
+            const rounded = Math.round(bounded * 2) / 2;
 
             return Number(Math.min(maximum, Math.max(minimum, rounded)).toFixed(1));
         };
@@ -897,7 +897,7 @@ function renderGame(state = null) {
 
             // Une taille prédéfinie inférieure au minimum légal ne doit pas
             // être sélectionnable (notamment les petits sizings postflop).
-            const presetAmount = Math.round(Number(preset.value) * 10) / 10;
+            const presetAmount = Math.round(Number(preset.value) * 2) / 2;
             const isBelowMinimum = presetAmount < minimum - 0.000001;
 
             if (isBelowMinimum) {
