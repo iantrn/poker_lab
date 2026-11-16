@@ -372,7 +372,7 @@
                 item.cards.every(card => card && !blocked.has(cardId(card))) &&
                 cardId(item.cards[0]) !== cardId(item.cards[1]) &&
                 Number.isFinite(Number(item.weight)) && Number(item.weight) > 0
-            )
+            ).map(item => ({ ...item, weight: Number(item.weight) }))
             : [];
 
         let heroCandidates = validCombos(heroRange, boardBlocked);
@@ -383,10 +383,6 @@
         const heroTotal = heroCandidates.reduce((sum, item) => sum + Number(item.weight), 0);
         const actualHeroKey = handId(actualHero);
         const actualHeroEntry = heroCandidates.find(item => handId(item.cards) === actualHeroKey);
-        const actualHeroProbability = actualHeroEntry
-            ? Number(actualHeroEntry.weight) / heroTotal
-            : 0;
-
         // Oversample the observed holding so its root information set receives
         // enough updates. Importance weights restore the original range prior.
         const actualHandBoost = actualHeroEntry ? 0.25 : 0;
@@ -420,7 +416,7 @@
             const isActualHero = handId(hero) === actualHeroKey;
             if (isActualHero) actualHeroSamples++;
 
-            const heroImportanceWeight = selectedHero.proposalProbability > 0
+            const heroProposalImportance = selectedHero.proposalProbability > 0
                 ? selectedHero.priorProbability / selectedHero.proposalProbability
                 : 1;
 
@@ -435,6 +431,14 @@
                 throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
             }
 
+            // Correct the hero-hand proposal for the number/weight of legal
+            // opponent combinations left after card removal. This restores the
+            // joint product-range distribution rather than p(hero) × p(villain|hero).
+            const opponentConditionalMass = villainCandidates.reduce(
+                (sum, item) => sum + Number(item.weight),
+                0
+            );
+            const heroImportanceWeight = heroProposalImportance * opponentConditionalMass;
             const villain = weightedSample(villainCandidates, random);
             if (hasRangeCandidates && rangeUsedHint) opponentRangeSamples++;
 
@@ -921,5 +925,12 @@
         };
     }
 
-    global.PokerLabPostflopStrategy = { solvePostflop, solveRiver: solvePostflop, validate, buildDecisionTree, buildUniformRange };
+    global.PokerLabPostflopStrategy = {
+        solvePostflop,
+        solveRiver: solvePostflop,
+        validate,
+        buildDecisionTree,
+        buildUniformRange,
+        sampleDeals
+    };
 })(window);
