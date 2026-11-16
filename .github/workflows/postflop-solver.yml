@@ -10,6 +10,7 @@ on:
       - "js/core/game-engine.js"
       - "js/modules/training.js"
       - "js/modules/postflop-solver.js"
+      - "js/modules/cfr-core.js"
       - "js/modules/postflop-strategy.js"
       - "js/modules/postflop-solver-ui.js"
       - "index.html"
@@ -18,6 +19,7 @@ on:
       - "tests/game-engine.test.js"
       - "tests/postflop-solver.test.js"
       - "tests/postflop-strategy.test.js"
+      - "tests/cfr-core.test.js"
       - ".github/workflows/postflop-solver.yml"
   push:
     branches:
@@ -46,9 +48,11 @@ jobs:
         run: node --check js/modules/training.js
       - name: Check solver module syntax
         run: node --check js/modules/postflop-solver.js
+      - name: Check CFR core syntax
+        run: node --check js/modules/cfr-core.js
       - name: Check strategy module syntax
         run: node --check js/modules/postflop-strategy.js
       - name: Check solver UI syntax
         run: node --check js/modules/postflop-solver-ui.js
       - name: Run game engine and postflop solver tests
-        run: node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js
+        run: node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js
