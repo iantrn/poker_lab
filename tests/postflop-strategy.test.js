@@ -122,7 +122,7 @@ test("face Ã  une mise, l'arbre propose fold, call et raise si la relance est lÃ
     const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
     assert.deepEqual(
         Array.from(raiseBranch.child.actions, entry => entry.action.label),
-        ["fold", "call", "raise"]
+        ["fold", "call", "all_in_raise"]
     );
 });
 
