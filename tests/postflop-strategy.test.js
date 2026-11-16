@@ -50,6 +50,16 @@ function consistentRiverState() {
     state.players[1].streetBet = 2;
     state.players[1].amountToCall = 0;
     state.players[1].totalContribution = 6;
+    state.players[0].actionOptions = {
+        callAmount: 2,
+        minimumRaiseTo: 4,
+        maximumRaiseTo: 20,
+        minimumBet: 1,
+        canCheck: false,
+        canCall: true,
+        canBet: false,
+        canRaise: true
+    };
     state.pot = 12;
     return state;
 }
@@ -599,6 +609,8 @@ test("la validation rejette un état dont la mise courante ne correspond pas aux
     state.currentBet = 3;
     state.minimumRaiseTo = 5;
     state.players[0].amountToCall = 3;
+    state.players[0].actionOptions.callAmount = 3;
+    state.players[0].actionOptions.minimumRaiseTo = 5;
 
     assert.throws(
         () => app.PokerLabPostflopStrategy.validate(state),
@@ -614,5 +626,28 @@ test("la validation rejette un pot différent de la somme des contributions", ()
     assert.throws(
         () => app.PokerLabPostflopStrategy.validate(state),
         /pot ne correspond pas/
+    );
+});
+
+
+test("la validation rejette des options dont le callAmount diverge de l'état réel", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.players[0].actionOptions.callAmount = 1;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /options d'action ne correspondent pas au montant à égaliser/
+    );
+});
+
+test("la validation rejette une option bet lorsque la mise courante est déjà ouverte", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.players[0].actionOptions.canBet = true;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /mise d'ouverture alors qu'une mise existe déjà/
     );
 });
