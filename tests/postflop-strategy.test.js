@@ -19,6 +19,7 @@ function loadStrategy() {
     context.window = context;
     vm.createContext(context);
     vm.runInContext(fs.readFileSync("js/core/evaluator.js", "utf8"), context);
+    vm.runInContext(fs.readFileSync("js/modules/cfr-core.js", "utf8"), context);
     vm.runInContext(fs.readFileSync("js/modules/postflop-strategy.js", "utf8"), context);
     context.PokerLabPostflopSolver = {
         getOpponentRange: async () => ({
