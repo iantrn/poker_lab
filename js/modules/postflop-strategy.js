@@ -46,6 +46,8 @@
             pot: state.pot,
             stacks: state.stacks.slice(),
             bets: state.bets.slice(),
+            hasActed: state.hasActed.slice(),
+            lastActedBets: state.lastActedBets.slice(),
             lastFullRaise: state.lastFullRaise,
             bigBlind: state.bigBlind,
             heroInvested: state.heroInvested,
@@ -89,6 +91,8 @@
             pot: roundChips(input.pot),
             stacks: input.players.map(player => floorChips(player.stack)),
             bets: input.players.map(player => roundChips(player.streetBet)),
+            hasActed: input.players.map(player => Boolean(player.hasActed)),
+            lastActedBets: input.players.map(player => roundChips(player.lastActedBet)),
             lastFullRaise: roundChips(input.lastFullRaise) || 1,
             bigBlind: roundChips(input.blinds && input.blinds.bigBlind) || 1,
             heroInvested: 0,
@@ -120,6 +124,8 @@
             const next = cloneState(state);
             next.actor = firstToAct();
             next.bets = [0, 0];
+            next.hasActed = [false, false];
+            next.lastActedBets = [0, 0];
             next.lastFullRaise = next.bigBlind;
             next.raises = 0;
             next.checks = 0;
@@ -144,7 +150,13 @@
             }
 
             const actions = [];
-            const canRaise = state.raises < 1 && state.stacks[other] > 0;
+            const currentBet = Math.max(state.bets[0], state.bets[1]);
+            const actorRaiseRights = !state.hasActed[actor] ||
+                currentBet - state.lastActedBets[actor] >= state.lastFullRaise - CHIP_EPSILON;
+            const canRaise = state.raises < 1 &&
+                state.stacks[other] > 0 &&
+                actorRaiseRights &&
+                !(state.root && actor === 0 && rootOptions.canRaise === false);
 
             if (toCall > 0) {
                 actions.push(makeAction("fold", "fold"));
@@ -219,6 +231,8 @@
 
                 if (action.type === "check") {
                     next.checks++;
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     next.actor = other;
                     node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                     continue;
@@ -233,6 +247,8 @@
                         next.stacks[other] += uncalled;
                         if (other === 0) next.heroInvested -= uncalled;
                     }
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     const child = next.stacks[0] <= 0 || next.stacks[1] <= 0
                         ? terminal("showdown", next)
                         : advanceStreet(next, board, runoutIndex, depth + 1);
@@ -243,7 +259,11 @@
                 if (action.type === "bet") {
                     const paid = applyContribution(next, actor, action.amount);
                     next.checks = 0;
-                    next.lastFullRaise = paid;
+                    if (paid >= next.bigBlind - CHIP_EPSILON) {
+                        next.lastFullRaise = paid;
+                    }
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     next.actor = other;
                     node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                     continue;
@@ -255,6 +275,8 @@
                     if (raiseIncrement >= next.lastFullRaise - CHIP_EPSILON) {
                         next.lastFullRaise = raiseIncrement;
                     }
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     next.raises++;
                     next.checks = 0;
                     next.actor = other;
@@ -465,7 +487,7 @@
 
         const chipValues = [
             state.pot, hero.stack, opponent.stack, hero.streetBet, opponent.streetBet,
-            hero.amountToCall, state.lastFullRaise
+            hero.amountToCall, state.lastFullRaise, hero.lastActedBet, opponent.lastActedBet
         ].filter(value => value !== undefined && value !== null);
         if (chipValues.some(value => !Number.isFinite(Number(value)) || Number(value) < 0 ||
             Math.abs(Number(value) * 2 - Math.round(Number(value) * 2)) > CHIP_EPSILON)) {
