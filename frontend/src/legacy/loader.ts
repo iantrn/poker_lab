@@ -4,6 +4,7 @@ import { SolverScheduler } from "../solver/scheduler";
 import { installNavigation } from "../navigation";
 import { installRangesData } from "../ranges/data";
 import { installSolverPrecompute } from "../solver/precompute";
+import { installCfrCore } from "../solver/cfr-core";
 import { installBotProfiles } from "../bots/profiles";
 import { installDeck } from "../core/deck";
 import { installPokerRules } from "../core/poker-rules";
@@ -46,6 +47,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
+      if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
       await loadClassicScript(file);
       if (file === "js/components/range-matrix.js") installRangeAdapter();
     }
