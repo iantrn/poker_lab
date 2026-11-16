@@ -313,6 +313,17 @@
         return { action, explanation, potOdds, margin };
     }
 
+    function buildUniformCombos(knownCards) {
+        const deck = makeDeck(new Set(knownCards.map(cardKey)));
+        const combos = [];
+        for (let first = 0; first < deck.length; first++) {
+            for (let second = first + 1; second < deck.length; second++) {
+                combos.push({ cards: [deck[first], deck[second]], weight: 1 });
+            }
+        }
+        return combos;
+    }
+
     function estimateBotHandStrength(holeCards, board) {
         const result = global.PokerLabHandEvaluator.evaluate([...holeCards, ...board]);
         const categoryStrength = [0.24, 0.40, 0.56, 0.68, 0.78, 0.84, 0.91, 0.96, 0.985, 0.995];
@@ -381,7 +392,15 @@
     async function getOpponentRange(state, history, opponent) {
         const matrix = await loadMatrix();
         const baseRange = findOpponentRange(state, history, opponent, matrix);
-        const conditioned = conditionRangeOnPostflopActions(state, history, opponent, baseRange);
+        const rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
+        const sourceRange = rangeUsed
+            ? baseRange
+            : { ...baseRange, combos: buildUniformCombos([
+                ...(state.players.find(player => player.isHuman)?.holeCards || []),
+                ...state.board
+            ]) };
+        const conditioned = conditionRangeOnPostflopActions(state, history, opponent, sourceRange);
+        conditioned.rangeUsed = rangeUsed;
         if (conditioned.postflopActionsUsed > 0 && conditioned.combos) {
             conditioned.label += " · ajustée postflop";
         }
@@ -421,7 +440,7 @@
         return {
             iterations, wins, ties, losses, equity,
             rangeLabel: range.label,
-            rangeUsed: Boolean(range.combos),
+            rangeUsed: range.rangeUsed === undefined ? Boolean(range.combos) : range.rangeUsed,
             decision,
             note: "Équité Monte-Carlo contre la range estimée. Les fréquences stratégiques affichées séparément sont issues d'un arbre CFR+ abstrait et ne constituent pas un équilibre GTO certifié."
         };
