@@ -484,16 +484,21 @@ window.PokerLabLessons = (function () {
         }
 
         const lessonId = normalizeId(lesson.id);
+        const previousProgress = clone(progress);
 
         if (!isCompleted(lessonId)) {
-
             progress.completedLessons.push(lessonId);
-
         }
 
         progress.lastLessonId = lessonId;
 
-        saveProgress();
+        if (!saveProgress()) {
+            progress = previousProgress;
+            return {
+                success: false,
+                error: "La progression n'a pas pu être enregistrée dans le stockage local."
+            };
+        }
 
         const statistics = getProgress();
 
@@ -516,12 +521,17 @@ window.PokerLabLessons = (function () {
 
     function resetProgress() {
 
+        const previousProgress = clone(progress);
+
         progress = {
             completedLessons: [],
             lastLessonId: null
         };
 
-        saveProgress();
+        if (!saveProgress()) {
+            progress = previousProgress;
+            return getProgress();
+        }
 
         dispatch(EVENTS.PROGRESS_UPDATED, {
             statistics: getProgress()

@@ -2196,3 +2196,278 @@ main:has(> #training:not([hidden])) {
     #training-actions .pl-solve-frequency-action { font-size: .82rem; }
     #training-actions .pl-solve-frequency-value { font-size: .88rem; }
 }
+
+
+/* =========================================================
+   Modules pédagogiques : leçons, tactiques et revue de mains
+   ========================================================= */
+
+.pl-form-control {
+    display: block;
+    min-height: 2.75rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 0.65rem;
+    color: #f4f4f5;
+    background: #202027;
+}
+
+.pl-form-control:focus-visible,
+.pl-button:focus-visible,
+.pl-puzzle-option:focus-visible,
+.pl-lesson-open:focus-visible {
+    outline: 2px solid #a78bfa;
+    outline-offset: 3px;
+}
+
+.pl-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.65rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid rgba(167, 139, 250, 0.45);
+    border-radius: 0.65rem;
+    color: #fff;
+    background: #6d4bd1;
+    font-weight: 600;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.pl-button:hover:not(:disabled) {
+    background: #5b3db8;
+}
+
+.pl-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.pl-puzzle-title,
+.pl-lesson-title {
+    margin-bottom: 0.65rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.pl-puzzle-description,
+.pl-lesson-description,
+.pl-lesson-text,
+.pl-lesson-section-content,
+.pl-puzzle-question {
+    color: #c4c4cc;
+    line-height: 1.7;
+}
+
+.pl-puzzle-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin: 1rem 0;
+    color: #a1a1aa;
+    font-size: 0.85rem;
+}
+
+.pl-puzzle-context-item strong {
+    color: #e4e4e7;
+}
+
+.pl-puzzle-question {
+    margin: 1.1rem 0;
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.pl-puzzle-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.pl-puzzle-option {
+    min-width: 7rem;
+}
+
+.pl-puzzle-result {
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.035);
+    color: #d4d4d8;
+    line-height: 1.65;
+}
+
+.pl-puzzle-result.is-correct {
+    border-color: rgba(74, 222, 128, 0.45);
+}
+
+.pl-puzzle-result.is-incorrect {
+    border-color: rgba(251, 146, 60, 0.45);
+}
+
+.pl-puzzle-result h4 {
+    color: #fff;
+    font-weight: 700;
+}
+
+.pl-puzzle-next {
+    justify-self: start;
+    margin-top: 0.25rem;
+}
+
+.pl-lesson-catalog {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: 0.8rem;
+}
+
+.pl-lesson-card,
+.pl-review-history-item {
+    display: grid;
+    align-content: start;
+    gap: 0.55rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.pl-lesson-card.is-completed {
+    border-color: rgba(74, 222, 128, 0.3);
+}
+
+.pl-lesson-number,
+.pl-lesson-category,
+.pl-lesson-card-status {
+    color: #a1a1aa;
+    font-size: 0.78rem;
+}
+
+.pl-lesson-card-title,
+.pl-lesson-section-title,
+.pl-review-history-item h3 {
+    color: #f4f4f5;
+    font-weight: 700;
+}
+
+.pl-lesson-card-description {
+    color: #a1a1aa;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.pl-lesson-container {
+    display: grid;
+    gap: 1rem;
+    padding: 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.pl-lesson-content {
+    display: grid;
+    gap: 1rem;
+}
+
+.pl-lesson-section {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.pl-lesson-list {
+    display: grid;
+    gap: 0.4rem;
+    padding-left: 1.25rem;
+    list-style: disc;
+    color: #c4c4cc;
+    line-height: 1.6;
+}
+
+.pl-lesson-tip {
+    padding: 0.85rem 1rem;
+    border-left: 3px solid #a78bfa;
+    border-radius: 0.35rem;
+    background: rgba(167, 139, 250, 0.08);
+    color: #ddd6fe;
+    line-height: 1.6;
+}
+
+.pl-progress-label,
+.pl-progress-percentage {
+    color: #c4c4cc;
+    font-size: 0.82rem;
+}
+
+.pl-progress-bar {
+    height: 0.45rem;
+    overflow: hidden;
+    margin: 0.45rem 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.pl-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: #8b70e3;
+    transition: width 180ms ease;
+}
+
+.pl-review-history {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.pl-review-history-item {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+}
+
+.pl-review-history-item h3 {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
+}
+
+.pl-review-history-item > span {
+    color: #a1a1aa;
+    font-size: 0.78rem;
+}
+
+.pl-review-empty,
+.pl-lesson-empty {
+    color: #a1a1aa;
+    font-size: 0.9rem;
+}
+
+.pl-review-actions {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.pl-review-action {
+    padding: 0.7rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.025);
+    color: #d4d4d8;
+    font-size: 0.88rem;
+}
+
+@media (max-width: 640px) {
+    .pl-puzzle-option {
+        flex: 1 1 calc(50% - 0.65rem);
+    }
+
+    .pl-review-history-item {
+        grid-template-columns: 1fr;
+    }
+
+    .pl-review-history-item h3 {
+        grid-column: auto;
+    }
+}

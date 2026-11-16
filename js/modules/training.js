@@ -50,6 +50,7 @@ window.PokerLabTraining = (function () {
 
     let currentSession = null;
     let gameEngine = null;
+    const savedHandKeys = new Set();
 
     let configurationElement = null;
     let gameElement = null;
@@ -606,6 +607,113 @@ window.PokerLabTraining = (function () {
     }
 
 
+    function saveCompletedHand(state) {
+
+        if (
+            !state ||
+            !state.handComplete ||
+            !currentSession ||
+            !gameEngine ||
+            !window.PokerLabGameReview ||
+            typeof window.PokerLabGameReview.saveHand !== "function"
+        ) {
+            return false;
+        }
+
+        const handKey = `${currentSession.id}-${state.handNumber}`;
+        if (savedHandKeys.has(handKey)) return true;
+
+        const actionAliases = {
+            all_in_call: "call",
+            short_raise: "raise",
+            short_all_in_bet: "all-in"
+        };
+
+        const actions = gameEngine.getHandHistory()
+            .filter(event => event && event.type === "player_action" && event.data)
+            .map(event => {
+                const rawAction = String(event.data.action || "");
+                const action = actionAliases[rawAction] || rawAction;
+                const amount = Number(event.data.amount);
+
+                const snapshot = {};
+                [
+                    "potBefore",
+                    "potAfter",
+                    "currentBetBefore",
+                    "currentBetAfter",
+                    "streetBetBefore",
+                    "streetBetAfter",
+                    "stackBefore",
+                    "stackAfter",
+                    "totalContributionBefore",
+                    "totalContributionAfter"
+                ].forEach(key => {
+                    const value = event.data[key];
+                    if (Number.isFinite(value) && value >= 0) {
+                        snapshot[key] = value;
+                    }
+                });
+
+                return {
+                    street: event.street,
+                    playerId: event.data.playerId,
+                    playerName: event.data.playerName || event.data.playerId,
+                    type: action,
+                    ...(Number.isFinite(amount) && amount >= 0 ? { amount } : {}),
+                    ...snapshot,
+                    timestamp: event.timestamp
+                };
+            })
+            .filter(action =>
+                ["preflop", "flop", "turn", "river"].includes(action.street) &&
+                ["fold", "check", "call", "bet", "raise", "all-in"].includes(action.type)
+            );
+
+        const players = state.players.map(player => ({
+            id: player.id,
+            name: player.name,
+            position: player.position || null,
+            stack: player.stack,
+            streetBet: player.streetBet,
+            totalContribution: player.totalContribution,
+            folded: Boolean(player.folded),
+            allIn: Boolean(player.allIn),
+            ...(Array.isArray(player.holeCards)
+                ? { holeCards: player.holeCards.map(card => ({ ...card })) }
+                : {})
+        }));
+
+        const hand = {
+            id: handKey,
+            sessionId: currentSession.id,
+            handNumber: state.handNumber,
+            gameMode: currentSession.config?.gameMode || null,
+            blinds: {
+                smallBlind: currentSession.config?.smallBlind ?? SMALL_BLIND,
+                bigBlind: currentSession.config?.bigBlind ?? BIG_BLIND
+            },
+            startingStackBB: currentSession.config?.startingStackBB ?? null,
+            players,
+            board: Array.isArray(state.board)
+                ? state.board.map(card => ({ ...card }))
+                : [],
+            actions,
+            result: state.result || null
+        };
+
+        const saved = window.PokerLabGameReview.saveHand(hand);
+        if (!saved || !saved.success) {
+            console.warn("[PokerLab] Main terminée non enregistrée :", saved?.errors || saved?.error);
+            return false;
+        }
+
+        savedHandKeys.add(handKey);
+        return true;
+
+    }
+
+
     /**
  * Affiche la table de jeu.
  */
@@ -615,6 +723,8 @@ function renderGame(state = null) {
     }
 
     const gameState = state || gameEngine.getState();
+
+    saveCompletedHand(gameState);
 
     window.PokerLabTable.render(tableElement, gameState);
 

@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "lessons": [
+    {
+      "id": "holdem-basics",
+      "title": "Les règles du Texas Hold'em",
+      "category": "Fondamentaux",
+      "level": "Débutant",
+      "description": "Comprendre le déroulement d'une main, les positions et les combinaisons.",
+      "sections": [
+        {
+          "title": "Objectif du jeu",
+          "content": "Au Texas Hold'em, chaque joueur reçoit deux cartes privatives. Cinq cartes communes sont ensuite révélées. Le but est de remporter le pot en possédant la meilleure combinaison de cinq cartes au showdown, ou en faisant coucher tous les adversaires avant celui-ci."
+        },
+        {
+          "title": "Les quatre streets",
+          "items": [
+            "Préflop : les joueurs reçoivent leurs deux cartes et agissent après les blinds.",
+            "Flop : trois cartes communes sont révélées.",
+            "Turn : une quatrième carte commune est révélée.",
+            "River : la cinquième et dernière carte commune est révélée."
+          ],
+          "tip": "Après chaque street, un tour d'enchères a lieu. Si tous les joueurs encore en lice sont à tapis, le board peut être distribué automatiquement."
+        },
+        {
+          "title": "Les positions",
+          "content": "Le bouton indique le donneur théorique. La petite blind (SB) et la grosse blind (BB) postent les mises forcées. En 6-max, les positions usuelles sont UTG, MP, CO, BTN, SB et BB. La position détermine l'ordre de parole et influence fortement la stratégie."
+        },
+        {
+          "title": "Les combinaisons",
+          "items": [
+            "Quinte flush royale, quinte flush, carré, full, couleur.",
+            "Quinte, brelan, deux paires, paire, carte haute."
+          ],
+          "tip": "Une main de poker se compare toujours avec les meilleures cinq cartes possibles parmi les sept disponibles (deux privatives et cinq communes)."
+        }
+      ]
+    },
+    {
+      "id": "hand-rankings",
+      "title": "Classer les mains",
+      "category": "Fondamentaux",
+      "level": "Débutant",
+      "description": "Savoir comparer deux mains et reconnaître les égalités.",
+      "sections": [
+        {
+          "title": "Ordre des combinaisons",
+          "content": "La hiérarchie va de la carte haute à la quinte flush royale. Une combinaison supérieure bat toujours une combinaison inférieure, indépendamment de la valeur des cartes qui la composent."
+        },
+        {
+          "title": "Départage",
+          "content": "Si deux joueurs ont la même catégorie, on compare les rangs qui composent la combinaison. Les kickers départagent les mains qui restent à égalité. Les couleurs (pique, cœur, carreau, trèfle) ne créent pas de hiérarchie au Texas Hold'em."
+        },
+        {
+          "title": "Split pot",
+          "content": "Si plusieurs joueurs détiennent exactement la même meilleure main de cinq cartes, le pot concerné est partagé. Les pots secondaires peuvent avoir des gagnants différents selon les joueurs qui y sont éligibles.",
+          "tip": "Une égalité sur le pot principal ne signifie pas nécessairement une égalité sur tous les side pots."
+        }
+      ]
+    },
+    {
+      "id": "preflop-position",
+      "title": "Sélection préflop et position",
+      "category": "Préflop",
+      "level": "Débutant",
+      "description": "Adapter sa range d'ouverture à la position et au contexte.",
+      "sections": [
+        {
+          "title": "Pourquoi la position compte",
+          "content": "Agir après les adversaires apporte davantage d'informations. Le bouton bénéficie de la meilleure position postflop ; les positions précoces doivent généralement sélectionner des mains plus fortes."
+        },
+        {
+          "title": "Range plutôt que main isolée",
+          "content": "Une range représente l'ensemble des mains qu'un joueur peut raisonnablement jouer dans une situation donnée. La stratégie ne consiste pas à mémoriser une décision pour chaque main sans contexte, mais à adapter une distribution de mains à la position, aux profondeurs et aux actions précédentes."
+        },
+        {
+          "title": "Open raise",
+          "content": "Lorsqu'aucun joueur n'est entré volontairement dans le pot, l'ouverture standard se fait généralement par une relance. Le montant exact dépend du format et de la stratégie choisie."
+        },
+        {
+          "title": "Erreurs fréquentes",
+          "items": [
+            "Jouer trop de mains depuis UTG.",
+            "Compléter trop souvent la petite blind sans plan postflop.",
+            "Oublier les joueurs encore à parler derrière soi.",
+            "Confondre une main forte en valeur absolue avec une main forte dans une range donnée."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "betting-actions",
+      "title": "Les actions et les tailles de mise",
+      "category": "Stratégie",
+      "level": "Débutant",
+      "description": "Maîtriser fold, check, call, bet, raise et all-in.",
+      "sections": [
+        {
+          "title": "Actions possibles",
+          "items": [
+            "Fold : abandonner la main et ne plus pouvoir gagner les pots futurs.",
+            "Check : passer sans miser lorsqu'aucune mise n'est à égaliser.",
+            "Call : égaliser la mise courante.",
+            "Bet : ouvrir les enchères lorsqu'aucune mise n'est en cours.",
+            "Raise : augmenter une mise déjà ouverte.",
+            "All-in : engager tous ses jetons restants."
+          ]
+        },
+        {
+          "title": "Mise, relance et montant à engager",
+          "content": "Une relance est annoncée par son montant total à atteindre (raise-to), alors que le montant ajouté par le joueur est la différence entre ce total et sa contribution actuelle sur la street. Il faut distinguer ces deux valeurs pour éviter les erreurs de sizing."
+        },
+        {
+          "title": "Relances courtes",
+          "content": "Un all-in inférieur à la relance minimale peut être légal sans rouvrir automatiquement le droit de relancer. Plusieurs relances courtes cumulées peuvent toutefois atteindre le seuil nécessaire pour rouvrir les enchères pour un joueur qui a déjà agi."
+        },
+        {
+          "title": "Planifier sa mise",
+          "tip": "Avant de miser, identifie ton objectif : value, bluff, protection ou déni d'équité. Une mise ne doit pas être choisie uniquement parce que le bouton est disponible."
+        }
+      ]
+    },
+    {
+      "id": "pot-odds-equity",
+      "title": "Pot odds et équité",
+      "category": "Mathématiques",
+      "level": "Intermédiaire",
+      "description": "Comparer le coût d'un call à la récompense potentielle.",
+      "sections": [
+        {
+          "title": "Calcul des pot odds",
+          "content": "Les pot odds représentent le rapport entre le montant à payer et le pot final potentiel après ton call. Si le pot contient 100 jetons avant ta décision et que tu dois payer 50, le pot final après call sera 200 : tu dois gagner au moins 25 % du temps pour atteindre le seuil de rentabilité immédiat."
+        },
+        {
+          "title": "Équité",
+          "content": "L'équité est la part moyenne du pot qui revient à une main ou à une range si les cartes restantes sont distribuées jusqu'au showdown. Elle dépend du board, des cartes connues et de la range adverse."
+        },
+        {
+          "title": "Décision",
+          "content": "Un call est favorable en valeur immédiate lorsque ton équité dépasse les pot odds. Cette comparaison simplifie volontairement le problème : les mises futures, la réalisation d'équité, le rake éventuel et les erreurs d'estimation peuvent modifier la décision."
+        },
+        {
+          "title": "Outs et probabilités",
+          "content": "Un out est une carte qui améliore suffisamment ta main pour potentiellement gagner. Il faut retirer les outs qui peuvent donner une meilleure main à l'adversaire et tenir compte du fait qu'une carte peut ne pas suffire à gagner."
+        }
+      ]
+    },
+    {
+      "id": "postflop-planning",
+      "title": "Construire un plan postflop",
+      "category": "Postflop",
+      "level": "Intermédiaire",
+      "description": "Lire la texture du board et raisonner en ranges.",
+      "sections": [
+        {
+          "title": "Texture du board",
+          "content": "Un board peut être sec ou connecté, rainbow ou bicolore, pairé ou non. Sa texture influence les tirages disponibles, les mains fortes possibles et les fréquences de mise raisonnables."
+        },
+        {
+          "title": "Avantage de range et avantage de nuts",
+          "content": "L'avantage de range décrit la force moyenne relative des ranges. L'avantage de nuts concerne la fréquence des combinaisons les plus fortes. Ces deux notions sont distinctes et peuvent favoriser des sizings différents."
+        },
+        {
+          "title": "Value et bluff",
+          "content": "Une mise pour value cherche à être payée par des mains moins bonnes. Un bluff cherche à faire coucher des mains meilleures. Les semi-bluffs disposent en plus d'une équité lorsqu'ils sont payés."
+        },
+        {
+          "title": "Réévaluer à chaque street",
+          "content": "Le turn et la river modifient les équités et les combinaisons possibles. Une bonne décision au flop ne garantit pas que le même plan reste optimal après une nouvelle carte."
+        },
+        {
+          "title": "Limites des modèles",
+          "tip": "Les recommandations d'un solveur abstrait dépendent de ses ranges, de ses sizings et de son arbre de décisions. Une fréquence calculée n'est pas une garantie de stratégie GTO pour le jeu complet."
+        }
+      ]
+    }
+  ]
+}

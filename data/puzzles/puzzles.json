@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "puzzles": [
+    {
+      "id": "pf-btn-aqs-open",
+      "title": "Ouvrir au bouton avec AQs",
+      "category": "Préflop",
+      "difficulty": "Débutant",
+      "position": "BTN",
+      "blinds": "0,5 / 1 BB",
+      "players": "6-max · 100 BB effectifs",
+      "description": "Tout le monde a passé jusqu'à toi au bouton.",
+      "question": "Tu reçois A♠ Q♠. Les blinds sont 0,5 / 1 BB et personne n'est entré dans le pot. Quelle action standard privilégies-tu ?",
+      "options": [
+        {
+          "action": "fold",
+          "label": "Fold"
+        },
+        {
+          "action": "call",
+          "label": "Call"
+        },
+        {
+          "action": "raise",
+          "label": "Raise (open)"
+        },
+        {
+          "action": "all-in",
+          "label": "All-in"
+        }
+      ],
+      "solution": {
+        "action": "raise"
+      },
+      "explanation": "AQs est une main suffisamment forte pour ouvrir au bouton. La relance permet de prendre l'initiative et de jouer en position. Le sizing précis dépend de la stratégie et du format."
+    },
+    {
+      "id": "pf-utg-72o",
+      "title": "Éviter un open trop faible UTG",
+      "category": "Préflop",
+      "difficulty": "Débutant",
+      "position": "UTG",
+      "blinds": "0,5 / 1 BB",
+      "players": "6-max · 100 BB effectifs",
+      "description": "Tu es premier à parler en table 6-max.",
+      "question": "Tu reçois 7♦ 2♣ offsuit en première position. Tous les joueurs derrière toi ont encore leurs cartes. Quelle décision est la plus prudente ?",
+      "options": [
+        {
+          "action": "fold",
+          "label": "Fold"
+        },
+        {
+          "action": "call",
+          "label": "Call"
+        },
+        {
+          "action": "raise",
+          "label": "Raise"
+        },
+        {
+          "action": "all-in",
+          "label": "All-in"
+        }
+      ],
+      "solution": {
+        "action": "fold"
+      },
+      "explanation": "72o est une main très faible et dominée. Depuis UTG, cinq joueurs restent à parler : le fold évite d'ouvrir une range trop large hors de position."
+    },
+    {
+      "id": "pf-bb-facing-open",
+      "title": "Défendre la grosse blind avec une main faible",
+      "category": "Préflop",
+      "difficulty": "Débutant",
+      "position": "BB",
+      "blinds": "0,5 / 1 BB",
+      "players": "6-max · 100 BB effectifs",
+      "description": "Le bouton ouvre, la petite blind passe.",
+      "question": "Tu as 8♣ 3♦ offsuit en grosse blind face à une ouverture du bouton. Sans autre lecture particulière, quelle décision par défaut est la plus raisonnable ?",
+      "options": [
+        {
+          "action": "fold",
+          "label": "Fold"
+        },
+        {
+          "action": "call",
+          "label": "Call"
+        },
+        {
+          "action": "raise",
+          "label": "3-bet"
+        },
+        {
+          "action": "all-in",
+          "label": "All-in"
+        }
+      ],
+      "solution": {
+        "action": "fold"
+      },
+      "explanation": "La grosse blind bénéficie d'une cote de défense, mais 83o reste une main très faible et difficile à réaliser postflop. La défense dépend du sizing adverse et des ranges ; ici le fold est le choix pédagogique retenu."
+    },
+    {
+      "id": "postflop-top-pair",
+      "title": "Value avec top pair",
+      "category": "Postflop",
+      "difficulty": "Intermédiaire",
+      "position": "BTN",
+      "blinds": "Pot 6 BB",
+      "players": "Heads-up · 80 BB effectifs",
+      "description": "Tu es en position sur le flop.",
+      "question": "Board K♣ 8♦ 3♠. Tu as K♥ Q♥. Ton adversaire check et tu es le dernier à parler. Quelle ligne simple peut commencer à construire de la value contre des paires moins bonnes et des tirages ?",
+      "options": [
+        {
+          "action": "check",
+          "label": "Check"
+        },
+        {
+          "action": "bet",
+          "label": "Bet"
+        },
+        {
+          "action": "fold",
+          "label": "Fold"
+        },
+        {
+          "action": "all-in",
+          "label": "All-in"
+        }
+      ],
+      "solution": {
+        "action": "bet"
+      },
+      "explanation": "Top pair avec bon kicker peut miser pour value et protection sur ce board relativement sec. Check reste parfois pertinent dans une stratégie équilibrée, mais une petite mise est une ligne pédagogique raisonnable."
+    },
+    {
+      "id": "pot-odds-call",
+      "title": "Calculer le seuil de call",
+      "category": "Mathématiques",
+      "difficulty": "Intermédiaire",
+      "position": "BB",
+      "blinds": "Pot 100 · mise 50",
+      "players": "Heads-up",
+      "description": "Tu dois payer 50 jetons pour disputer le pot.",
+      "question": "Le pot vaut 100 jetons avant ta décision et ton adversaire mise 50. En ignorant les mises futures, quelle équité minimale faut-il pour qu'un call soit à l'équilibre ?",
+      "options": [
+        {
+          "action": "fold",
+          "label": "Moins de 20 %"
+        },
+        {
+          "action": "call",
+          "label": "25 %"
+        },
+        {
+          "action": "raise",
+          "label": "50 %"
+        },
+        {
+          "action": "all-in",
+          "label": "75 %"
+        }
+      ],
+      "solution": {
+        "action": "call"
+      },
+      "explanation": "Après ton call, le pot final sera de 200 jetons. Tu paies 50 pour gagner un pot de 200, soit un seuil de rentabilité de 50 / 200 = 25 %."
+    },
+    {
+      "id": "postflop-draw",
+      "title": "Ne pas confondre tirage et main faite",
+      "category": "Postflop",
+      "difficulty": "Intermédiaire",
+      "position": "CO",
+      "blinds": "Pot 12 BB",
+      "players": "Heads-up · 100 BB effectifs",
+      "description": "Tu as un tirage couleur au flop.",
+      "question": "Tu as A♠ 5♠ sur un flop K♠ 8♠ 2♦. Ton adversaire mise très cher et tu n'as qu'un tirage couleur hauteur As, sans paire. Sans cote suffisante ni implied odds fiables, quelle option évite de surpayer ?",
+      "options": [
+        {
+          "action": "fold",
+          "label": "Fold"
+        },
+        {
+          "action": "call",
+          "label": "Call"
+        },
+        {
+          "action": "raise",
+          "label": "Raise"
+        },
+        {
+          "action": "all-in",
+          "label": "All-in"
+        }
+      ],
+      "solution": {
+        "action": "fold"
+      },
+      "explanation": "Un tirage n'est pas une main faite. Il faut comparer l'équité réelle au prix du call et tenir compte des cartes qui peuvent ne pas être propres. En l'absence de cote suffisante, abandonner est correct."
+    },
+    {
+      "id": "river-thin-value",
+      "title": "Identifier une mise de value",
+      "category": "Postflop",
+      "difficulty": "Avancé",
+      "position": "BTN",
+      "blinds": "Pot 30 BB",
+      "players": "Heads-up · River",
+      "description": "Tu es en position à la river.",
+      "question": "River : tu détiens une main forte mais non invincible. Ton adversaire check et sa range contient plusieurs paires moins bonnes susceptibles de payer une petite mise. Quel objectif justifie le mieux une mise ?",
+      "options": [
+        {
+          "action": "check",
+          "label": "Check uniquement pour contrôler le pot"
+        },
+        {
+          "action": "bet",
+          "label": "Bet pour value"
+        },
+        {
+          "action": "fold",
+          "label": "Fold"
+        },
+        {
+          "action": "all-in",
+          "label": "All-in sans tenir compte de la range"
+        }
+      ],
+      "solution": {
+        "action": "bet"
+      },
+      "explanation": "Une mise de value cherche à être payée par des mains moins bonnes. Le sizing doit rester cohérent avec la partie de la range adverse qui continue ; une mise automatique à tapis ne serait pas justifiée."
+    },
+    {
+      "id": "short-allin",
+      "title": "Comprendre un short all-in",
+      "category": "Règles",
+      "difficulty": "Avancé",
+      "position": "BB",
+      "blinds": "Mise 10 · tapis adverse 10,5",
+      "players": "Heads-up",
+      "description": "Une mise complète de 10 a été suivie d'un all-in de 10,5.",
+      "question": "L'augmentation supplémentaire de 0,5 est inférieure à la dernière relance complète de 1. En supposant qu'aucune autre relance courte ne s'est cumulée, que faut-il retenir ?",
+      "options": [
+        {
+          "action": "call",
+          "label": "Le joueur peut payer, mais le droit de relancer n'est pas rouvert"
+        },
+        {
+          "action": "raise",
+          "label": "Toute augmentation rouvre automatiquement les relances"
+        },
+        {
+          "action": "fold",
+          "label": "Le joueur doit obligatoirement passer"
+        },
+        {
+          "action": "all-in",
+          "label": "Tous les joueurs doivent suivre"
+        }
+      ],
+      "solution": {
+        "action": "call"
+      },
+      "explanation": "Un short all-in inférieur à la dernière relance complète ne rouvre pas à lui seul le droit de relancer pour un joueur qui a déjà agi. Il peut néanmoins payer ou passer selon le montant à égaliser."
+    }
+  ]
+}

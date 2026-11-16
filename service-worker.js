@@ -1,15 +1,18 @@
 /**
- * PokerLab Service Worker - v56
+ * PokerLab Service Worker - v58
  * Cache offline-first, avec bundle complet des ranges préflop.
  */
 
-const CACHE_NAME = "pokerlab-cache-v56";
+const CACHE_NAME = "pokerlab-cache-v58";
 const CACHE_PREFIX = "pokerlab-cache-";
 
 const ASSETS_TO_CACHE = [
     "./",
     "./index.html",
     "./manifest.json",
+    "./assets/icons/icon-192.png",
+    "./assets/icons/icon-512.png",
+    "./assets/icons/apple-touch-icon.png",
     "./css/style.css",
     "./css/utilities.css",
     "./js/app.js",
@@ -30,20 +33,15 @@ const ASSETS_TO_CACHE = [
     "./js/modules/cfr-core.js",
     "./js/modules/postflop-strategy.js",
     "./js/modules/postflop-solver-ui.js",
+    "./pokerlab-solver-worker.js",
     "./js/modules/puzzles.js",
     "./js/modules/lessons.js",
     "./js/modules/game-review.js",
-    "./data/ranges/ranges.json",
     "./data/ranges/preflop/catalog/index.json",
     "./data/ranges/preflop/matrix/index.json",
+    "./data/ranges/preflop/matrix/ranges.json",
     "./data/puzzles/puzzles.json",
     "./data/lessons/lessons.json"
-];
-
-// Généré par tools/ranges/build-matrix.mjs.
-// Facultatif pendant le développement, indispensable pour l'offline complet des ranges.
-const OPTIONAL_ASSETS_TO_CACHE = [
-    "./data/ranges/preflop/matrix/ranges.json"
 ];
 
 self.addEventListener("message", event => {
@@ -59,15 +57,6 @@ self.addEventListener("install", event => {
         // Les ressources essentielles doivent toutes être disponibles.
         // Une erreur fait échouer l'installation plutôt que de publier un cache incomplet.
         await cache.addAll(ASSETS_TO_CACHE);
-
-        // Le bundle est facultatif tant que le script de génération n'a pas été exécuté.
-        await Promise.all(OPTIONAL_ASSETS_TO_CACHE.map(async asset => {
-            try {
-                await cache.add(asset);
-            } catch (error) {
-                console.warn("[PokerLab SW] Bundle offline non précaché :", asset, error);
-            }
-        }));
 
         await self.skipWaiting();
     })());

@@ -304,6 +304,12 @@ window.PokerLabGameReview = (function () {
 
         }
 
+        // L'entraînement peut sauvegarder une main avant que l'utilisateur ouvre Review.
+        // Charger d'abord l'historique existant pour ne jamais l'écraser au premier enregistrement.
+        if (!initialized) {
+            loadSavedHands();
+        }
+
         const preparedHand = {
             ...clone(hand),
             id: hand.id || createId(),
@@ -321,27 +327,37 @@ window.PokerLabGameReview = (function () {
 
         }
 
+        const previousHands = hands;
         const existingIndex = hands.findIndex(
             item => item.id === preparedHand.id
         );
+        const nextHands = [...hands];
 
         if (existingIndex !== -1) {
-
-            hands[existingIndex] = preparedHand;
-
+            nextHands[existingIndex] = preparedHand;
         } else {
-
-            hands.unshift(preparedHand);
-
+            nextHands.unshift(preparedHand);
         }
 
-        hands = hands.slice(0, MAX_SAVED_HANDS);
+        hands = nextHands.slice(0, MAX_SAVED_HANDS);
 
-        persist();
+        if (!persist()) {
+            hands = previousHands;
+            return {
+                success: false,
+                errors: ["La main n'a pas pu être enregistrée dans le stockage local."]
+            };
+        }
 
         dispatch(EVENTS.HAND_SAVED, {
             hand: clone(preparedHand)
         });
+
+        // Si l'historique est déjà affiché, le mettre à jour immédiatement.
+        const historyContainer = document.querySelector("[data-review-history]");
+        if (historyContainer) {
+            renderHistory(historyContainer);
+        }
 
         return {
             success: true,
@@ -375,21 +391,24 @@ window.PokerLabGameReview = (function () {
 
     function deleteHand(id) {
 
-        const initialLength = hands.length;
+        const previousHands = hands;
+        const previousCurrentHand = currentHand;
+        const nextHands = hands.filter(hand => hand.id !== id);
 
-        hands = hands.filter(
-            hand => hand.id !== id
-        );
-
-        if (hands.length === initialLength) {
+        if (nextHands.length === hands.length) {
             return false;
         }
 
+        hands = nextHands;
         if (currentHand && currentHand.id === id) {
             currentHand = null;
         }
 
-        persist();
+        if (!persist()) {
+            hands = previousHands;
+            currentHand = previousCurrentHand;
+            return false;
+        }
 
         dispatch(EVENTS.HAND_DELETED, {
             handId: id
@@ -402,11 +421,17 @@ window.PokerLabGameReview = (function () {
 
     function clearHistory() {
 
-        hands = [];
+        const previousHands = hands;
+        const previousCurrentHand = currentHand;
 
+        hands = [];
         currentHand = null;
 
-        persist();
+        if (!persist()) {
+            hands = previousHands;
+            currentHand = previousCurrentHand;
+            return false;
+        }
 
         return true;
 
