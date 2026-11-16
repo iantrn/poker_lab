@@ -409,7 +409,10 @@
         return { hero, opponent };
     }
 
-    async function solvePostflop(state, history = [], options = {}) {
+    async function solvePostflop(input, history = [], options = {}) {
+        const resolved = global.PokerLabPostflopSolver.resolveInput(input, history);
+        const state = resolved.state;
+        history = resolved.history;
         const { hero, opponent } = validate(state);
         const defaults = {
             flop: { iterations: 20, samples: 8 },
