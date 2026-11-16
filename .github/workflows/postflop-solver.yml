@@ -5,10 +5,12 @@ on:
     paths:
       - "js/core/evaluator.js"
       - "js/modules/postflop-solver.js"
+      - "js/modules/postflop-strategy.js"
       - "js/modules/postflop-solver-ui.js"
       - "index.html"
       - "service-worker.js"
       - "tests/postflop-solver.test.js"
+      - "tests/postflop-strategy.test.js"
       - ".github/workflows/postflop-solver.yml"
   push:
     branches:
@@ -27,7 +29,9 @@ jobs:
           node-version: 22
       - name: Check solver module syntax
         run: node --check js/modules/postflop-solver.js
+      - name: Check strategy module syntax
+        run: node --check js/modules/postflop-strategy.js
       - name: Check solver UI syntax
         run: node --check js/modules/postflop-solver-ui.js
-      - name: Run postflop solver tests
-        run: node --test tests/postflop-solver.test.js
+      - name: Run postflop solver and strategy tests
+        run: node --test tests/postflop-solver.test.js tests/postflop-strategy.test.js
