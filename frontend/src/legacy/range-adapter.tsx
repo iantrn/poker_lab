@@ -35,7 +35,10 @@ export function installRangeAdapter(): void {
         showLegend: customOptions.showLegend ?? true,
         selectedHands: []
       };
-      const selected = new Set((customOptions.selectedHands ?? []).map(normalizeHand));
+      // Initial selections are kept verbatim by the legacy API.
+      // Only selectHands() normalizes names; non-array inputs are ignored.
+      const selected = new Set(Array.isArray(customOptions.selectedHands)
+        ? customOptions.selectedHands : []);
       roots.get(container)?.unmount();
       container.replaceChildren();
       container.classList.add("pl-range-matrix-container");
