@@ -25,5 +25,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check solver module syntax
+        run: node --check js/modules/postflop-solver.js
+      - name: Check solver UI syntax
+        run: node --check js/modules/postflop-solver-ui.js
       - name: Run postflop solver tests
         run: node --test tests/postflop-solver.test.js
