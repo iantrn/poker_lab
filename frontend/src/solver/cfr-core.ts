@@ -363,7 +363,7 @@ function createCore() {
 
             for (const group of responseGroups.values()) {
                 const signature = actionSignature(group[0]!.node!.actions);
-                const actionCount = group[0]!.node.actions.length;
+                const actionCount = group[0]!.node!.actions.length;
                 const actionValues = new Float64Array(actionCount);
 
                 for (const record of group) {
