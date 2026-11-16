@@ -1034,7 +1034,7 @@
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale et sizing 50 % pot à la racine · sizing simplifié dans les réponses futures · tapis effectif · quatre relances maximales dans les réponses modélisées",
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale et sizing 50 % du pot après call à la racine · sizing simplifié dans les réponses futures · tapis effectif · quatre relances maximales dans les réponses modélisées",
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
