@@ -38,6 +38,32 @@ function card(value, suit) {
     return { value, suit };
 }
 
+function consistentRiverState() {
+    const state = riverState();
+    state.currentBet = 2;
+    state.lastFullRaise = 2;
+    state.minimumRaiseTo = 4;
+    state.blinds = { smallBlind: 0.5, bigBlind: 1 };
+    state.players[0].streetBet = 0;
+    state.players[0].amountToCall = 2;
+    state.players[0].totalContribution = 6;
+    state.players[1].streetBet = 2;
+    state.players[1].amountToCall = 0;
+    state.players[1].totalContribution = 6;
+    state.players[0].actionOptions = {
+        callAmount: 2,
+        minimumRaiseTo: 4,
+        maximumRaiseTo: 20,
+        minimumBet: 1,
+        canCheck: false,
+        canCall: true,
+        canBet: false,
+        canRaise: true
+    };
+    state.pot = 12;
+    return state;
+}
+
 function riverState() {
     return {
         street: "river",
@@ -90,8 +116,13 @@ test("face à une mise, l'arbre propose fold, call et raise si la relance est l�
     state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: true };
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
     assert.deepEqual(
-        Array.from(built.tree.actions, entry => entry.action.label),
+        Array.from(built.tree.actions, entry => entry.action.type),
         ["fold", "call", "raise"]
+    );
+    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    assert.deepEqual(
+        Array.from(raiseBranch.child.actions, entry => entry.action.label),
+        ["fold", "call", "raise_effective"]
     );
 });
 
@@ -480,7 +511,39 @@ test("une mise complète rouvre le droit de relance d'un joueur ayant déjà che
 });
 
 
-test("l'arbre interdit une seconde relance après une relance déjà effectuée dans la street", () => {
+test("l'arbre interdit une troisième relance après deux relances déjà effectuées dans la street", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 20;
+    state.players[0].streetBet = 5;
+    state.players[0].hasActed = true;
+    state.players[0].lastActedBet = 5;
+    state.players[1].streetBet = 15;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 25,
+        maximumRaiseTo: 100
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions,
+        ["BTN:bet:5", "BB:raise:15"],
+        [],
+        0,
+        2
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["fold", "call"]
+    );
+});
+
+
+test("l'arbre autorise une seconde relance lorsque le plafond de la street n'est pas atteint", () => {
     const app = loadStrategy();
     const state = riverState();
     state.pot = 20;
@@ -507,7 +570,7 @@ test("l'arbre interdit une seconde relance après une relance déjà effectuée 
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call"]
+        ["fold", "call", "all_in_raise"]
     );
 });
 
@@ -552,7 +615,7 @@ test("solvePostflop tient compte des relances déjà présentes dans l'historiqu
 
     assert.deepEqual(
         Array.from(result.actions, action => action.action).sort(),
-        ["call", "fold"]
+        ["all_in_raise", "call", "fold"]
     );
 });
 
@@ -574,4 +637,115 @@ test("une seed identique reproduit exactement le même calcul CFR+", async () =>
     assert.equal(second.randomSeed, 20261116);
     assert.equal(first.heroEV, second.heroEV);
     assert.equal(JSON.stringify(first.actions), JSON.stringify(second.actions));
+});
+
+
+test("la validation rejette un état dont la mise courante ne correspond pas aux mises des joueurs", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.currentBet = 3;
+    state.minimumRaiseTo = 5;
+    state.players[0].amountToCall = 3;
+    state.players[0].actionOptions.callAmount = 3;
+    state.players[0].actionOptions.minimumRaiseTo = 5;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /mise courante ne correspond pas/
+    );
+});
+
+test("la validation rejette un pot différent de la somme des contributions", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.pot = 13;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /pot ne correspond pas/
+    );
+});
+
+
+test("la validation rejette des options dont le callAmount diverge de l'état réel", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.players[0].actionOptions.callAmount = 1;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /options d'action ne correspondent pas au montant à égaliser/
+    );
+});
+
+test("la validation rejette une option bet lorsque la mise courante est déjà ouverte", () => {
+    const app = loadStrategy();
+    const state = consistentRiverState();
+    state.players[0].actionOptions.canBet = true;
+
+    assert.throws(
+        () => app.PokerLabPostflopStrategy.validate(state),
+        /mise d'ouverture alors qu'une mise existe déjà/
+    );
+});
+
+
+test("un sizing de mise plafonné au tapis effectif est étiqueté all-in", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[0].stack = 5;
+    state.players[1].stack = 5;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["check", "bet_33", "all_in"]
+    );
+});
+
+test("une mise à tapis inférieure à la big blind reste identifiée comme all-in", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[0].stack = 0.5;
+    state.players[1].stack = 0.5;
+    state.players[0].actionOptions.minimumBet = 1;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+
+    assert.deepEqual(
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["check", "all_in"]
+    );
+});
+
+
+test("une relance qui consomme exactement le stack du héros est étiquetée all-in", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 15;
+    state.players[0].stack = 12.5;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 6,
+        maximumRaiseTo: 12.5,
+        isAllIn: true
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+
+    assert.ok(raise);
+    assert.equal(raise.action.label, "all_in_raise");
+    assert.equal(raise.action.amount, 12.5);
 });

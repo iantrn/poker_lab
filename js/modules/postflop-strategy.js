@@ -12,6 +12,7 @@
     const BET_FRACTION = 0.5;
     const BET_SIZINGS = [0.33, 0.75];
     const ACTION_LIMIT = 4;
+    const MAX_RAISES_PER_STREET = 2;
 
     const CHIP_UNIT = 0.5;
     const CHIP_EPSILON = 0.000001;
@@ -85,6 +86,14 @@
         return { label, type, amount };
     }
 
+    function rootActionSignature(tree) {
+        return JSON.stringify((tree.actions || []).map(entry => [
+            entry.action.type,
+            entry.action.label,
+            Number(entry.action.amount) || 0
+        ]));
+    }
+
     function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0, rootRaises = 0) {
         const initial = {
             actor: 0,
@@ -153,7 +162,7 @@
             const currentBet = Math.max(state.bets[0], state.bets[1]);
             const actorRaiseRights = !state.hasActed[actor] ||
                 currentBet - state.lastActedBets[actor] >= state.lastFullRaise - CHIP_EPSILON;
-            const canContinueAggression = state.raises < 1 &&
+            const canContinueAggression = state.raises < MAX_RAISES_PER_STREET &&
                 state.stacks[other] > 0 &&
                 actorRaiseRights;
             const canRaise = canContinueAggression &&
@@ -174,14 +183,20 @@
                 if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
                     const desiredRaiseTotal = ceilChips(toCall + Math.max(toCall, state.pot * BET_FRACTION,
                         requiredRaiseTotal - toCall, state.lastFullRaise));
-                    if (desiredRaiseTotal <= maximumRaiseTotal + 0.000001) {
-                        actions.push(makeAction("raise", "raise", desiredRaiseTotal));
-                    } else if (state.root && rootOptions.isAllIn && maximumRaiseTotal > toCall) {
-                        actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
-                    } else if (state.root && maximumRaiseTotal > toCall) {
-                        actions.push(makeAction("raise_effective", "raise", maximumRaiseTotal));
-                    } else if (!state.root && state.stacks[actor] > toCall && maximumRaiseTotal > toCall) {
-                        actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
+                    if (desiredRaiseTotal <= maximumRaiseTotal + CHIP_EPSILON) {
+                        const isAllIn = Math.abs(desiredRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                        actions.push(makeAction(
+                            isAllIn ? "all_in_raise" : "raise",
+                            "raise",
+                            desiredRaiseTotal
+                        ));
+                    } else if (maximumRaiseTotal > toCall) {
+                        const maximumIsAllIn = Math.abs(maximumRaiseTotal - state.stacks[actor]) <= CHIP_EPSILON;
+                        actions.push(makeAction(
+                            maximumIsAllIn ? "all_in_raise" : "raise_effective",
+                            "raise",
+                            maximumRaiseTotal
+                        ));
                     }
                 }
             } else {
@@ -198,7 +213,11 @@
                         if (amount <= 0 || addedBetAmounts.has(amount)) continue;
                         addedBetAmounts.add(amount);
                         largestBet = Math.max(largestBet, amount);
-                        actions.push(makeAction("bet_" + Math.round(fraction * 100), "bet", amount));
+                        const isAllInSizing = Math.abs(amount - effectiveBetStack) <= CHIP_EPSILON;
+                        const label = isAllInSizing
+                            ? "all_in"
+                            : "bet_" + Math.round(fraction * 100);
+                        actions.push(makeAction(label, "bet", amount));
                     }
                     if (largestBet > 0 && effectiveBetStack > largestBet * 1.25) {
                         actions.push(makeAction("all_in", "bet", effectiveBetStack));
@@ -478,9 +497,18 @@
             throw new Error("Le moteur CFR+ est disponible à partir du flop.");
         }
         if (!Array.isArray(state.players)) throw new Error("La liste des joueurs est invalide.");
+        const playerIds = state.players.map(player => player && player.id);
+        if (playerIds.some(id => id === undefined || id === null) ||
+            new Set(playerIds).size !== playerIds.length) {
+            throw new Error("Les identifiants des joueurs sont invalides ou dupliqués.");
+        }
+        const humanPlayers = state.players.filter(player => player.isHuman);
+        if (humanPlayers.length !== 1) {
+            throw new Error("Le moteur stratégique exige exactement un joueur humain.");
+        }
         const active = state.players.filter(player => !player.folded);
         if (active.length !== 2) throw new Error("Le moteur CFR+ est limité au heads-up.");
-        const hero = state.players.find(player => player.isHuman);
+        const hero = humanPlayers[0];
         if (!hero || !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) {
             throw new Error("Les cartes du joueur sont indisponibles.");
         }
@@ -502,12 +530,96 @@
         }
 
         const chipValues = [
-            state.pot, hero.stack, opponent.stack, hero.streetBet, opponent.streetBet,
-            hero.amountToCall, state.lastFullRaise, hero.lastActedBet, opponent.lastActedBet
+            state.pot, state.currentBet, state.lastFullRaise, state.minimumRaiseTo,
+            state.blinds && state.blinds.smallBlind, state.blinds && state.blinds.bigBlind,
+            ...state.players.flatMap(player => [
+                player.stack, player.streetBet, player.totalContribution,
+                player.amountToCall, player.lastActedBet
+            ])
         ].filter(value => value !== undefined && value !== null);
         if (chipValues.some(value => !Number.isFinite(Number(value)) || Number(value) < 0 ||
             Math.abs(Number(value) * 2 - Math.round(Number(value) * 2)) > CHIP_EPSILON)) {
             throw new Error("L'état stratégique contient un montant qui ne respecte pas l'unité de 0,5 jeton.");
+        }
+
+        const allStreetBetsKnown = state.players.every(player =>
+            Number.isFinite(Number(player.streetBet))
+        );
+        if (allStreetBetsKnown && Number.isFinite(Number(state.currentBet))) {
+            const actualCurrentBet = Math.max(...state.players.map(player => Number(player.streetBet)));
+            if (Math.abs(actualCurrentBet - Number(state.currentBet)) > CHIP_EPSILON) {
+                throw new Error("La mise courante ne correspond pas aux contributions de la street.");
+            }
+        }
+        if (Number.isFinite(Number(state.currentBet)) &&
+            Number.isFinite(Number(hero.streetBet)) &&
+            Number.isFinite(Number(hero.amountToCall))) {
+            const expectedCall = Math.max(0, Number(state.currentBet) - Number(hero.streetBet));
+            if (Math.abs(expectedCall - Number(hero.amountToCall)) > CHIP_EPSILON) {
+                throw new Error("Le montant à égaliser du héros est incohérent.");
+            }
+        }
+        if (Number.isFinite(Number(state.currentBet)) &&
+            Number.isFinite(Number(state.lastFullRaise)) &&
+            Number.isFinite(Number(state.minimumRaiseTo)) &&
+            Math.abs(Number(state.minimumRaiseTo) -
+                (Number(state.currentBet) + Number(state.lastFullRaise))) > CHIP_EPSILON) {
+            throw new Error("Le minimum de relance ne correspond pas à la dernière relance complète.");
+        }
+
+        const contributionsKnown = state.players.every(player =>
+            Number.isFinite(Number(player.totalContribution))
+        );
+        if (contributionsKnown && Number.isFinite(Number(state.pot))) {
+            const actualPot = state.players.reduce(
+                (sum, player) => sum + Number(player.totalContribution), 0
+            );
+            if (Math.abs(actualPot - Number(state.pot)) > CHIP_EPSILON) {
+                throw new Error("Le pot ne correspond pas à la somme des contributions des joueurs.");
+            }
+        }
+        for (const player of state.players) {
+            if (Number.isFinite(Number(player.streetBet)) &&
+                Number.isFinite(Number(player.totalContribution)) &&
+                Number(player.streetBet) - Number(player.totalContribution) > CHIP_EPSILON) {
+                throw new Error("Une mise de street dépasse la contribution totale du joueur.");
+            }
+        }
+
+        const options = hero.actionOptions;
+        if (options) {
+            if (Number.isFinite(Number(options.callAmount)) &&
+                Number.isFinite(Number(hero.amountToCall)) &&
+                Math.abs(Number(options.callAmount) - Number(hero.amountToCall)) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas au montant à égaliser.");
+            }
+            if (Number.isFinite(Number(options.minimumRaiseTo)) &&
+                Number.isFinite(Number(state.minimumRaiseTo)) &&
+                Math.abs(Number(options.minimumRaiseTo) - Number(state.minimumRaiseTo)) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas au minimum de relance.");
+            }
+            if (Number.isFinite(Number(options.maximumRaiseTo)) &&
+                Number.isFinite(Number(hero.streetBet)) &&
+                Number.isFinite(Number(hero.stack)) &&
+                Math.abs(Number(options.maximumRaiseTo) -
+                    (Number(hero.streetBet) + Number(hero.stack))) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas au tapis du héros.");
+            }
+            if (options.canCheck === true && Number(hero.amountToCall) > CHIP_EPSILON) {
+                throw new Error("Le héros ne peut pas checker lorsqu'une mise reste à égaliser.");
+            }
+            if (options.canCall === true && Number(hero.amountToCall) <= CHIP_EPSILON) {
+                throw new Error("Le moteur autorise un call alors qu'aucune mise n'est à égaliser.");
+            }
+            if (options.canBet === true && Number.isFinite(Number(state.currentBet)) &&
+                Number(state.currentBet) > CHIP_EPSILON) {
+                throw new Error("Le moteur autorise une mise d'ouverture alors qu'une mise existe déjà.");
+            }
+            if (Number.isFinite(Number(options.minimumBet)) &&
+                state.blinds && Number.isFinite(Number(state.blinds.bigBlind)) &&
+                Math.abs(Number(options.minimumBet) - Number(state.blinds.bigBlind)) > CHIP_EPSILON) {
+                throw new Error("Les options d'action ne correspondent pas à la grosse blind.");
+            }
         }
         return { hero, opponent };
     }
@@ -570,6 +682,7 @@
             : Math.random;
         const maps = { regrets: new Map(), strategy: new Map() };
         let rootTree = null;
+        let expectedRootSignature = null;
         let averageNodeCount = 0;
         let sampledRangeUsed = true;
 
@@ -599,9 +712,11 @@
             if (built.tree.terminal || !built.tree.actions || !built.tree.actions.length) {
                 throw new Error("Aucune décision stratégique disponible dans cette situation.");
             }
-            if (rootTree && built.tree.actions.length !== rootTree.actions.length) {
-                throw new Error("L'arbre stratégique change de structure entre deux échantillons.");
+            const signature = rootActionSignature(built.tree);
+            if (expectedRootSignature !== null && signature !== expectedRootSignature) {
+                throw new Error("Les actions légales à la racine changent entre les échantillons.");
             }
+            expectedRootSignature = signature;
             rootTree = built.tree;
             averageNodeCount += built.nodeCount;
 
@@ -645,7 +760,9 @@
                 rootChecks,
                 rootRaises
             );
-            if (built.tree.actions.length !== rootTree.actions.length) continue;
+            if (rootActionSignature(built.tree) !== expectedRootSignature) {
+                throw new Error("L'arbre d'évaluation ne correspond pas aux actions légales apprises.");
+            }
 
             const sampleActionValues = [];
             for (let actionIndex = 0; actionIndex < rootTree.actions.length; actionIndex++) {
@@ -703,7 +820,7 @@
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · une relance maximale par street",
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · deux relances maximales par street",
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
