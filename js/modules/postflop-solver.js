@@ -270,7 +270,7 @@
             rangeLabel: range.label,
             rangeUsed: Boolean(range.combos),
             decision,
-            note: "Estimation Monte-Carlo. Ce module ne calcule pas encore un équilibre GTO ni un arbre complet de mises."
+            note: "Équité Monte-Carlo contre la range estimée. Les fréquences stratégiques affichées séparément sont issues d'un arbre CFR+ abstrait et ne constituent pas un équilibre GTO certifié."
         };
     }
 
