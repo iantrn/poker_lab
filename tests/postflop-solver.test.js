@@ -256,3 +256,130 @@ test("le solveur conserve une range uniforme hors ligne si le bundle préflop es
     assert.match(range.label, /bundle préflop indisponible/);
     assert.equal(range.combos.length, 1081);
 });
+
+
+test("la position BTN du moteur est convertie en BU pour sélectionner une range", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bu/BU_RFI", p: "BU", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { "bu/BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BB";
+    current.players[1].position = "BTN";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "bot_1", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "bu/BU_RFI");
+});
+
+test("la position BTN/SB du heads-up est convertie en BU", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bu/BU_RFI", p: "BU", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { "bu/BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BB";
+    current.players[1].position = "BTN/SB";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "bot_1", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "bu/BU_RFI");
+});
+
+test("la position HJ du moteur est convertie en MP dans la matrice", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "mp/MP_RFI", p: "MP", a: "RFI", s: "" }] }
+            : { version: 1, ranges: { "mp/MP_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[1].position = "HJ";
+    const history = [{
+        type: "player_action",
+        street: "preflop",
+        data: { playerId: "bot_1", action: "raise" }
+    }];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "mp/MP_RFI");
+});
+
+test("les positions BTN sont normalisées dans la séquence préflop face à une défense BB", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_call_vs_BU_RFI", p: "BB", a: "call", s: "BU RFI" }] }
+            : { version: 1, ranges: { "bb/BB_call_vs_BU_RFI": { AA: 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "spades"), card(4, "spades"), card(6, "hearts")],
+        [card(3, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BTN";
+    current.players[1].position = "BB";
+    const history = [
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "hero", action: "raise" }
+        },
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "bot_1", action: "call" }
+        }
+    ];
+
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        history,
+        current.players[1]
+    );
+
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.label, "bb/BB_call_vs_BU_RFI");
+});
