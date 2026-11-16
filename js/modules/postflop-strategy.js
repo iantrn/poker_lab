@@ -10,7 +10,8 @@
     const DEFAULT_ITERATIONS = 60;
     const DEFAULT_SAMPLES = 24;
     const BET_FRACTION = 0.5;
-    const ACTION_LIMIT = 3;
+    const BET_SIZINGS = [0.33, 0.75];
+    const ACTION_LIMIT = 4;
 
     function cardId(card) {
         return card.value + "_" + card.suit;
@@ -155,9 +156,16 @@
                     const minimumBet = state.root && Number.isFinite(rootOptions.minimumBet)
                         ? rootOptions.minimumBet : 1;
                     const effectiveBetStack = Math.min(state.stacks[actor], state.stacks[other]);
-                    const bet = Math.min(effectiveBetStack, Math.max(minimumBet, state.pot * BET_FRACTION));
-                    if (bet > 0) actions.push(makeAction("bet_50", "bet", bet));
-                    if (effectiveBetStack > bet * 1.8) {
+                    const addedBetAmounts = new Set();
+                    let largestBet = 0;
+                    for (const fraction of BET_SIZINGS) {
+                        const amount = Math.min(effectiveBetStack, Math.max(minimumBet, state.pot * fraction));
+                        if (amount <= 0 || addedBetAmounts.has(amount)) continue;
+                        addedBetAmounts.add(amount);
+                        largestBet = Math.max(largestBet, amount);
+                        actions.push(makeAction("bet_" + Math.round(fraction * 100), "bet", amount));
+                    }
+                    if (largestBet > 0 && effectiveBetStack > largestBet * 1.8) {
                         actions.push(makeAction("all_in", "bet", effectiveBetStack));
                     }
                 }
@@ -481,7 +489,7 @@
             averageStrategyWeighting: "linear",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · runouts échantillonnés · check · mise 50 % pot ou tapis effectif · une relance maximale par street",
+                " → river HU · runouts échantillonnés · check · mises 33 % / 75 % pot ou tapis effectif · une relance maximale par street",
             iterations,
             sampledOpponentHands: samples,
             treeNodes: Math.round(nodeCount / samples),
