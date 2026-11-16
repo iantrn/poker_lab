@@ -195,7 +195,7 @@
                                 amount: ceilChips(toCall + Math.max(
                                     minimumRaiseIncrement,
                                     toCall,
-                                    state.pot * BET_FRACTION
+                                    (state.pot + toCall) * BET_FRACTION
                                 ))
                             }
                         ];
