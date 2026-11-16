@@ -64,7 +64,7 @@ PokerLab peut être installé depuis un navigateur compatible lorsque le site es
 
 Le fichier `manifest.json` décrit l'application et `service-worker.js` gère la mise en cache. Après le premier chargement réussi, les ressources précachées et le bundle de ranges permettent de continuer à utiliser les fonctions correspondantes hors connexion.
 
-Les trois icônes PNG sont fournies : `icon-192.png` (192×192), `icon-512.png` (512×512) et `apple-touch-icon.png` (180×180). Elles sont précachées avec le shell applicatif. Le Service Worker utilise le cache `pokerlab-cache-v58` ; à chaque changement de ressource publiée, sa version doit être incrémentée.
+Les trois icônes PNG sont fournies : `icon-192.png` (192×192), `icon-512.png` (512×512) et `apple-touch-icon.png` (180×180). Elles sont précachées avec le shell applicatif. Le Service Worker utilise le cache `pokerlab-cache-v59` ; à chaque changement de ressource publiée, sa version doit être incrémentée.
 
 ## Organisation du dépôt
 
