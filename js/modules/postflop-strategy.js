@@ -112,7 +112,7 @@
             const other = 1 - actor;
             const toCall = amountToCall(state, actor);
 
-            if (toCall === 0 && state.checks >= 1) {
+            if (toCall === 0 && state.checks >= 2) {
                 return advanceStreet(state, board, runoutIndex, depth);
             }
 
