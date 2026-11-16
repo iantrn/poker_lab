@@ -266,8 +266,21 @@
         if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
 
         const deals = [];
+        const suits = ["clubs", "diamonds", "hearts", "spades"];
         for (let i = 0; i < sampleCount; i++) {
-            deals.push({ villain: weightedSample(candidates) });
+            const villain = weightedSample(candidates);
+            const excluded = new Set([...hero, ...board, ...villain].map(cardId));
+            const deck = [];
+            for (const suit of suits) for (let value = 2; value <= 14; value++) {
+                const card = { value, suit };
+                if (!excluded.has(cardId(card))) deck.push(card);
+            }
+            for (let index = deck.length - 1; index > 0; index--) {
+                const swap = Math.floor(Math.random() * (index + 1));
+                [deck[index], deck[swap]] = [deck[swap], deck[index]];
+            }
+            const runout = deck.slice(0, 5 - board.length);
+            deals.push({ villain, runout, finalBoard: [...board, ...runout] });
         }
         return deals;
     }
