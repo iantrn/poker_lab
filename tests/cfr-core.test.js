@@ -100,6 +100,17 @@ test("CFR+ converge vers la valeur théorique de Kuhn Poker", () => {
         Math.abs(result.expectedValue + 1 / 18) < 0.015,
         "Valeur estimée : " + result.expectedValue
     );
+
+    const exploitability = result.core.measureExploitability(
+        result.deals,
+        result.maps,
+        result.callbacks
+    );
+    assert.ok(exploitability.nashConv >= -1e-9);
+    assert.ok(
+        exploitability.nashConv < 0.04,
+        "NashConv estimée : " + exploitability.nashConv
+    );
 });
 
 test("CFR+ apprend une stratégie mixte sur Matching Pennies", () => {
