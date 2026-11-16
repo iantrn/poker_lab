@@ -1578,6 +1578,13 @@ button:disabled {
     font-size: .68rem; font-weight: 800;
 }
 #training-actions .pl-bet-preset:hover { background: #3A464E; }
+#training-actions .pl-bet-preset:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    background: #20272B;
+    color: rgba(233, 237, 240, 0.45);
+}
 #training-actions .pl-bet-preset-allin {
     border-color: rgba(215,182,93,.4); color: var(--accent-gold);
 }
