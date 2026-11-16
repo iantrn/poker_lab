@@ -408,8 +408,8 @@
     async function solvePostflop(state, history = [], options = {}) {
         const { hero, opponent } = validate(state);
         const defaults = {
-            flop: { iterations: 30, samples: 12 },
-            turn: { iterations: 40, samples: 16 },
+            flop: { iterations: 20, samples: 8 },
+            turn: { iterations: 30, samples: 12 },
             river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
         }[state.street];
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
