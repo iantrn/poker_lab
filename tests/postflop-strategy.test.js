@@ -158,3 +158,35 @@ test("un tapis laisse encore à l'adversaire le choix fold ou call", () => {
         ["fold", "call"]
     );
 });
+
+
+test("la taille de relance à la racine respecte le minimum du moteur", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 15;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true, canCall: true, canRaise: true,
+        minimumRaiseTo: 15, maximumRaiseTo: 20, isAllIn: true
+    };
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+    assert.ok(raise);
+    assert.equal(raise.action.amount, 15);
+});
+
+test("une relance à tapis courte reste représentée si le tapis ne couvre pas le minimum", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 30;
+    state.players[0].stack = 12;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true, canCall: true, canRaise: true,
+        minimumRaiseTo: 20, maximumRaiseTo: 12, isAllIn: true
+    };
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const raise = built.tree.actions.find(entry => entry.action.label === "all_in_raise");
+    assert.ok(raise);
+    assert.equal(raise.action.amount, 12);
+});
