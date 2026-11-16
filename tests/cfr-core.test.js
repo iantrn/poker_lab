@@ -248,3 +248,30 @@ test("averageStrategy refuse un sizing différent pour un information set exista
         /type, ordre, label ou sizing/
     );
 });
+
+
+test("les poids de chance pondèrent les regrets et la stratégie moyenne", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "weighted-root",
+        utility: node => node.payoff
+    };
+    const makeTree = (firstPayoff, secondPayoff) => ({
+        terminal: false,
+        actor: 0,
+        actions: [
+            { action: { type: "bet", label: "A", amount: 1 }, child: { terminal: true, payoff: firstPayoff } },
+            { action: { type: "check", label: "B", amount: 0 }, child: { terminal: true, payoff: secondPayoff } }
+        ]
+    });
+
+    core.runCfr(makeTree(1, -1), {}, 0, [1, 1], maps, callbacks, 1, 2);
+    core.runCfr(makeTree(-1, 1), {}, 0, [1, 1], maps, callbacks, 1, 3);
+
+    const regrets = Array.from(maps.regrets.get("weighted-root"));
+    const strategySum = Array.from(maps.strategy.get("weighted-root"));
+
+    assert.deepEqual(regrets, [1, 6]);
+    assert.deepEqual(strategySum, [4, 1]);
+});
