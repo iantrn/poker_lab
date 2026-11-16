@@ -46,6 +46,8 @@
             pot: state.pot,
             stacks: state.stacks.slice(),
             bets: state.bets.slice(),
+            lastFullRaise: state.lastFullRaise,
+            bigBlind: state.bigBlind,
             heroInvested: state.heroInvested,
             raises: state.raises,
             checks: state.checks,
@@ -88,6 +90,7 @@
             stacks: input.players.map(player => floorChips(player.stack)),
             bets: input.players.map(player => roundChips(player.streetBet)),
             lastFullRaise: roundChips(input.lastFullRaise) || 1,
+            bigBlind: roundChips(input.blinds && input.blinds.bigBlind) || 1,
             heroInvested: 0,
             raises: 0,
             checks: rootChecks,
@@ -117,6 +120,7 @@
             const next = cloneState(state);
             next.actor = firstToAct();
             next.bets = [0, 0];
+            next.lastFullRaise = next.bigBlind;
             next.raises = 0;
             next.checks = 0;
             next.root = false;
@@ -231,7 +235,7 @@
                 }
 
                 if (action.type === "bet") {
-                    applyContribution(next, actor, action.amount);
+                    const paid = applyContribution(next, actor, action.amount);
                     next.checks = 0;
                     next.lastFullRaise = paid;
                     next.actor = other;
@@ -368,7 +372,11 @@
         }
         const strategy = regretMatched(regrets, count);
         const ownReach = reach[node.actor];
-        for (let i = 0; i < count; i++) strategySum[i] += averageWeight * ownReach * strategy[i];
+        if (traverser === 0) {
+            for (let i = 0; i < count; i++) {
+                strategySum[i] += averageWeight * ownReach * strategy[i];
+            }
+        }
 
         const values = new Float64Array(count);
         let nodeValue = 0;
