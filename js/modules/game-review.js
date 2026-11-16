@@ -304,6 +304,12 @@ window.PokerLabGameReview = (function () {
 
         }
 
+        // L'entraînement peut sauvegarder une main avant que l'utilisateur ouvre Review.
+        // Charger d'abord l'historique existant pour ne jamais l'écraser au premier enregistrement.
+        if (!initialized) {
+            loadSavedHands();
+        }
+
         const preparedHand = {
             ...clone(hand),
             id: hand.id || createId(),
