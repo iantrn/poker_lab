@@ -1,15 +1,18 @@
 /**
- * PokerLab Service Worker - v56
+ * PokerLab Service Worker - v57
  * Cache offline-first, avec bundle complet des ranges préflop.
  */
 
-const CACHE_NAME = "pokerlab-cache-v56";
+const CACHE_NAME = "pokerlab-cache-v57";
 const CACHE_PREFIX = "pokerlab-cache-";
 
 const ASSETS_TO_CACHE = [
     "./",
     "./index.html",
     "./manifest.json",
+    "./assets/icons/icon-192.png",
+    "./assets/icons/icon-512.png",
+    "./assets/icons/apple-touch-icon.png",
     "./css/style.css",
     "./css/utilities.css",
     "./js/app.js",
@@ -33,7 +36,6 @@ const ASSETS_TO_CACHE = [
     "./js/modules/puzzles.js",
     "./js/modules/lessons.js",
     "./js/modules/game-review.js",
-    "./data/ranges/ranges.json",
     "./data/ranges/preflop/catalog/index.json",
     "./data/ranges/preflop/matrix/index.json",
     "./data/puzzles/puzzles.json",
