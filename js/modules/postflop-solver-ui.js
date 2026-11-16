@@ -156,7 +156,8 @@
 
         try {
             const history = global.PokerLabTraining.getHandHistory();
-            const result = await global.PokerLabPostflopSolver.analyse(initialState, history);
+            const solverInput = global.PokerLabPostflopSolver.createInput(initialState, history);
+            const result = await global.PokerLabPostflopSolver.analyse(solverInput);
             const stateAfterEquity = global.PokerLabTraining.getGameState();
             if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
                 if (button.isConnected) {
@@ -171,7 +172,7 @@
             if (global.PokerLabPostflopStrategy) {
                 panel.textContent = "Calcul CFR+ de l'arbre de décisions et échantillonnage des runouts…";
                 try {
-                    strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
+                    strategy = await global.PokerLabPostflopStrategy.solvePostflop(solverInput);
                 } catch (error) {
                     strategyError = error.message;
                 }
