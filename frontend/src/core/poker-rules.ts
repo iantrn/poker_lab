@@ -121,7 +121,7 @@ const PokerLabValidation = {
     isNonNegativeAmount(value: unknown): value is number {
 
         return (
-            this.isFiniteNumber(value: unknown): value is number &&
+            this.isFiniteNumber(value): value is number &&
             value >= 0
         );
 
@@ -134,7 +134,7 @@ const PokerLabValidation = {
     isChipAmount(value: unknown): value is number {
 
         if (
-            !this.isNonNegativeAmount(value: unknown): value is number
+            !this.isNonNegativeAmount(value): value is number
         ) {
             return false;
         }
@@ -153,7 +153,7 @@ const PokerLabValidation = {
 
     roundChipAmount(value: number) {
 
-        if (!this.isFiniteNumber(value: unknown): value is number) {
+        if (!this.isFiniteNumber(value): value is number) {
             throw new Error(
                 "Le montant doit être un nombre valide."
             );
@@ -219,7 +219,7 @@ const PokerLabStreets = {
 
     getCommunityCardCount(street: string) {
 
-        if (!this.isValid(street: string)) {
+        if (!this.isValid(street)) {
 
             throw new Error(
                 "Phase de jeu inconnue : " + street
@@ -303,7 +303,7 @@ const PokerLabFormats = {
             return false;
         }
 
-        if (!this.isValid(format: string)) {
+        if (!this.isValid(format)) {
             return false;
         }
 
@@ -418,7 +418,7 @@ const PokerLabPositions = {
         }
 
         const positionNames =
-            this.getPositionNames(playerCount: number);
+            this.getPositionNames(playerCount);
 
         const positions: Array<{seatIndex:number;position:string;isDealer:boolean;isSmallBlind:boolean;isBigBlind:boolean}> = [];
 
@@ -564,7 +564,7 @@ const PokerLabActionOrder = {
         }
 
         return this.filterActiveSeats(
-            PokerLabPositions.getClockwiseOrder(startIndex: number, playerCount: number),
+            PokerLabPositions.getClockwiseOrder(startIndex, playerCount),
             activeSeats
         );
 
@@ -580,7 +580,7 @@ const PokerLabActionOrder = {
             (dealerIndex + 1) % playerCount;
 
         return this.filterActiveSeats(
-            PokerLabPositions.getClockwiseOrder(startIndex: number, playerCount: number),
+            PokerLabPositions.getClockwiseOrder(startIndex, playerCount),
             activeSeats
         );
 
@@ -647,7 +647,7 @@ const PokerLabBlinds = {
     create(smallBlind = 0.5, bigBlind = 1) {
 
         if (
-            !this.validate(smallBlind: number, bigBlind: number)
+            !this.validate(smallBlind, bigBlind)
         ) {
 
             throw new Error(
@@ -810,7 +810,7 @@ const PokerLabBettingRules = {
         }
 
         const minimumRaiseTo =
-            this.getMinimumRaiseTo(currentBet: number, lastFullRaise: number);
+            this.getMinimumRaiseTo(currentBet, lastFullRaise);
 
         return (
             raiseTo >= minimumRaiseTo - 0.000001
@@ -882,7 +882,7 @@ const PokerLabDealingRules = {
     canDeal(playerCount: number) {
 
         return (
-            this.getRequiredCards(playerCount: number) <=
+            this.getRequiredCards(playerCount) <=
             POKER_RULES.deckSize
         );
 
