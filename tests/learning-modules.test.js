@@ -265,3 +265,23 @@ test("Game Review ne confirme pas une sauvegarde lorsque le stockage local écho
     assert.equal(result.success, false);
     assert.equal(module.getAllHands().length, 0);
 });
+
+
+test("le module de leçons restaure la progression en mémoire si le stockage échoue", async () => {
+    const data = JSON.parse(read("data/lessons/lessons.json"));
+    const { module, localStorage } = loadModule(
+        "js/modules/lessons.js",
+        "PokerLabLessons",
+        async () => ({ ok: true, json: async () => data })
+    );
+
+    await module.loadLessons();
+    localStorage.setItem = () => {
+        throw new Error("QuotaExceededError");
+    };
+
+    const result = module.completeLesson(data.lessons[0].id);
+    assert.equal(result.success, false);
+    assert.equal(module.isCompleted(data.lessons[0].id), false);
+    assert.equal(module.getProgress().completed, 0);
+});
