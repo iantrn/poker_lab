@@ -81,8 +81,9 @@
             const strategyActions = element("div", "space-y-1 mb-3");
             for (const item of strategy.actions) {
                 const line = element("p", "text-sm",
-                    item.action.replace("_", " ") + " : " +
-                    (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
+                    item.action.replace(/_/g, " ") + " : " +
+                    (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % · EV " +
+                    item.ev.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons");
                 strategyActions.append(line);
             }
             const ev = element("p", "text-sm font-semibold mb-2",
