@@ -191,3 +191,16 @@ test("une relance à tapis courte reste représentée si le tapis ne couvre pas 
     assert.ok(raise);
     assert.equal(raise.action.amount, 12);
 });
+
+
+test("la range uniforme énumère chaque combinaison légale exactement une fois", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    const combos = app.PokerLabPostflopStrategy.buildUniformRange([
+        ...state.players[0].holeCards,
+        ...state.board
+    ]);
+    const identifiers = combos.map(item => item.cards.map(card => card.value + "_" + card.suit).sort().join("|"));
+    assert.equal(combos.length, 990);
+    assert.equal(new Set(identifiers).size, 990);
+});
