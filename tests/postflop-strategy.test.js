@@ -578,9 +578,9 @@ test("la racine respecte le droit réel de relancer même après deux relances a
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call", "raise"]
+        ["fold", "call", "min_raise", "all_in_raise"]
     );
-    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    const raiseBranch = built.tree.actions.find(entry => entry.action.label === "min_raise");
     assert.deepEqual(
         Array.from(raiseBranch.child.actions, entry => entry.action.label),
         ["fold", "call", "raise"]
