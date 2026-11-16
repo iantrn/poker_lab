@@ -164,7 +164,7 @@ Lancer les tests du solveur postflop :
 node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js
 ```
 
-La suite stratégique vérifie notamment les actions légales de l'arbre, les contraintes de tapis, les mises non couvertes, les transitions flop-turn-river et la normalisation des fréquences CFR+.
+La suite stratégique vérifie notamment les actions légales de l'arbre, les contraintes de tapis, les mises non couvertes, les transitions flop-turn-river, la normalisation des fréquences CFR+ et la convergence du noyau sur Kuhn Poker et Matching Pennies.
 
 ## Données locales et confidentialité
 
