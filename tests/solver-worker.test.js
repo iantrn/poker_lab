@@ -71,6 +71,7 @@ test("le Worker charge les modules de calcul depuis la racine de l'application",
     assert.equal(harness.self.window, harness.self);
     assert.deepEqual(harness.importedScripts, [
         "./js/core/evaluator.js",
+        "./js/bots/bot-profiles.js",
         "./js/modules/postflop-solver.js",
         "./js/modules/cfr-core.js",
         "./js/modules/postflop-strategy.js"
