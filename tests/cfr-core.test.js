@@ -177,3 +177,27 @@ test("un information set ne peut pas changer le nombre d'actions", () => {
         /ensembles d'actions différents/
     );
 });
+
+
+test("un information set refuse des actions différentes avec la même cardinalité", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "same",
+        utility: () => 0
+    };
+    const first = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_33", terminal(1, 0)]
+    ]);
+    const second = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_75", terminal(1, 0)]
+    ]);
+
+    core.runCfr(first, {}, 0, [1, 1], maps, callbacks, 1);
+    assert.throws(
+        () => core.runCfr(second, {}, 0, [1, 1], maps, callbacks, 1),
+        /type, ordre, label ou sizing/
+    );
+});
