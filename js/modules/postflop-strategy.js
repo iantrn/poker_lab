@@ -167,6 +167,7 @@
                         next.pot -= uncalled;
                         next.bets[other] -= uncalled;
                         next.stacks[other] += uncalled;
+                        if (other === 0) next.heroInvested -= uncalled;
                     }
                     node.actions.push({ action, child: terminal("showdown", next) });
                     continue;
