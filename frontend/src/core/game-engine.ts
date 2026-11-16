@@ -2267,7 +2267,7 @@ const position = positionNames[index]!;
 
         const context = this.getBotContext(playerId);
 
-        return legacyPokerGlobals().PokerLabBotEngine.decide(context);
+        return legacyPokerGlobals().PokerLabBotEngine!.decide(context);
 
     }
 
