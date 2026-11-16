@@ -81,7 +81,7 @@ test("le manifest déclare des icônes PNG aux dimensions attendues", () => {
 });
 
 test("le Service Worker précache les ressources offline indispensables", () => {
-    const cacheVersion = serviceWorker.match(/const CACHE_NAME = "pokerlab-cache-v(\\d+)";/);
+    const cacheVersion = serviceWorker.match(/const CACHE_NAME = "pokerlab-cache-v(\d+)";/);
     assert.ok(cacheVersion, "Version du cache absente du Service Worker.");
     assert.ok(
         serviceWorker.includes(`PokerLab Service Worker - v${cacheVersion[1]}`),
