@@ -337,3 +337,31 @@ test("la meilleure réponse agrège les poids de chance avant de choisir dans un
     assert.equal(bestResponse.totalWeight, 5);
     assert.ok(Math.abs(bestResponse.value - 0.8) < 1e-9);
 });
+
+
+test("CFR+ restaure le vecteur de reach fourni et réutilise la clé d'information pour un même deal", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    let keyCalls = 0;
+    const callbacks = {
+        informationKey() {
+            keyCalls++;
+            return "cached-information-set";
+        },
+        utility() {
+            return 1;
+        }
+    };
+    const root = decision(0, "root", 1, 0, [
+        ["left", terminal(1, 0)],
+        ["right", terminal(1, 0)]
+    ]);
+    const deal = {};
+    const reach = [0.75, 0.5];
+
+    core.runCfr(root, deal, 0, reach, maps, callbacks, 1);
+    core.runCfr(root, deal, 1, reach, maps, callbacks, 1);
+
+    assert.deepEqual(reach, [0.75, 0.5]);
+    assert.equal(keyCalls, 1);
+});
