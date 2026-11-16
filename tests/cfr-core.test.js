@@ -163,6 +163,17 @@ test("CFR+ apprend une stratégie mixte sur Matching Pennies", () => {
     assert.ok(Math.abs(rootStrategy[1] - 0.5) < 0.02);
     assert.ok(Math.abs(responseStrategy[0] - 0.5) < 0.02);
     assert.ok(Math.abs(responseStrategy[1] - 0.5) < 0.02);
+
+    const exploitability = core.measureExploitability(
+        [{ root, deal: {} }],
+        maps,
+        callbacks
+    );
+    assert.ok(exploitability.nashConv >= -1e-9);
+    assert.ok(
+        exploitability.nashConv < 0.05,
+        "NashConv estimée : " + exploitability.nashConv
+    );
 });
 
 test("un information set ne peut pas changer le nombre d'actions", () => {
