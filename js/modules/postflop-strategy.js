@@ -375,14 +375,35 @@
             ).map(item => ({ ...item, weight: Number(item.weight) }))
             : [];
 
+        let opponentBaseCandidates = validCombos(opponentRange, boardBlocked);
+        let useOpponentRange = opponentBaseCandidates.length > 0;
         let heroCandidates = validCombos(heroRange, boardBlocked);
         if (!heroCandidates.length) {
             heroCandidates = [{ cards: actualHero, weight: 1 }];
         }
 
+        if (useOpponentRange) {
+            heroCandidates = heroCandidates.map(item => {
+                const blockedByHero = new Set(item.cards.map(cardId));
+                const opponentMass = opponentBaseCandidates
+                    .filter(candidate => candidate.cards.every(card => !blockedByHero.has(cardId(card))))
+                    .reduce((sum, candidate) => sum + Number(candidate.weight), 0);
+                return { ...item, opponentMass };
+            }).filter(item => item.opponentMass > 0);
+
+            // The observed hand must have at least one compatible opponent
+            // combination. Otherwise the preflop matrix pair is inconsistent
+            // with the actual deal, so use a broad opponent fallback.
+            if (!heroCandidates.some(item => handId(item.cards) === handId(actualHero))) {
+                heroCandidates = [{ cards: actualHero, weight: 1, opponentMass: 0 }];
+                useOpponentRange = false;
+            }
+        }
+
         const heroTotal = heroCandidates.reduce((sum, item) => sum + Number(item.weight), 0);
         const actualHeroKey = handId(actualHero);
         const actualHeroEntry = heroCandidates.find(item => handId(item.cards) === actualHeroKey);
+
         // Oversample the observed holding so its root information set receives
         // enough updates. Importance weights restore the original range prior.
         const actualHandBoost = actualHeroEntry ? 0.25 : 0;
@@ -421,26 +442,25 @@
                 : 1;
 
             const blocked = new Set([...hero, ...board].map(cardId));
-            let villainCandidates = validCombos(opponentRange, blocked);
-            const hasRangeCandidates = villainCandidates.length > 0;
-            if (!hasRangeCandidates) {
-                const uniform = buildUniformRange([...hero, ...board]);
-                villainCandidates = uniform;
+            let villainCandidates = useOpponentRange
+                ? validCombos(opponentRange, blocked)
+                : [];
+            if (!useOpponentRange) {
+                villainCandidates = buildUniformRange([...hero, ...board]);
             }
             if (!villainCandidates.length) {
                 throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
             }
 
-            // Correct the hero-hand proposal for the number/weight of legal
-            // opponent combinations left after card removal. This restores the
-            // joint product-range distribution rather than p(hero) × p(villain|hero).
-            const opponentConditionalMass = villainCandidates.reduce(
-                (sum, item) => sum + Number(item.weight),
-                0
-            );
+            // Correct the hero-hand proposal for the mass of legal opponent
+            // combinations remaining after blockers. This restores the joint
+            // product-range distribution instead of p(hero) × p(villain|hero).
+            const opponentConditionalMass = useOpponentRange
+                ? selectedHero.opponentMass
+                : villainCandidates.reduce((sum, item) => sum + Number(item.weight), 0);
             const heroImportanceWeight = heroProposalImportance * opponentConditionalMass;
             const villain = weightedSample(villainCandidates, random);
-            if (hasRangeCandidates && rangeUsedHint) opponentRangeSamples++;
+            if (useOpponentRange && rangeUsedHint) opponentRangeSamples++;
 
             const excluded = new Set([...hero, ...board, ...villain].map(cardId));
             const deck = [];
@@ -466,7 +486,7 @@
         return {
             deals,
             rangeUsed: opponentRangeSamples === sampleCount && rangeUsedHint,
-            heroRangeUsed: Array.isArray(heroRange) && heroRange.length > 0,
+            heroRangeUsed: Array.isArray(heroRange) && heroRange.length > 0 && Boolean(actualHeroEntry),
             actualHeroInRange: Boolean(actualHeroEntry),
             actualHeroSamples
         };
