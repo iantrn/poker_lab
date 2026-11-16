@@ -475,7 +475,10 @@
     }
 
     async function solvePostflop(input, history = [], options = {}) {
-        const resolved = global.PokerLabPostflopSolver.resolveInput(input, history);
+        const resolved = global.PokerLabPostflopSolver &&
+            typeof global.PokerLabPostflopSolver.resolveInput === "function"
+            ? global.PokerLabPostflopSolver.resolveInput(input, history)
+            : { state: input, history: Array.isArray(history) ? history : [] };
         const state = resolved.state;
         history = resolved.history;
         const { hero, opponent } = validate(state);
