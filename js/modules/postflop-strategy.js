@@ -613,12 +613,17 @@
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
-        const evaluationSamples = Math.min(samples, 32);
+        const requestedEvaluationSamples = Number.isInteger(options.evaluationSamples)
+            ? Math.max(16, Math.min(512, options.evaluationSamples))
+            : Math.max(64, Math.min(256, samples * 4));
         const rootStrategy = getRootStrategy(rootTree, null, maps, hero.holeCards, state.board);
-        const actionValues = new Array(rootTree.actions.length).fill(0);
+        const actionValueSums = new Array(rootTree.actions.length).fill(0);
+        const actionValueSquares = new Array(rootTree.actions.length).fill(0);
+        let heroEVSum = 0;
+        let heroEVSquares = 0;
         let evaluatedDeals = 0;
 
-        for (let sampleIndex = 0; sampleIndex < evaluationSamples; sampleIndex++) {
+        for (let sampleIndex = 0; sampleIndex < requestedEvaluationSamples; sampleIndex++) {
             const sampled = sampleDeals(
                 hero.holeCards,
                 state.board,
@@ -641,32 +646,57 @@
                 rootRaises
             );
             if (built.tree.actions.length !== rootTree.actions.length) continue;
+
+            const sampleActionValues = [];
             for (let actionIndex = 0; actionIndex < rootTree.actions.length; actionIndex++) {
-                actionValues[actionIndex] += averageStrategy(
+                const value = averageStrategy(
                     built.tree.actions[actionIndex].child,
                     deal,
                     maps,
                     hero.holeCards,
                     state.board
                 );
+                sampleActionValues.push(value);
+                actionValueSums[actionIndex] += value;
+                actionValueSquares[actionIndex] += value * value;
             }
+
+            const sampleHeroEV = sampleActionValues.reduce((sum, value, index) =>
+                sum + rootStrategy[index] * value, 0);
+            heroEVSum += sampleHeroEV;
+            heroEVSquares += sampleHeroEV * sampleHeroEV;
             evaluatedDeals++;
+
+            if ((sampleIndex + 1) % 8 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
         }
 
         if (!evaluatedDeals) {
             throw new Error("Impossible d'évaluer la stratégie sur les échantillons indépendants.");
         }
 
-        for (let index = 0; index < actionValues.length; index++) {
-            actionValues[index] /= evaluatedDeals;
-        }
-        const actions = rootTree.actions.map((entry, index) => ({
-            action: entry.action.label,
-            frequency: rootStrategy[index],
-            ev: actionValues[index]
-        })).sort((a, b) => b.frequency - a.frequency);
-        const heroEV = actionValues.reduce((sum, value, index) =>
-            sum + rootStrategy[index] * value, 0);
+        const standardError = (sum, sumSquares) => {
+            if (evaluatedDeals < 2) return 0;
+            const mean = sum / evaluatedDeals;
+            const variance = Math.max(0, (sumSquares - evaluatedDeals * mean * mean) / (evaluatedDeals - 1));
+            return Math.sqrt(variance / evaluatedDeals);
+        };
+
+        const actions = rootTree.actions.map((entry, index) => {
+            const ev = actionValueSums[index] / evaluatedDeals;
+            const evStandardError = standardError(actionValueSums[index], actionValueSquares[index]);
+            return {
+                action: entry.action.label,
+                frequency: rootStrategy[index],
+                ev,
+                evStandardError,
+                evLower95: ev - 1.96 * evStandardError,
+                evUpper95: ev + 1.96 * evStandardError
+            };
+        }).sort((a, b) => b.frequency - a.frequency);
+        const heroEV = heroEVSum / evaluatedDeals;
+        const heroEVStandardError = standardError(heroEVSum, heroEVSquares);
 
         return {
             algorithm: "CFR+ avec rééchantillonnage des chances",
@@ -680,6 +710,10 @@
             randomSeed: Number.isInteger(options.seed) ? (options.seed >>> 0) : null,
             sampledOpponentHands: trainingIterations,
             evaluationSamples: evaluatedDeals,
+            evaluationMethod: "Échantillons indépendants ; erreur standard conditionnelle à la stratégie moyenne apprise.",
+            heroEVStandardError,
+            heroEVLower95: heroEV - 1.96 * heroEVStandardError,
+            heroEVUpper95: heroEV + 1.96 * heroEVStandardError,
             treeNodes: Math.round(averageNodeCount / trainingIterations),
             rangeLabel: rangeInfo.rangeUsed === false
                 ? rangeInfo.label
