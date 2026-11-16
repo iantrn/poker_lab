@@ -224,3 +224,119 @@ test("l'historique conserve les montants exacts d'une mise et d'une relance", ()
     assert.equal(raise.raiseSize, 6);
     assert.equal(raise.isFullRaise, true);
 });
+
+
+test("les pots principal et secondaires respectent les niveaux de contribution", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 50;
+    second.totalContribution = 100;
+    third.totalContribution = 150;
+
+    const pots = engine.buildSidePots();
+
+    assert.deepEqual(
+        Array.from(pots, pot => [pot.amount, pot.lowerLevel, pot.upperLevel]),
+        [[150, 0, 50], [100, 50, 100], [50, 100, 150]]
+    );
+    assert.deepEqual(
+        Array.from(pots, pot => Array.from(pot.eligiblePlayerIds)),
+        [
+            ["hero", "player_1", "player_2"],
+            ["player_1", "player_2"],
+            ["player_2"]
+        ]
+    );
+    assert.equal(pots.reduce((sum, pot) => sum + pot.amount, 0), 300);
+});
+
+test("les contributions d'un joueur foldé restent dans les pots sans lui donner de droit au gain", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 50;
+    second.totalContribution = 100;
+    third.totalContribution = 100;
+    hero.folded = true;
+
+    const pots = engine.buildSidePots();
+
+    assert.deepEqual(
+        Array.from(pots, pot => pot.eligiblePlayerIds),
+        [["player_1", "player_2"], ["player_1", "player_2"]]
+    );
+    assert.equal(pots.reduce((sum, pot) => sum + pot.amount, 0), 250);
+});
+
+test("un pot secondaire non couvert est restitué au seul joueur éligible", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const [hero, second, third] = engine.players;
+    hero.totalContribution = 20;
+    second.totalContribution = 20;
+    third.totalContribution = 50;
+
+    const pots = engine.buildSidePots();
+    assert.deepEqual(
+        Array.from(pots, pot => [pot.amount, pot.eligiblePlayerIds]),
+        [[60, ["hero", "player_1", "player_2"]], [30, ["player_2"]]]
+    );
+
+    const before = third.stack;
+    const returned = engine.distributePot(
+        pots[1],
+        [{ player: third, evaluation: { score: [1] } }]
+    );
+
+    assert.equal(returned.amount, 30);
+    assert.deepEqual(Array.from(returned.winnerIds), ["player_2"]);
+    assert.equal(third.stack, before + 30);
+});
+
+test("le partage d'un pot impair attribue le demi-jeton selon l'ordre du bouton", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app);
+    engine.startHand();
+
+    const hero = engine.players[0];
+    const opponent = engine.players[1];
+    const heroBefore = hero.stack;
+    const opponentBefore = opponent.stack;
+
+    const result = engine.distributePot(
+        { amount: 1.5, eligiblePlayerIds: ["hero", "player_1"] },
+        [
+            { player: hero, evaluation: { score: [2, 14] } },
+            { player: opponent, evaluation: { score: [2, 14] } }
+        ]
+    );
+
+    assert.equal(result.isTie, true);
+    assert.equal(hero.stack, heroBefore + 0.5);
+    assert.equal(opponent.stack, opponentBefore + 1);
+    assert.deepEqual(Array.from(result.oddChipRecipients), ["player_1"]);
+});
+
+test("les relances courtes cumulées ne rouvrent les enchères qu'au seuil complet", () => {
+    const app = loadGameEngine();
+    const engine = createEngine(app, 3);
+    engine.startHand();
+
+    const hero = engine.players[0];
+    hero.hasActed = true;
+    hero.lastActedBet = 5;
+    engine.lastFullRaise = 5;
+
+    engine.currentBet = 9;
+    assert.equal(engine.canPlayerRaise(hero), false);
+
+    engine.currentBet = 10;
+    assert.equal(engine.canPlayerRaise(hero), true);
+});
