@@ -736,6 +736,8 @@ function renderGame(state = null) {
 
     renderGameActions(gameState);
 
+    dispatch("pokerlab:table-state-changed", { state: gameState });
+
     // Masquer la configuration
     if (configurationElement) {
         configurationElement.classList.add('hidden');
@@ -1282,6 +1284,7 @@ function renderGame(state = null) {
         dispatch(EVENTS.SESSION_STOPPED, {
             session: stoppedSession
         });
+        dispatch("pokerlab:table-state-changed", { state: null });
 
         return true;
 

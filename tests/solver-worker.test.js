@@ -126,12 +126,18 @@ test("l'interface délègue les calculs au Worker et annule les requêtes obsol�
         "utf8"
     );
 
-    assert.match(ui, /new global\.Worker\("\.\/pokerlab-solver-worker\.js"\)/);
-    assert.match(ui, /runWorkerTask\(\s*"equity"/);
-    assert.match(ui, /runWorkerTask\(\s*"strategy"/);
-    assert.match(ui, /function cancelSolverWorker\(\)/);
-    assert.match(ui, /currentKey !== activeStateKey/);
+    const orchestrator = fs.readFileSync(
+        path.join(__dirname, "..", "js/modules/solver-precompute.js"),
+        "utf8"
+    );
+    assert.match(orchestrator, /new global\.Worker\(WORKER_URL\)/);
+    assert.match(orchestrator, /function cancel\(reason\)/);
+    assert.match(orchestrator, /new global\.AbortController\(\)/);
+    assert.match(orchestrator, /MAX_CACHE_ENTRIES/);
+    assert.match(orchestrator, /task\.worker\.terminate\(\)/);
+    assert.match(ui, /PokerLabSolverPrecompute\.getOrStart\(\)/);
     assert.match(ui, /error\.name === "AbortError"/);
+    assert.doesNotMatch(ui, /global\.PokerLabPostflopSolver\.analyse\(solverInput\)/);
 });
 
 
@@ -153,4 +159,19 @@ test("SOLVE présente les résultats dans une boîte de dialogue native refermab
     assert.match(ui, /event\.target === dialog/);
     assert.match(css, /\.pl-solve-dialog::backdrop/);
     assert.match(css, /\.pl-solve-dialog-close:focus-visible/);
+});
+
+
+test("le pré-calcul est déclenché sur les transitions d'état de la table", () => {
+    const training = fs.readFileSync(
+        path.join(__dirname, "..", "js/modules/training.js"),
+        "utf8"
+    );
+    const ui = fs.readFileSync(
+        path.join(__dirname, "..", "js/modules/postflop-solver-ui.js"),
+        "utf8"
+    );
+    assert.match(training, /dispatch\("pokerlab:table-state-changed"/);
+    assert.match(ui, /addEventListener\("pokerlab:table-state-changed", sync\)/);
+    assert.match(ui, /PokerLabSolverPrecompute\.onStateChange\(\)/);
 });

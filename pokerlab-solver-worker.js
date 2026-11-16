@@ -20,6 +20,7 @@ self.addEventListener("message", async event => {
 
     try {
         let result;
+        self.postMessage({ id, progress: 0, phase: task + "_started" });
 
         if (task === "equity") {
             if (!self.PokerLabPostflopSolver) {
@@ -35,6 +36,7 @@ self.addEventListener("message", async event => {
             throw new Error("Tâche de solveur inconnue.");
         }
 
+        self.postMessage({ id, progress: 1, phase: task + "_completed" });
         self.postMessage({
             id,
             ok: true,

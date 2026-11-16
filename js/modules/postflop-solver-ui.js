@@ -8,86 +8,12 @@
     let observer = null;
     let busy = false;
     let activeStateKey = null;
-    let solverWorker = null;
-    let workerRequestId = 0;
-    const workerRequests = new Map();
 
     function element(tag, className, text) {
         const node = document.createElement(tag);
         if (className) node.className = className;
         if (text !== undefined) node.textContent = text;
         return node;
-    }
-
-    function ensureSolverWorker() {
-        if (!global.Worker) return null;
-        if (solverWorker) return solverWorker;
-
-        try {
-            solverWorker = new global.Worker("./pokerlab-solver-worker.js");
-
-            solverWorker.addEventListener("message", event => {
-                const message = event.data || {};
-                const request = workerRequests.get(message.id);
-                if (!request) return;
-
-                workerRequests.delete(message.id);
-                if (message.ok) {
-                    request.resolve(message.result);
-                } else {
-                    request.reject(new Error(message.error || "Erreur du Worker de solveur."));
-                }
-            });
-
-            solverWorker.addEventListener("error", event => {
-                const error = new Error(event.message || "Le Worker de solveur a rencontré une erreur.");
-                const failedWorker = solverWorker;
-                solverWorker = null;
-                if (failedWorker) failedWorker.terminate();
-
-                for (const [id, request] of workerRequests) {
-                    workerRequests.delete(id);
-                    request.reject(error);
-                }
-            });
-
-            return solverWorker;
-        } catch (error) {
-            solverWorker = null;
-            return null;
-        }
-    }
-
-    function runWorkerTask(task, input, fallback) {
-        const worker = ensureSolverWorker();
-        if (!worker) return Promise.resolve().then(fallback);
-
-        const id = ++workerRequestId;
-        return new Promise((resolve, reject) => {
-            workerRequests.set(id, { resolve, reject });
-            try {
-                worker.postMessage({ id, task, input });
-            } catch (error) {
-                workerRequests.delete(id);
-                reject(error);
-            }
-        });
-    }
-
-    function cancelSolverWorker() {
-        if (!solverWorker && workerRequests.size === 0) return;
-
-        const currentWorker = solverWorker;
-        solverWorker = null;
-        if (currentWorker) currentWorker.terminate();
-
-        const error = new Error("La situation a changé pendant le calcul.");
-        error.name = "AbortError";
-
-        for (const [id, request] of workerRequests) {
-            workerRequests.delete(id);
-            request.reject(error);
-        }
     }
 
     function eligible(state) {
@@ -102,30 +28,14 @@
 
     function stateKey(state) {
         if (!state) return "";
-        const cards = cardList => (cardList || []).map(card =>
-            card ? card.value + "_" + card.suit : "?"
-        ).join(",");
-        const players = (state.players || []).map(player => [
-            player.id,
-            player.stack,
-            player.streetBet,
-            player.totalContribution,
-            player.folded,
-            player.allIn,
-            player.hasActed,
-            player.lastActedBet,
-            player.amountToCall
-        ].join(":")).join("|");
-        return [
-            state.handNumber,
-            state.street,
-            cards(state.board),
-            state.currentPlayerId,
-            state.pot,
-            state.currentBet,
-            state.lastFullRaise,
-            players
-        ].join(";");
+        try {
+            return JSON.stringify(global.PokerLabPostflopSolver.createInput(
+                state,
+                global.PokerLabTraining.getHandHistory()
+            ));
+        } catch (error) {
+            return String(state.handNumber) + ":" + String(state.street);
+        }
     }
 
     function renderResult(container, result, strategy = null, strategyError = null) {
@@ -258,71 +168,38 @@
     }
 
     async function run(button, panel) {
-        if (busy) return;
+        if (busy || !global.PokerLabSolverPrecompute) return;
         busy = true;
         button.disabled = true;
-        button.textContent = "Calcul en cours…";
+        button.textContent = "Analyse en cours…";
         panel.classList.remove("hidden");
-        panel.textContent = "Simulation des mains adverses et des cartes restantes…";
-
+        panel.textContent = "Récupération du pré-calcul ou démarrage de l'analyse…";
         const initialState = global.PokerLabTraining.getGameState();
         const initialKey = stateKey(initialState);
         activeStateKey = initialKey;
-
+        const unsubscribe = global.PokerLabSolverPrecompute.subscribe(snapshot => {
+            if (!button.isConnected || !panel.isConnected || !dialogIsOpen(panel) || snapshot.key !== initialKey) return;
+            if (snapshot.phase === "equity") panel.textContent = "Calcul de l'équité Monte-Carlo…";
+            else if (snapshot.phase === "strategy") panel.textContent = "Calcul stratégique CFR+…";
+            else if (snapshot.phase === "complete") panel.textContent = "Analyse terminée.";
+        });
         try {
-            const history = global.PokerLabTraining.getHandHistory();
-            const solverInput = global.PokerLabPostflopSolver.createInput(initialState, history);
-            const result = await runWorkerTask(
-                "equity",
-                solverInput,
-                () => global.PokerLabPostflopSolver.analyse(solverInput)
-            );
-            const stateAfterEquity = global.PokerLabTraining.getGameState();
-            if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
-                if (button.isConnected) {
-                    panel.replaceChildren(element("p", "text-sm text-textMuted",
-                        "La situation a changé pendant le calcul. Clique sur « Analyser » pour lancer une nouvelle analyse."));
-                }
-                return;
-            }
-
-            let strategy = null;
-            let strategyError = null;
-            if (global.PokerLabPostflopStrategy) {
-                panel.textContent = "Calcul CFR+ de l'arbre de décisions et échantillonnage des runouts…";
-                try {
-                    strategy = await runWorkerTask(
-                        "strategy",
-                        solverInput,
-                        () => global.PokerLabPostflopStrategy.solvePostflop(solverInput)
-                    );
-                } catch (error) {
-                    strategyError = error.message;
-                }
-            }
+            const result = await global.PokerLabSolverPrecompute.getOrStart();
             const latestState = global.PokerLabTraining.getGameState();
-
             if (!button.isConnected || stateKey(latestState) !== initialKey) {
-                if (button.isConnected) {
-                    panel.replaceChildren(element("p", "text-sm text-textMuted",
-                        "La situation a changé pendant le calcul. Clique sur « Analyser » pour lancer une nouvelle analyse."));
-                }
+                if (button.isConnected) panel.replaceChildren(element("p", "text-sm text-textMuted",
+                    "La situation a changé pendant le calcul. Le résultat obsolète a été écarté."));
                 return;
             }
-
-            renderResult(panel, result, strategy, strategyError);
+            renderResult(panel, result.equity, result.strategy, result.strategyError);
         } catch (error) {
-            if (button.isConnected) {
-                const message = error.name === "AbortError"
-                    ? "La situation a changé pendant le calcul. Clique sur « Analyser » pour lancer une nouvelle analyse."
-                    : error.message;
-                panel.replaceChildren(element(
-                    "p",
-                    error.name === "AbortError" ? "text-sm text-textMuted" : "text-red-400 text-sm",
-                    message
-                ));
-            }
+            if (button.isConnected) panel.replaceChildren(element(
+                "p",
+                error.name === "AbortError" ? "text-sm text-textMuted" : "text-red-400 text-sm",
+                error.name === "AbortError" ? "La situation a changé. Une nouvelle analyse est en préparation." : error.message
+            ));
         } finally {
+            unsubscribe();
             activeStateKey = null;
             busy = false;
             if (button.isConnected) {
@@ -332,15 +209,18 @@
         }
     }
 
+    function dialogIsOpen(panel) {
+        const dialog = panel && panel.closest("[data-postflop-dialog]");
+        return Boolean(dialog && dialog.open);
+    }
+
     function sync() {
         const actions = document.getElementById("training-actions");
         if (!actions || !global.PokerLabTraining || !global.PokerLabPostflopSolver) return;
         const state = global.PokerLabTraining.getGameState();
         const currentKey = stateKey(state);
-
-        if (busy && activeStateKey && currentKey !== activeStateKey) {
-            cancelSolverWorker();
-        }
+        if (global.PokerLabSolverPrecompute) global.PokerLabSolverPrecompute.onStateChange();
+        if (busy && activeStateKey && currentKey !== activeStateKey) activeStateKey = null;
 
         const oldButton = actions.querySelector("[data-postflop-solve]");
         const oldDialog = actions.querySelector("[data-postflop-dialog]");
@@ -404,10 +284,6 @@
             if (event.target === dialog) dialog.close();
         });
 
-        dialog.addEventListener("close", () => {
-            if (busy) cancelSolverWorker();
-        });
-
         actions.append(button, dialog);
     }
 
@@ -416,6 +292,7 @@
         if (!actions || observer) return;
         observer = new MutationObserver(sync);
         observer.observe(actions, { childList: true, subtree: true });
+        global.addEventListener("pokerlab:table-state-changed", sync);
         sync();
     }
 

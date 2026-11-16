@@ -11,6 +11,7 @@
     const RANKS = "23456789TJQKA";
     const MATRIX_URL = "./data/ranges/preflop/matrix/";
     const DEFAULT_ITERATIONS = 1800;
+    const randomBuffer = new Uint32Array(1);
     let matrixIndexPromise = null;
     let matrixBundlePromise = null;
 
@@ -39,26 +40,35 @@
 
     function randomInt(max) {
         if (global.crypto && global.crypto.getRandomValues) {
-            const data = new Uint32Array(1);
             const limit = 0x100000000 - (0x100000000 % max);
-            do { global.crypto.getRandomValues(data); } while (data[0] >= limit);
-            return data[0] % max;
+            do { global.crypto.getRandomValues(randomBuffer); } while (randomBuffer[0] >= limit);
+            return randomBuffer[0] % max;
         }
         return Math.floor(Math.random() * max);
     }
 
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
+    function shuffle(array, length = array.length) {
+        for (let i = length - 1; i > 0; i--) {
             const j = randomInt(i + 1);
-            [array[i], array[j]] = [array[j], array[i]];
+            const value = array[i];
+            array[i] = array[j];
+            array[j] = value;
         }
         return array;
     }
 
-    function score(hero, villain, board) {
+    function score(hero, villain, board, heroCardsBuffer, villainCardsBuffer) {
         const evaluator = global.PokerLabHandEvaluator;
-        const a = evaluator.evaluate([...hero, ...board]).score;
-        const b = evaluator.evaluate([...villain, ...board]).score;
+        heroCardsBuffer[0] = hero[0];
+        heroCardsBuffer[1] = hero[1];
+        villainCardsBuffer[0] = villain[0];
+        villainCardsBuffer[1] = villain[1];
+        for (let index = 0; index < board.length; index++) {
+            heroCardsBuffer[index + 2] = board[index];
+            villainCardsBuffer[index + 2] = board[index];
+        }
+        const a = evaluator.evaluate(heroCardsBuffer).score;
+        const b = evaluator.evaluate(villainCardsBuffer).score;
         return evaluator.compareScores(a, b);
     }
 
@@ -191,15 +201,13 @@
     }
 
     function sampleOpponentHand(deck, weightedRange) {
-        if (!weightedRange) {
-            const cards = shuffle(deck.slice());
-            return cards.slice(0, 2);
+        if (!weightedRange || weightedRange.length === 0) {
+            shuffle(deck);
+            return [deck[0], deck[1]];
         }
-        const available = weightedRange.filter(item =>
-            item.cards.every(card => deck.some(candidate => cardKey(candidate) === cardKey(card)))
-        );
-        if (!available.length) return shuffle(deck.slice()).slice(0, 2);
-        return weightedChoice(available);
+        // The range is filtered against the fixed base deck once in analyse().
+        // Repeating this filter in every Monte-Carlo iteration created avoidable arrays.
+        return weightedChoice(weightedRange);
     }
 
     function resolveInput(input, history = []) {
@@ -677,14 +685,42 @@
         const preflopRangeUsed = range.rangeUsed !== false && availableCombos.length > 0;
         const iterations = Math.max(300, Math.min(10000, Number(options.iterations) || DEFAULT_ITERATIONS));
         let wins = 0, ties = 0, losses = 0;
+        const simulationDeck = new Array(baseDeck.length);
+        const villainCards = [null, null];
+        const fullBoard = state.board.slice();
+        const heroCardsBuffer = new Array(7);
+        const villainCardsBuffer = new Array(7);
+        const runoutCount = 5 - state.board.length;
+
         for (let i = 0; i < iterations; i++) {
-            const deck = baseDeck.slice();
-            const villain = sampleOpponentHand(deck, weightedRange);
-            const villainKeys = new Set(villain.map(cardKey));
-            const remaining = deck.filter(card => !villainKeys.has(cardKey(card)));
-            shuffle(remaining);
-            const runout = remaining.slice(0, 5 - state.board.length);
-            const result = score(hero.holeCards, villain, [...state.board, ...runout]);
+            let deckLength = 0;
+            if (weightedRange) {
+                const villain = sampleOpponentHand(baseDeck, weightedRange);
+                villainCards[0] = villain[0];
+                villainCards[1] = villain[1];
+                const firstKey = cardKey(villainCards[0]);
+                const secondKey = cardKey(villainCards[1]);
+                for (let cardIndex = 0; cardIndex < baseDeck.length; cardIndex++) {
+                    const card = baseDeck[cardIndex];
+                    const key = cardKey(card);
+                    if (key !== firstKey && key !== secondKey) simulationDeck[deckLength++] = card;
+                }
+            } else {
+                for (let cardIndex = 0; cardIndex < baseDeck.length; cardIndex++) simulationDeck[cardIndex] = baseDeck[cardIndex];
+                deckLength = baseDeck.length;
+                shuffle(simulationDeck, deckLength);
+                villainCards[0] = simulationDeck[0];
+                villainCards[1] = simulationDeck[1];
+                deckLength -= 2;
+                for (let cardIndex = 0; cardIndex < deckLength; cardIndex++) {
+                    simulationDeck[cardIndex] = simulationDeck[cardIndex + 2];
+                }
+            }
+            if (weightedRange) shuffle(simulationDeck, deckLength);
+            for (let cardIndex = 0; cardIndex < runoutCount; cardIndex++) {
+                fullBoard[state.board.length + cardIndex] = simulationDeck[cardIndex];
+            }
+            const result = score(hero.holeCards, villainCards, fullBoard, heroCardsBuffer, villainCardsBuffer);
             if (result > 0) wins++;
             else if (result === 0) ties++;
             else losses++;
