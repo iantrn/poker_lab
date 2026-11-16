@@ -17,10 +17,38 @@
 
     function eligible(state) {
         if (!state || state.handComplete || !["flop", "turn", "river"].includes(state.street)) return false;
-        if (state.currentPlayerId !== "hero") return false;
+        const hero = state.players.find(player => player.isHuman);
+        if (!hero || state.currentPlayerId !== hero.id || !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) {
+            return false;
+        }
         const active = state.players.filter(player => !player.folded);
-        return active.length === 2 &&
-            state.players.some(player => player.id === "hero" && player.holeCards?.length === 2);
+        return active.length === 2;
+    }
+
+    function stateKey(state) {
+        if (!state) return "";
+        const cards = cardList => (cardList || []).map(card =>
+            card ? card.value + "_" + card.suit : "?"
+        ).join(",");
+        const players = (state.players || []).map(player => [
+            player.id,
+            player.stack,
+            player.streetBet,
+            player.totalContribution,
+            player.folded,
+            player.allIn,
+            player.amountToCall
+        ].join(":")).join("|");
+        return [
+            state.handNumber,
+            state.street,
+            cards(state.board),
+            state.currentPlayerId,
+            state.pot,
+            state.currentBet,
+            state.lastFullRaise,
+            players
+        ].join(";");
     }
 
     function renderResult(container, result) {
@@ -51,17 +79,34 @@
         button.textContent = "Calcul en cours…";
         panel.classList.remove("hidden");
         panel.textContent = "Simulation des mains adverses et des cartes restantes…";
+
+        const initialState = global.PokerLabTraining.getGameState();
+        const initialKey = stateKey(initialState);
+
         try {
-            const state = global.PokerLabTraining.getGameState();
             const history = global.PokerLabTraining.getHandHistory();
-            const result = await global.PokerLabPostflopSolver.analyse(state, history);
+            const result = await global.PokerLabPostflopSolver.analyse(initialState, history);
+            const latestState = global.PokerLabTraining.getGameState();
+
+            if (!button.isConnected || stateKey(latestState) !== initialKey) {
+                if (button.isConnected) {
+                    panel.replaceChildren(element("p", "text-sm text-textMuted",
+                        "La situation a changé pendant le calcul. Relance SOLVE pour analyser la nouvelle situation."));
+                }
+                return;
+            }
+
             renderResult(panel, result);
         } catch (error) {
-            panel.replaceChildren(element("p", "text-red-400 text-sm", error.message));
+            if (button.isConnected) {
+                panel.replaceChildren(element("p", "text-red-400 text-sm", error.message));
+            }
         } finally {
             busy = false;
-            button.disabled = false;
-            button.textContent = "SOLVE";
+            if (button.isConnected) {
+                button.disabled = false;
+                button.textContent = "SOLVE";
+            }
         }
     }
 
@@ -71,18 +116,31 @@
         const state = global.PokerLabTraining.getGameState();
         const oldButton = actions.querySelector("[data-postflop-solve]");
         const oldPanel = actions.querySelector("[data-postflop-result]");
+
         if (!eligible(state)) {
             if (oldButton) oldButton.remove();
             if (oldPanel) oldPanel.remove();
             return;
         }
-        if (oldButton) return;
+
+        const currentKey = stateKey(state);
+        if (oldButton) {
+            if (oldButton.dataset.solveStateKey !== currentKey) {
+                oldButton.dataset.solveStateKey = currentKey;
+                if (oldPanel) {
+                    oldPanel.replaceChildren();
+                    oldPanel.classList.add("hidden");
+                }
+            }
+            return;
+        }
 
         const button = element("button",
             "pl-solve-button bg-primary hover:bg-primaryHover text-white font-bold rounded-lg px-5 py-3 transition",
             "SOLVE");
         button.type = "button";
         button.dataset.postflopSolve = "true";
+        button.dataset.solveStateKey = currentKey;
         button.setAttribute("aria-label", "Analyser cette situation postflop");
         const panel = element("section",
             "hidden mt-4 rounded-xl border border-primary/30 bg-background p-4");
