@@ -8,9 +8,12 @@ const CACHE_SCHEMA_VERSION = 1;
 export class SolverScheduler {
   private active: Job | null = null;
   private requestId = 0;
+  private generation = 0;
   private readonly memory = new Map<string, number[]>();
 
   cancel(reason = "État du solveur modifié"): void {
+    // Invalidate pending IndexedDB lookups as well as active Workers.
+    this.generation++;
     const active = this.active;
     if (!active) return;
     this.active = null;
@@ -22,6 +25,7 @@ export class SolverScheduler {
   async calculate(request: EngineRequest): Promise<number[]> {
     const key = JSON.stringify({ version: CACHE_SCHEMA_VERSION, request });
     this.cancel("Recalcul demandé");
+    const generation = this.generation;
     const inMemory = this.memory.get(key);
     if (inMemory) return [...inMemory];
     try {
@@ -34,6 +38,11 @@ export class SolverScheduler {
         }
       }
     } catch { /* IndexedDB may be blocked; continue without persistent caching. */ }
+    // Independent calls may race during asynchronous cache reads.
+    // Never start a Worker for a superseded request.
+    if (this.generation !== generation) {
+      throw new DOMException("Calcul obsolète", "AbortError");
+    }
     const worker = new Worker(new URL("../workers/solver.worker.ts", import.meta.url), { type: "module" });
     const controller = new AbortController();
     const id = ++this.requestId;

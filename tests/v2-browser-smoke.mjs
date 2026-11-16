@@ -96,6 +96,18 @@ async function run() {
     });
     assert.deepEqual(score, [9,14]);
 
+    // Two quick successive calculations must never both continue after a cache miss.
+    const concurrency = await page.evaluate(async () => {
+      const first = window.PokerLabV2.solver.calculate({ kind: "evaluate", cards: [46,45,44,43,42] });
+      const second = window.PokerLabV2.solver.calculate({ kind: "evaluate", cards: [30,29,28,27,26] });
+      const [one, two] = await Promise.allSettled([first, second]);
+      return {
+        first: one.status === "rejected" ? one.reason?.name : "fulfilled",
+        second: two.status === "fulfilled" ? two.value : [two.reason?.message]
+      };
+    });
+    assert.deepEqual(concurrency, { first: "AbortError", second: [9,14] });
+
     const registration = await page.evaluate(async () => {
       const worker = await navigator.serviceWorker.ready;
       return Boolean(worker.active);
