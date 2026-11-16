@@ -73,11 +73,11 @@ test("l'arbre river HU expose check, bet et tapis quand ils sont légaux", () =>
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["check", "bet_50", "all_in"]
+        ["check", "bet_33", "bet_75", "all_in"]
     );
     assert.deepEqual(
         Array.from(built.tree.actions[0].child.actions, entry => entry.action.label),
-        ["check", "bet_50", "all_in"]
+        ["check", "bet_33", "bet_75", "all_in"]
     );
     assert.ok(built.nodeCount > 1);
 });
