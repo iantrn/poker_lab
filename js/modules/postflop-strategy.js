@@ -478,9 +478,18 @@
             throw new Error("Le moteur CFR+ est disponible à partir du flop.");
         }
         if (!Array.isArray(state.players)) throw new Error("La liste des joueurs est invalide.");
+        const playerIds = state.players.map(player => player && player.id);
+        if (playerIds.some(id => id === undefined || id === null) ||
+            new Set(playerIds).size !== playerIds.length) {
+            throw new Error("Les identifiants des joueurs sont invalides ou dupliqués.");
+        }
+        const humanPlayers = state.players.filter(player => player.isHuman);
+        if (humanPlayers.length !== 1) {
+            throw new Error("Le moteur stratégique exige exactement un joueur humain.");
+        }
         const active = state.players.filter(player => !player.folded);
         if (active.length !== 2) throw new Error("Le moteur CFR+ est limité au heads-up.");
-        const hero = state.players.find(player => player.isHuman);
+        const hero = humanPlayers[0];
         if (!hero || !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) {
             throw new Error("Les cartes du joueur sont indisponibles.");
         }
@@ -502,12 +511,60 @@
         }
 
         const chipValues = [
-            state.pot, hero.stack, opponent.stack, hero.streetBet, opponent.streetBet,
-            hero.amountToCall, state.lastFullRaise, hero.lastActedBet, opponent.lastActedBet
+            state.pot, state.currentBet, state.lastFullRaise, state.minimumRaiseTo,
+            state.blinds && state.blinds.smallBlind, state.blinds && state.blinds.bigBlind,
+            ...state.players.flatMap(player => [
+                player.stack, player.streetBet, player.totalContribution,
+                player.amountToCall, player.lastActedBet
+            ])
         ].filter(value => value !== undefined && value !== null);
         if (chipValues.some(value => !Number.isFinite(Number(value)) || Number(value) < 0 ||
             Math.abs(Number(value) * 2 - Math.round(Number(value) * 2)) > CHIP_EPSILON)) {
             throw new Error("L'état stratégique contient un montant qui ne respecte pas l'unité de 0,5 jeton.");
+        }
+
+        const allStreetBetsKnown = state.players.every(player =>
+            Number.isFinite(Number(player.streetBet))
+        );
+        if (allStreetBetsKnown && Number.isFinite(Number(state.currentBet))) {
+            const actualCurrentBet = Math.max(...state.players.map(player => Number(player.streetBet)));
+            if (Math.abs(actualCurrentBet - Number(state.currentBet)) > CHIP_EPSILON) {
+                throw new Error("La mise courante ne correspond pas aux contributions de la street.");
+            }
+        }
+        if (Number.isFinite(Number(state.currentBet)) &&
+            Number.isFinite(Number(hero.streetBet)) &&
+            Number.isFinite(Number(hero.amountToCall))) {
+            const expectedCall = Math.max(0, Number(state.currentBet) - Number(hero.streetBet));
+            if (Math.abs(expectedCall - Number(hero.amountToCall)) > CHIP_EPSILON) {
+                throw new Error("Le montant à égaliser du héros est incohérent.");
+            }
+        }
+        if (Number.isFinite(Number(state.currentBet)) &&
+            Number.isFinite(Number(state.lastFullRaise)) &&
+            Number.isFinite(Number(state.minimumRaiseTo)) &&
+            Math.abs(Number(state.minimumRaiseTo) -
+                (Number(state.currentBet) + Number(state.lastFullRaise))) > CHIP_EPSILON) {
+            throw new Error("Le minimum de relance ne correspond pas à la dernière relance complète.");
+        }
+
+        const contributionsKnown = state.players.every(player =>
+            Number.isFinite(Number(player.totalContribution))
+        );
+        if (contributionsKnown && Number.isFinite(Number(state.pot))) {
+            const actualPot = state.players.reduce(
+                (sum, player) => sum + Number(player.totalContribution), 0
+            );
+            if (Math.abs(actualPot - Number(state.pot)) > CHIP_EPSILON) {
+                throw new Error("Le pot ne correspond pas à la somme des contributions des joueurs.");
+            }
+        }
+        for (const player of state.players) {
+            if (Number.isFinite(Number(player.streetBet)) &&
+                Number.isFinite(Number(player.totalContribution)) &&
+                Number(player.streetBet) - Number(player.totalContribution) > CHIP_EPSILON) {
+                throw new Error("Une mise de street dépasse la contribution totale du joueur.");
+            }
         }
         return { hero, opponent };
     }
