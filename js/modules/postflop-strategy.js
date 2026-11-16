@@ -466,92 +466,50 @@
         return payout - node.heroInvested;
     }
 
-    function regretMatched(regrets, count) {
-        const positive = regrets ? Array.from(regrets, value => Math.max(0, value)) : [];
-        const total = positive.reduce((sum, value) => sum + value, 0);
-        if (total <= 0) return Array(count).fill(1 / count);
-        return positive.map(value => value / total);
-    }
-
-    function informationKey(node, deal, hero, board) {
-        const privateHand = node.actor === 0 ? handId(deal && deal.hero || hero) : handId(deal.villain);
-        const publicState = [
-            roundChips(node.pot),
-            (node.stacks || []).map(roundChips).join(","),
-            (node.bets || []).map(roundChips).join(","),
-            (node.hasActed || []).map(Boolean).join(","),
-            (node.lastActedBets || []).map(roundChips).join(","),
-            roundChips(node.lastFullRaise),
-            node.raises || 0,
-            node.checks || 0
-        ].join(":");
-        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) +
-            "|" + publicState + "|" + node.history;
+    function cfrCallbacks(hero, board) {
+        return {
+            informationKey: (node, deal) =>
+                informationKey(node, deal, deal && deal.hero || hero, board),
+            utility: (node, deal) =>
+                utility(node, deal, deal && deal.hero || hero, board)
+        };
     }
 
     function runCfr(node, deal, traverser, reach, maps, hero, board, averageWeight) {
-        if (node.terminal) return utility(node, deal, hero, board);
-
-        const key = informationKey(node, deal, hero, board);
-        const count = node.actions.length;
-        let regrets = maps.regrets.get(key);
-        if (!regrets) {
-            regrets = new Float64Array(count);
-            maps.regrets.set(key, regrets);
+        if (!global.PokerLabCFRCore) {
+            throw new Error("Le noyau CFR+ n'est pas chargé.");
         }
-        let strategySum = maps.strategy.get(key);
-        if (!strategySum) {
-            strategySum = new Float64Array(count);
-            maps.strategy.set(key, strategySum);
-        }
-        const strategy = regretMatched(regrets, count);
-        const ownReach = reach[node.actor];
         const chanceWeight = Number(deal.heroImportanceWeight) > 0
             ? Number(deal.heroImportanceWeight)
             : 1;
-        if (traverser === 0) {
-            for (let i = 0; i < count; i++) {
-                strategySum[i] += averageWeight * ownReach * strategy[i] * chanceWeight;
-            }
-        }
-
-        const values = new Float64Array(count);
-        let nodeValue = 0;
-        for (let i = 0; i < count; i++) {
-            const nextReach = reach.slice();
-            nextReach[node.actor] *= strategy[i];
-            values[i] = runCfr(node.actions[i].child, deal, traverser, nextReach, maps, hero, board, averageWeight);
-            nodeValue += strategy[i] * values[i];
-        }
-
-        if (node.actor === traverser) {
-            const opponentReach = reach[1 - node.actor];
-            const sign = node.actor === 0 ? 1 : -1;
-            for (let i = 0; i < count; i++) {
-                regrets[i] = Math.max(0, regrets[i] + chanceWeight * sign * opponentReach * (values[i] - nodeValue));
-            }
-        }
-        return nodeValue;
+        return global.PokerLabCFRCore.runCfr(
+            node,
+            deal,
+            traverser,
+            reach,
+            maps,
+            cfrCallbacks(hero, board),
+            averageWeight,
+            chanceWeight
+        );
     }
 
     function averageStrategy(node, deal, maps, hero, board) {
-        if (node.terminal) return utility(node, deal, hero, board);
-        const key = informationKey(node, deal, hero, board);
-        const sums = maps.strategy.get(key);
-        const total = sums ? Array.from(sums).reduce((a, b) => a + b, 0) : 0;
-        const strategy = sums && total > 0
-            ? Array.from(sums, value => value / total)
-            : Array(node.actions.length).fill(1 / node.actions.length);
-        return node.actions.reduce((sum, entry, index) =>
-            sum + strategy[index] * averageStrategy(entry.child, deal, maps, hero, board), 0);
+        return global.PokerLabCFRCore.averageStrategy(
+            node,
+            deal,
+            maps,
+            cfrCallbacks(hero, board)
+        );
     }
 
     function getRootStrategy(tree, deal, maps, hero, board) {
-        const key = informationKey(tree, deal, hero, board);
-        const sums = maps.strategy.get(key);
-        if (!sums) return tree.actions.map(() => 1 / tree.actions.length);
-        const total = Array.from(sums).reduce((a, b) => a + b, 0);
-        return Array.from(sums, value => total > 0 ? value / total : 1 / sums.length);
+        return global.PokerLabCFRCore.getStrategy(
+            tree,
+            deal,
+            maps,
+            cfrCallbacks(hero, board)
+        );
     }
 
     function validate(state) {
@@ -659,7 +617,7 @@
         const random = Number.isInteger(options.seed)
             ? createRandom(options.seed)
             : Math.random;
-        const maps = { regrets: new Map(), strategy: new Map() };
+        const maps = global.PokerLabCFRCore.createMaps();
         let rootTree = null;
         let averageNodeCount = 0;
         let sampledRangeUsed = true;
