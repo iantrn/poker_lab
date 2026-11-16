@@ -437,11 +437,19 @@
         };
     }
 
-    async function getOpponentRange(state, history, opponent) {
+    function sameHand(first, second) {
+        if (!Array.isArray(first) || !Array.isArray(second) || first.length !== 2 || second.length !== 2) {
+            return false;
+        }
+        const key = cards => cards.map(cardKey).sort().join("|");
+        return key(first) === key(second);
+    }
+
+    async function getPlayerRange(state, history, player) {
         let baseRange;
         try {
             const matrix = await loadMatrix();
-            baseRange = findOpponentRange(state, history, opponent, matrix);
+            baseRange = findOpponentRange(state, history, player, matrix);
         } catch (error) {
             baseRange = {
                 combos: null,
@@ -449,19 +457,42 @@
                 rangeError: error && error.message ? error.message : "Chargement des ranges impossible."
             };
         }
-        const rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
-        const sourceRange = rangeUsed
-            ? baseRange
-            : { ...baseRange, combos: buildUniformCombos([
-                ...(state.players.find(player => player.isHuman)?.holeCards || []),
+
+        let rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
+        let sourceRange = rangeUsed ? baseRange : {
+            ...baseRange,
+            combos: buildUniformCombos([
+                ...(player.isHuman ? [] : (state.players.find(item => item.isHuman)?.holeCards || [])),
                 ...state.board
-            ]) };
-        const conditioned = conditionRangeOnPostflopActions(state, history, opponent, sourceRange);
+            ])
+        };
+
+        // The known human hand must belong to the modeled hero range. If the
+        // selected preflop spot excludes it, do not silently solve a different
+        // hand: fall back to a broad range that contains the observed holding.
+        const actualHandInRange = !player.isHuman ||
+            sourceRange.combos.some(item => sameHand(item.cards, player.holeCards));
+        if (player.isHuman && !actualHandInRange) {
+            rangeUsed = false;
+            sourceRange = {
+                ...baseRange,
+                label: "Range large (main réelle absente de la range préflop)",
+                combos: buildUniformCombos(state.board)
+            };
+        }
+
+        const conditioned = conditionRangeOnPostflopActions(state, history, player, sourceRange);
         conditioned.rangeUsed = rangeUsed;
+        conditioned.actualHandInRange = !player.isHuman ||
+            conditioned.combos.some(item => sameHand(item.cards, player.holeCards));
         if (conditioned.postflopActionsUsed > 0 && conditioned.combos) {
             conditioned.label += " · ajustée postflop";
         }
         return conditioned;
+    }
+
+    async function getOpponentRange(state, history, opponent) {
+        return getPlayerRange(state, history, opponent);
     }
 
     async function analyse(input, history = [], options = {}) {
@@ -514,5 +545,5 @@
         };
     }
 
-    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange, createInput, resolveInput };
+    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange, getPlayerRange, createInput, resolveInput };
 })(window);
