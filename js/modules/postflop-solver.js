@@ -442,7 +442,7 @@
             rangeLabel: range.label,
             rangeUsed: range.rangeUsed === undefined ? Boolean(range.combos) : range.rangeUsed,
             decision,
-            note: "Équité Monte-Carlo contre la range estimée. Les fréquences stratégiques affichées séparément sont issues d'un arbre CFR+ abstrait et ne constituent pas un équilibre GTO certifié."
+            note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique des actions postflop observées. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
         };
     }
 
