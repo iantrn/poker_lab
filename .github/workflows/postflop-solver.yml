@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "js/core/evaluator.js"
+      - "js/core/game-engine.js"
+      - "js/modules/training.js"
       - "js/modules/postflop-solver.js"
       - "js/modules/postflop-strategy.js"
       - "js/modules/postflop-solver-ui.js"
@@ -27,6 +29,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check game engine syntax
+        run: node --check js/core/game-engine.js
+      - name: Check training module syntax
+        run: node --check js/modules/training.js
       - name: Check solver module syntax
         run: node --check js/modules/postflop-solver.js
       - name: Check strategy module syntax
