@@ -511,10 +511,12 @@ test("une mise complète rouvre le droit de relance d'un joueur ayant déjà che
 });
 
 
-test("l'arbre interdit une troisième relance après deux relances déjà effectuées dans la street", () => {
+test("la racine respecte le droit réel de relancer même après deux relances antérieures", () => {
     const app = loadStrategy();
     const state = riverState();
     state.pot = 20;
+    state.players[0].stack = 100;
+    state.players[1].stack = 100;
     state.players[0].streetBet = 5;
     state.players[0].hasActed = true;
     state.players[0].lastActedBet = 5;
@@ -524,13 +526,13 @@ test("l'arbre interdit une troisième relance après deux relances déjà effect
         canCall: true,
         canRaise: true,
         minimumRaiseTo: 25,
-        maximumRaiseTo: 100
+        maximumRaiseTo: 105
     };
 
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(
         state,
         state.players[0].actionOptions,
-        ["BTN:bet:5", "BB:raise:15"],
+        ["BTN:bet:5", "BB:raise:15", "BTN:raise:25"],
         [],
         0,
         2
@@ -538,7 +540,12 @@ test("l'arbre interdit une troisième relance après deux relances déjà effect
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call"]
+        ["fold", "call", "raise"]
+    );
+    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    assert.deepEqual(
+        Array.from(raiseBranch.child.actions, entry => entry.action.label),
+        ["fold", "call", "raise"]
     );
 });
 
