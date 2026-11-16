@@ -121,14 +121,14 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
     assert.equal(result.rangeUsed, true);
 });
 
-test("CFR+ refuse le flop : la première abstraction stratégique est river", async () => {
+test("CFR+ refuse le préflop", async () => {
     const app = loadStrategy();
     const state = riverState();
-    state.street = "flop";
-    state.board = state.board.slice(0, 3);
+    state.street = "preflop";
+    state.board = [];
     assert.throws(
         () => app.PokerLabPostflopStrategy.validate(state),
-        /river/
+        /à partir du flop/
     );
 });
 
@@ -229,4 +229,51 @@ test("un call à tapis court restitue la partie non couverte de la mise adverse"
     assert.ok(call);
     assert.equal(call.child.pot, 20);
     assert.equal(call.child.heroInvested, 5);
+});
+
+
+test("l'arbre ajoute les nœuds de turn et river après les checks successifs", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.street = "flop";
+    state.board = state.board.slice(0, 3);
+    const turnCard = card(4, "diamonds");
+    const riverCard = card(5, "clubs");
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions,
+        [],
+        [turnCard, riverCard]
+    );
+    const turnNode = built.tree.actions.find(entry => entry.action.type === "check")
+        .child.actions.find(entry => entry.action.type === "check").child;
+    assert.equal(turnNode.board.length, 4);
+    assert.equal(turnNode.history.includes("street:turn"), true);
+    const riverNode = turnNode.actions.find(entry => entry.action.type === "check")
+        .child.actions.find(entry => entry.action.type === "check").child;
+    assert.equal(riverNode.board.length, 5);
+    assert.equal(riverNode.history.includes("street:river"), true);
+});
+
+test("CFR+ échantillonne les runouts et calcule une stratégie dès le flop", async () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.street = "flop";
+    state.board = [
+        card(2, "spades"),
+        card(7, "diamonds"),
+        card(9, "hearts")
+    ];
+    state.players[0].position = "BTN/SB";
+    state.players[1].position = "BB";
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(state, [], {
+        iterations: 20,
+        samples: 8
+    });
+    const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
+    assert.equal(result.street, "flop");
+    assert.equal(result.sampledOpponentHands, 8);
+    assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
+    assert.ok(Number.isFinite(result.heroEV));
+    assert.ok(result.treeNodes > 10);
 });
