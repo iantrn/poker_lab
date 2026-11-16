@@ -257,7 +257,7 @@
         return node.actor + "|" + privateHand + "|" + boardId(board) + "|" + node.history;
     }
 
-    function runCfr(node, deal, traverser, reach, maps, hero, board) {
+    function runCfr(node, deal, traverser, reach, maps, hero, board, averageWeight) {
         if (node.terminal) return utility(node, deal, hero, board);
 
         const key = informationKey(node, deal, hero, board);
@@ -274,14 +274,14 @@
         }
         const strategy = regretMatched(regrets, count);
         const ownReach = reach[node.actor];
-        for (let i = 0; i < count; i++) strategySum[i] += ownReach * strategy[i];
+        for (let i = 0; i < count; i++) strategySum[i] += averageWeight * ownReach * strategy[i];
 
         const values = new Float64Array(count);
         let nodeValue = 0;
         for (let i = 0; i < count; i++) {
             const nextReach = reach.slice();
             nextReach[node.actor] *= strategy[i];
-            values[i] = runCfr(node.actions[i].child, deal, traverser, nextReach, maps, hero, board);
+            values[i] = runCfr(node.actions[i].child, deal, traverser, nextReach, maps, hero, board, averageWeight);
             nodeValue += strategy[i] * values[i];
         }
 
@@ -354,8 +354,8 @@
         const maps = { regrets: new Map(), strategy: new Map() };
         for (let iteration = 0; iteration < iterations; iteration++) {
             for (const deal of deals) {
-                runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board);
-                runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board);
+                runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
+                runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
             }
             // Yield periodically so the PWA remains responsive during CFR iterations.
             if (iteration % 5 === 4) {
@@ -375,6 +375,7 @@
 
         return {
             algorithm: "CFR+",
+            averageStrategyWeighting: "linear",
             abstraction: "River HU · une taille de mise (50 % pot) · une relance maximale",
             iterations,
             sampledOpponentHands: samples,
