@@ -343,6 +343,12 @@ window.PokerLabGameReview = (function () {
             hand: clone(preparedHand)
         });
 
+        // Si l'historique est déjà affiché, le mettre à jour immédiatement.
+        const historyContainer = document.querySelector("[data-review-history]");
+        if (historyContainer) {
+            renderHistory(historyContainer);
+        }
+
         return {
             success: true,
             hand: clone(preparedHand)
