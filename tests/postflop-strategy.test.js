@@ -111,7 +111,7 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
         samples: 8
     });
     const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
-    assert.equal(result.algorithm, "CFR+");
+    assert.equal(result.algorithm, "Chance-sampled CFR+");
     assert.equal(result.iterations, 20);
     assert.equal(result.sampledOpponentHands, 8);
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
