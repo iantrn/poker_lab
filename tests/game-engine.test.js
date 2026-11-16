@@ -361,7 +361,7 @@ test("la distribution de tous les pots conserve exactement les jetons", () => {
     );
     const pots = engine.buildSidePots();
     const evaluations = [
-        { player: hero, evaluation: { score: [2, 14] } },
+        { player: hero, evaluation: { score: [4, 14] } },
         { player: second, evaluation: { score: [1, 14] } },
         { player: third, evaluation: { score: [3, 10] } }
     ];
