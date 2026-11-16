@@ -85,8 +85,7 @@ Les trois icônes PNG sont fournies : `icon-192.png` (192×192), `icon-512.png` 
 │   ├── bots/                  Profils et logique des bots
 │   ├── components/            Table, cartes, navigation et matrice de ranges
 │   ├── core/                  Paquet de cartes, règles, évaluation et moteur
-│   ├── modules/               Entraînement, ranges, leçons, puzzles et review
-│   └── utils/                 Utilitaires partagés
+│   └── modules/               Entraînement, ranges, leçons, puzzles et review
 ├── tests/
 │   │   ├── ranges/             Tests du pipeline et de l'intégrité des ranges
 │   │   └── *.test.js           Tests moteur, bots, solveur et modules pédagogiques
@@ -148,7 +147,7 @@ Node.js est nécessaire pour exécuter les tests et les outils de données.
 Lancer les tests du moteur, des bots, du solveur et des modules pédagogiques :
 
 ```powershell
-node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js tests/learning-modules.test.js
+node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js tests/learning-modules.test.js tests/pwa-assets.test.mjs
 ```
 
 Lancer les tests des outils et de l'intégrité des ranges :
