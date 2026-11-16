@@ -145,6 +145,8 @@
                         actions.push(makeAction("raise", "raise", desiredRaiseTotal));
                     } else if (state.root && rootOptions.isAllIn && maximumRaiseTotal > toCall) {
                         actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
+                    } else if (state.root && maximumRaiseTotal > toCall) {
+                        actions.push(makeAction("raise_effective", "raise", maximumRaiseTotal));
                     } else if (!state.root && state.stacks[actor] > toCall && maximumRaiseTotal > toCall) {
                         actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
                     }
