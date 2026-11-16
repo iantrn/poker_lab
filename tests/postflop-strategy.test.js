@@ -424,7 +424,9 @@ test("le moteur signale le fallback uniforme si toutes les combos pondérées so
 
 test("l'interface déclenche CFR+ sur le flop, le turn et la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
-    assert.match(ui, /PokerLabPostflopStrategy\.solvePostflop\(solverInput\)/);
+    const worker = fs.readFileSync("pokerlab-solver-worker.js", "utf8");
+    assert.match(ui, /PokerLabSolverPrecompute\.getOrStart\(\)/);
+    assert.match(worker, /PokerLabPostflopStrategy\.solvePostflop\(input\)/);
     assert.doesNotMatch(ui, /initialState\.street === ["']river["']/);
     assert.match(ui, /"Détails stratégiques — " \+ strategy\.street/);
 });
