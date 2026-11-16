@@ -22,19 +22,20 @@ export interface GameActionOptions {
  maximumRaiseTo:number;isAllIn:boolean;
 }
 interface DeckLike {drawOne():GameCard;draw(count:number):GameCard[]}
-declare global {
- interface Window {
+interface LegacyPokerGlobals {
   PokerLabDeck:new()=>DeckLike;
   PokerLabRules:{
-   blinds:{create(smallBlind?:number,bigBlind?:number):{smallBlind:number;bigBlind:number}};
-   betting:{getMinimumOpeningBet(bigBlind:number):number};
-   positions:{getPositionNames(playerCount:number):string[]};
-   streets:{getNext(street:string):string|null};
+    blinds:{create(smallBlind?:number,bigBlind?:number):{smallBlind:number;bigBlind:number}};
+    betting:{getMinimumOpeningBet(bigBlind:number):number};
+    positions:{getPositionNames(playerCount:number):string[]};
+    streets:{getNext(street:string):string|null};
   };
   PokerLabHandEvaluator:{evaluate(cards:GameCard[]):GameHandEvaluation;compareScores(a:number[],b:number[]):number};
   PokerLabBotEngine?:{decide(context:ReturnType<PokerLabGameEngine['getBotContext']>):BotDecision};
   PokerLabGameEngine?:typeof PokerLabGameEngine;
- }
+}
+function legacyPokerGlobals(): Window & LegacyPokerGlobals {
+  return window as unknown as Window & LegacyPokerGlobals;
 }
 
 /* =========================================================
@@ -69,15 +70,15 @@ export class PokerLabGameEngine {
 
         // Vérification des dépendances.
 
-        if (typeof window.PokerLabDeck !== "function") {
+        if (typeof legacyPokerGlobals().PokerLabDeck !== "function") {
             throw new Error("PokerLabDeck n'est pas chargé.");
         }
 
-        if (!window.PokerLabRules) {
+        if (!legacyPokerGlobals().PokerLabRules) {
             throw new Error("PokerLabRules n'est pas chargé.");
         }
 
-        if (!window.PokerLabHandEvaluator) {
+        if (!legacyPokerGlobals().PokerLabHandEvaluator) {
             throw new Error("PokerLabHandEvaluator n'est pas chargé.");
         }
 
@@ -91,7 +92,7 @@ export class PokerLabGameEngine {
 
         // Blinds par défaut : SB = 0,5 / BB = 1.
 
-        this.blinds = window.PokerLabRules.blinds.create(
+        this.blinds = legacyPokerGlobals().PokerLabRules.blinds.create(
             options.smallBlind ?? 0.5,
             options.bigBlind ?? 1
         );
@@ -410,7 +411,7 @@ export class PokerLabGameEngine {
         }
 
         const positionNames =
-            window.PokerLabRules.positions.getPositionNames(
+            legacyPokerGlobals().PokerLabRules.positions.getPositionNames(
                 activeSeats.length
             );
 
@@ -470,7 +471,7 @@ export class PokerLabGameEngine {
 
         this.handHistory = [];
 
-        this.deck = new window.PokerLabDeck();
+        this.deck = new legacyPokerGlobals().PokerLabDeck();
 
         this.board = [];
         this.street = "preflop";
@@ -520,7 +521,7 @@ export class PokerLabGameEngine {
         // Attribution des positions.
 
         const positionNames =
-            window.PokerLabRules.positions.getPositionNames(
+            legacyPokerGlobals().PokerLabRules.positions.getPositionNames(
                 this.handSeatIndices.length
             );
 
@@ -1152,7 +1153,7 @@ const position = positionNames[index]!;
             Math.abs(amount - player.stack) < 0.000001;
 
         const minimumBet =
-            window.PokerLabRules.betting.getMinimumOpeningBet(
+            legacyPokerGlobals().PokerLabRules.betting.getMinimumOpeningBet(
                 this.blinds.bigBlind
             );
 
@@ -1525,7 +1526,7 @@ const position = positionNames[index]!;
     advanceStreet() {
 
         const nextStreet =
-            window.PokerLabRules.streets.getNext(this.street);
+            legacyPokerGlobals().PokerLabRules.streets.getNext(this.street);
 
         if (!nextStreet || nextStreet === "showdown") {
             this.showdown();
@@ -1756,7 +1757,7 @@ const position = positionNames[index]!;
 
     evaluatePlayer(player:GamePlayer) {
 
-        return window.PokerLabHandEvaluator.evaluate([
+        return legacyPokerGlobals().PokerLabHandEvaluator.evaluate([
 
             ...player.holeCards,
 
@@ -1818,7 +1819,7 @@ const position = positionNames[index]!;
 
             const comparison = bestScore === null
                 ? 1
-                : window.PokerLabHandEvaluator.compareScores(
+                : legacyPokerGlobals().PokerLabHandEvaluator.compareScores(
                     item.evaluation.score,
                     bestScore
                 );
@@ -2258,7 +2259,7 @@ const position = positionNames[index]!;
 
     decideBotTurn(playerId:string|null) {
 
-        if (!window.PokerLabBotEngine) {
+        if (!legacyPokerGlobals().PokerLabBotEngine) {
             throw new Error(
                 "PokerLabBotEngine n'est pas chargé."
             );
@@ -2266,7 +2267,7 @@ const position = positionNames[index]!;
 
         const context = this.getBotContext(playerId);
 
-        return window.PokerLabBotEngine.decide(context);
+        return legacyPokerGlobals().PokerLabBotEngine.decide(context);
 
     }
 
@@ -2483,4 +2484,4 @@ const position = positionNames[index]!;
    38. EXPORT DU MODULE
    ========================================================= */
 
-export function installGameEngine():typeof PokerLabGameEngine { window.PokerLabGameEngine = PokerLabGameEngine; return PokerLabGameEngine; }
+export function installGameEngine():typeof PokerLabGameEngine { legacyPokerGlobals().PokerLabGameEngine = PokerLabGameEngine; return PokerLabGameEngine; }
