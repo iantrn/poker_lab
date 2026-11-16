@@ -578,7 +578,7 @@ test("la racine respecte le droit réel de relancer même après deux relances a
 
     assert.deepEqual(
         Array.from(built.tree.actions, entry => entry.action.label),
-        ["fold", "call", "min_raise", "all_in_raise"]
+        ["fold", "call", "min_raise", "raise_50", "all_in_raise"]
     );
     const raiseBranch = built.tree.actions.find(entry => entry.action.label === "min_raise");
     assert.deepEqual(
@@ -1059,7 +1059,7 @@ test("à la racine, une relance légale propose le minimum, 50 % pot et le tapis
         Array.from(raises, entry => [entry.action.label, entry.action.amount]),
         [
             ["min_raise", 6],
-            ["raise_50", 12.5],
+            ["raise_50", 15],
             ["all_in_raise", 20]
         ]
     );
