@@ -1067,6 +1067,8 @@
                 : sampledRangeUsed
                     ? rangeInfo.label
                     : "Range large (combinaisons bloquées)",
+            rangeConditioning: rangeInfo.conditioning || "aucune action postflop exploitable dans l'historique",
+            profileModeledActions: rangeInfo.profileModeledActions || 0,
             rangeUsed: rangeInfo.rangeUsed === false ? false : sampledRangeUsed,
             postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
             heroEV,
