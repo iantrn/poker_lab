@@ -1,8 +1,8 @@
 /* =========================================================
    POKERLAB - POSTFLOP STRATEGY (CFR+)
-   Version : 0.1.0
-   First strategic subgame: heads-up river, one raise maximum.
-   This is an abstracted CFR+ model, not a full GTO solver.
+   Version : 0.2.0
+   Chance-sampled CFR+ across flop, turn and river in heads-up pots.
+   Abstracted betting tree; not a full or certified GTO solver.
    ========================================================= */
 "use strict";
 
