@@ -92,6 +92,8 @@
 
     function actionCode(action, aggressorNumber) {
         if (action === "call" || action === "all_in_call") return "call";
+        if (action === "fold") return "fold";
+        if (action === "check") return "check";
         if (!["bet", "raise", "short_raise", "short_all_in_bet"].includes(action)) return null;
         if (aggressorNumber === 1) return "RFI";
         if (aggressorNumber === 2) return "3bet";
@@ -129,12 +131,10 @@
         const candidates = matrix.index.spots.filter(item =>
             item.p === opponent.position && item.a === targetCode
         );
-        const exact = candidates.find(item => (item.s || "") === sequence);
-        const spot = exact || candidates.sort((a, b) => {
-            const depthA = a.s ? a.s.split("›").length : 0;
-            const depthB = b.s ? b.s.split("›").length : 0;
-            return Math.abs(depthA - prefix.length) - Math.abs(depthB - prefix.length);
-        })[0];
+        // Never substitute a merely similar sequence: a different preflop line
+        // can represent a materially different range. If the exact line is absent,
+        // analyse against the explicit uniform fallback instead.
+        const spot = candidates.find(item => (item.s || "") === sequence);
 
         if (!spot || !matrix.ranges[spot.id]) {
             return { combos: null, label: "Range large (spot absent)" };
