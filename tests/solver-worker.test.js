@@ -133,3 +133,24 @@ test("l'interface délègue les calculs au Worker et annule les requêtes obsol�
     assert.match(ui, /currentKey !== activeStateKey/);
     assert.match(ui, /error\.name === "AbortError"/);
 });
+
+
+test("SOLVE présente les résultats dans une boîte de dialogue native refermable", () => {
+    const ui = fs.readFileSync(
+        path.join(__dirname, "..", "js/modules/postflop-solver-ui.js"),
+        "utf8"
+    );
+    const css = fs.readFileSync(
+        path.join(__dirname, "..", "css/style.css"),
+        "utf8"
+    );
+
+    assert.match(ui, /element\("dialog", "pl-solve-dialog"\)/);
+    assert.match(ui, /dialog\.showModal\(\)/);
+    assert.match(ui, /dialog\.close\(\)/);
+    assert.match(ui, /aria-labelledby/);
+    assert.match(ui, /aria-label", "Fermer l'analyse SOLVE"/);
+    assert.match(ui, /event\.target === dialog/);
+    assert.match(css, /\.pl-solve-dialog::backdrop/);
+    assert.match(css, /\.pl-solve-dialog-close:focus-visible/);
+});
