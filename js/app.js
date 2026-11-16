@@ -514,6 +514,28 @@ const PokerLabApp = {
 
         PokerLabSettings.init();
 
+        // Initialise les modules pédagogiques uniquement lorsqu'ils sont ouverts.
+        // Les modules restent indépendants et conservent leur propre garde d'initialisation.
+        window.addEventListener("pokerlab:navigate", event => {
+            const page = event.detail?.page;
+
+            const initializers = {
+                tactics: window.PokerLabPuzzles,
+                lessons: window.PokerLabLessons,
+                review: window.PokerLabGameReview
+            };
+
+            const module = initializers[page];
+            if (!module || typeof module.init !== "function") return;
+
+            Promise.resolve(module.init()).catch(error => {
+                PokerLabLogger.error(
+                    `Initialisation du module "${page}" impossible.`,
+                    error
+                );
+            });
+        });
+
         PokerLabNavigation.init();
 
         await PokerLabServiceWorker.init();
