@@ -115,9 +115,10 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
         samples: 8
     });
     const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
-    assert.equal(result.algorithm, "Chance-sampled CFR+");
-    assert.equal(result.iterations, 20);
-    assert.equal(result.sampledOpponentHands, 8);
+    assert.equal(result.algorithm, "CFR+ avec rééchantillonnage des chances");
+    assert.equal(result.iterations, 160);
+    assert.equal(result.sampledOpponentHands, 160);
+    assert.equal(result.evaluationSamples, 8);
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.actions.every(action => Number.isFinite(action.ev)));
@@ -346,7 +347,7 @@ test("le moteur signale le fallback uniforme si toutes les combos pondérées so
 
 test("l'interface déclenche CFR+ sur le flop, le turn et la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
-    assert.match(ui, /PokerLabPostflopStrategy\.solvePostflop\(initialState, history\)/);
+    assert.match(ui, /PokerLabPostflopStrategy\.solvePostflop\(solverInput\)/);
     assert.doesNotMatch(ui, /initialState\.street === ["']river["']/);
     assert.match(ui, /"Stratégie CFR\+ — " \+ strategy\.street/);
 });
@@ -391,4 +392,36 @@ test("le message de repli UI ne prétend pas limiter CFR+ à la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
     assert.doesNotMatch(ui, /limité à la river/);
     assert.match(ui, /L\x27analyse stratégique n\x27a pas pu être calculée/);
+});
+
+
+test("les montants de l'arbre stratégique respectent l'unité de 0,5 jeton", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 11;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const amounts = [];
+    function visit(node) {
+        if (!node || node.terminal) return;
+        for (const entry of node.actions) {
+            if (entry.action.amount > 0) amounts.push(entry.action.amount);
+            visit(entry.child);
+        }
+    }
+    visit(built.tree);
+    assert.ok(amounts.length > 0);
+    assert.ok(amounts.every(amount => Math.abs(amount * 2 - Math.round(amount * 2)) < 0.000001));
+});
+
+test("une relance postflop respecte la dernière relance complète de la street", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[1].streetBet = 3.5;
+    state.lastFullRaise = 3.5;
+    state.pot = 17;
+    state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: true };
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+    assert.ok(raise);
+    assert.ok(raise.action.amount >= 7);
 });
