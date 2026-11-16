@@ -75,6 +75,10 @@ test("l'arbre river HU expose check, bet et tapis quand ils sont légaux", () =>
         Array.from(built.tree.actions, entry => entry.action.label),
         ["check", "bet_50", "all_in"]
     );
+    assert.deepEqual(
+        Array.from(built.tree.actions[0].child.actions, entry => entry.action.label),
+        ["check", "bet_50", "all_in"]
+    );
     assert.ok(built.nodeCount > 1);
 });
 
