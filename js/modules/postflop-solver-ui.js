@@ -78,7 +78,7 @@
 
         if (strategy) {
             const divider = element("div", "border-t border-white/10 my-4");
-            const strategyHeading = element("h5", "font-bold mb-2", "Stratégie CFR+ — river");
+            const strategyHeading = element("h5", "font-bold mb-2", "Stratégie CFR+ — " + strategy.street);
             const strategyMeta = element("p", "text-xs text-textMuted mb-2",
                 strategy.iterations + " itérations · " +
                 strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
