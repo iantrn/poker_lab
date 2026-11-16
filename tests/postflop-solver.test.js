@@ -429,3 +429,63 @@ test("le mapping distingue un 5bet non all-in d'un 5bet à tapis", async () => {
     assert.equal(jam.rangeUsed, true);
     assert.equal(jam.label, jamId);
 });
+
+
+test("un sizing de mise plus élevé renforce prudemment le poids des mains fortes", async () => {
+    const spotId = "bb/BB_call_vs_BU_RFI";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: spotId, p: "BB", a: "call", s: "BU RFI" }] }
+            : { version: 1, ranges: { [spotId]: { AA: 100, "43o": 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        [card(8, "clubs"), card(5, "clubs")]
+    );
+    current.players[0].position = "BTN";
+    current.players[1].position = "BB";
+
+    const baseHistory = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "call" } }
+    ];
+    const rangeForBetSize = async betTo => app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        [
+            ...baseHistory,
+            {
+                type: "player_action",
+                street: "flop",
+                data: {
+                    playerId: "bot_1",
+                    action: "bet",
+                    amount: betTo,
+                    betTo,
+                    potBefore: 10
+                }
+            }
+        ],
+        current.players[1]
+    );
+    const small = await rangeForBetSize(1);
+    const large = await rangeForBetSize(10);
+
+    const ratioFor = range => {
+        const aces = range.combos
+            .filter(item => item.cards[0].value === 14 && item.cards[1].value === 14)
+            .reduce((sum, item) => sum + item.weight, 0);
+        const lowOffsuit = range.combos
+            .filter(item =>
+                [item.cards[0].value, item.cards[1].value].includes(4) &&
+                [item.cards[0].value, item.cards[1].value].includes(3) &&
+                item.cards[0].suit !== item.cards[1].suit
+            )
+            .reduce((sum, item) => sum + item.weight, 0);
+        return aces / lowOffsuit;
+    };
+
+    assert.ok(ratioFor(large) > ratioFor(small));
+    assert.equal(large.postflopActionsUsed, 1);
+});
