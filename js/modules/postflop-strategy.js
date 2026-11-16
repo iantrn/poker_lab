@@ -757,6 +757,8 @@
         let sampledRangeUsed = true;
         let sampledHeroHands = 0;
         let sampledActualHeroHand = 0;
+        let heroImportanceWeightSum = 0;
+        let heroImportanceWeightSquares = 0;
 
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = sampleDeals(
@@ -772,6 +774,8 @@
             sampledRangeUsed = sampledRangeUsed && sampled.rangeUsed;
             sampledHeroHands++;
             sampledActualHeroHand += sampled.actualHeroSamples;
+            heroImportanceWeightSum += deal.heroImportanceWeight;
+            heroImportanceWeightSquares += deal.heroImportanceWeight * deal.heroImportanceWeight;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
                 global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
@@ -889,6 +893,9 @@
         }).sort((a, b) => b.frequency - a.frequency);
         const heroEV = heroEVSum / evaluatedDeals;
         const heroEVStandardError = standardError(heroEVSum, heroEVSquares);
+        const heroRangeEffectiveSampleSize = heroImportanceWeightSquares > 0
+            ? heroImportanceWeightSum * heroImportanceWeightSum / heroImportanceWeightSquares
+            : 0;
 
         return {
             algorithm: "CFR+ avec rééchantillonnage des chances",
@@ -903,6 +910,7 @@
             sampledOpponentHands: trainingIterations,
             sampledHeroHands,
             sampledActualHeroHand,
+            heroRangeEffectiveSampleSize,
             heroRangeLabel: heroRangeInfo.label,
             heroRangeUsed: heroRangeInfo.rangeUsed !== false,
             actualHandInHeroRange: heroRangeInfo.actualHandInRange !== false,
