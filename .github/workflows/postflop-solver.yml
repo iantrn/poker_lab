@@ -1,0 +1,37 @@
+name: Postflop solver tests
+
+on:
+  pull_request:
+    paths:
+      - "js/core/evaluator.js"
+      - "js/modules/postflop-solver.js"
+      - "js/modules/postflop-strategy.js"
+      - "js/modules/postflop-solver-ui.js"
+      - "index.html"
+      - "service-worker.js"
+      - "tests/postflop-solver.test.js"
+      - "tests/postflop-strategy.test.js"
+      - ".github/workflows/postflop-solver.yml"
+  push:
+    branches:
+      - main
+      - feature/postflop-solver-mvp
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check solver module syntax
+        run: node --check js/modules/postflop-solver.js
+      - name: Check strategy module syntax
+        run: node --check js/modules/postflop-strategy.js
+      - name: Check solver UI syntax
+        run: node --check js/modules/postflop-solver-ui.js
+      - name: Run postflop solver and strategy tests
+        run: node --test tests/postflop-solver.test.js tests/postflop-strategy.test.js

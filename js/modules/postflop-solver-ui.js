@@ -51,7 +51,7 @@
         ].join(";");
     }
 
-    function renderResult(container, result, strategy = null) {
+    function renderResult(container, result, strategy = null, strategyError = null) {
         container.replaceChildren();
         const heading = element("h4", "font-bold text-lg mb-3", "Analyse postflop");
         const equity = element("p", "text-2xl font-bold mb-2",
@@ -69,14 +69,23 @@
             : "Aucune mise à payer";
         const details = element("p", "text-xs text-textMuted mb-2", odds);
         const disclaimer = element("p", "text-xs text-textMuted", result.note);
-        container.append(heading, equity, range, stats, action, explanation, details);
+        container.append(heading, equity, range, stats, details);
+        if (!strategy) {
+            const heuristicLabel = element("p", "font-semibold text-primaryHover mb-1",
+                "Piste heuristique fondée sur l'équité : " + result.decision.action);
+            container.append(heuristicLabel, explanation);
+            if (strategyError) {
+                container.append(element("p", "text-xs text-red-400 mt-2",
+                    "Analyse stratégique indisponible : " + strategyError));
+            }
+        }
 
         if (strategy) {
             const divider = element("div", "border-t border-white/10 my-4");
             const strategyHeading = element("h5", "font-bold mb-2", "Stratégie CFR+ — " + strategy.street);
             const strategyMeta = element("p", "text-xs text-textMuted mb-2",
                 strategy.iterations + " itérations · " +
-                strategy.sampledOpponentHands + " mains adverses échantillonnées · " +
+                strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
                 strategy.treeNodes + " nœuds dans l'arbre");
             const strategyActions = element("div", "space-y-1 mb-3");
             for (const item of strategy.actions) {
@@ -94,7 +103,7 @@
             container.append(divider, strategyHeading, strategyMeta, strategyActions, ev, abstraction, convergence);
         } else {
             const strategyInfo = element("p", "text-xs text-textMuted mb-2",
-                "Le calcul stratégique n'a pas pu être produit. Cette vue présente uniquement l'analyse d'équité.");
+                "L'analyse stratégique n'a pas pu être calculée dans cette situation. L'analyse d'équité reste disponible.");
             container.append(strategyInfo);
         }
 
@@ -115,10 +124,24 @@
         try {
             const history = global.PokerLabTraining.getHandHistory();
             const result = await global.PokerLabPostflopSolver.analyse(initialState, history);
+            const stateAfterEquity = global.PokerLabTraining.getGameState();
+            if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
+                if (button.isConnected) {
+                    panel.replaceChildren(element("p", "text-sm text-textMuted",
+                        "La situation a changé pendant le calcul. Relance SOLVE pour analyser la nouvelle situation."));
+                }
+                return;
+            }
+
             let strategy = null;
+            let strategyError = null;
             if (global.PokerLabPostflopStrategy) {
                 panel.textContent = "Calcul CFR+ de l'arbre de décisions et échantillonnage des runouts…";
-                strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
+                try {
+                    strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
+                } catch (error) {
+                    strategyError = error.message;
+                }
             }
             const latestState = global.PokerLabTraining.getGameState();
 
@@ -130,7 +153,7 @@
                 return;
             }
 
-            renderResult(panel, result, strategy);
+            renderResult(panel, result, strategy, strategyError);
         } catch (error) {
             if (button.isConnected) {
                 panel.replaceChildren(element("p", "text-red-400 text-sm", error.message));
