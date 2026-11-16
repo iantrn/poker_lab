@@ -47,6 +47,31 @@ function loadStrategy() {
     return context;
 }
 
+function loadIntegratedStrategy(fetcher) {
+    const context = {
+        console,
+        Math,
+        Set,
+        Map,
+        Promise,
+        Float64Array,
+        setTimeout,
+        Uint32Array,
+        fetch: fetcher
+    };
+    context.window = context;
+    vm.createContext(context);
+    for (const path of [
+        "js/core/evaluator.js",
+        "js/modules/cfr-core.js",
+        "js/modules/postflop-solver.js",
+        "js/modules/postflop-strategy.js"
+    ]) {
+        vm.runInContext(fs.readFileSync(path, "utf8"), context, { filename: path });
+    }
+    return context;
+}
+
 function card(value, suit) {
     return { value, suit };
 }
@@ -883,4 +908,116 @@ test("le solveur rapporte l'effectif efficace des échantillons de range pondér
 
     assert.ok(result.heroRangeEffectiveSampleSize > 0);
     assert.ok(result.heroRangeEffectiveSampleSize <= result.sampledHeroHands);
+});
+
+
+test("le solveur range-vs-range retrouve une EV exacte sur un spot river déterministe", async () => {
+    const heroRangeId = "bu/BU_RFI";
+    const opponentRangeId = "bb/BB_call_vs_BU_RFI";
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? {
+                version: 1,
+                spots: [
+                    { id: heroRangeId, p: "BU", a: "RFI", s: "" },
+                    { id: opponentRangeId, p: "BB", a: "call", s: "BU RFI" }
+                ]
+            }
+            : {
+                version: 1,
+                ranges: {
+                    [heroRangeId]: { AA: 100 },
+                    [opponentRangeId]: { KK: 100 }
+                }
+            }
+    });
+    const app = loadIntegratedStrategy(fetcher);
+    const current = {
+        street: "river",
+        board: [
+            card(2, "clubs"),
+            card(3, "diamonds"),
+            card(4, "hearts"),
+            card(8, "spades"),
+            card(9, "clubs")
+        ],
+        pot: 10,
+        currentBet: 0,
+        lastFullRaise: 1,
+        minimumRaiseTo: 1,
+        blinds: { smallBlind: 0.5, bigBlind: 1 },
+        dealerIndex: 0,
+        currentPlayerId: "hero",
+        handComplete: false,
+        players: [
+            {
+                id: "hero",
+                name: "Hero",
+                isHuman: true,
+                isBot: false,
+                folded: false,
+                holeCards: [card(14, "spades"), card(14, "hearts")],
+                stack: 100,
+                streetBet: 0,
+                totalContribution: 5,
+                amountToCall: 0,
+                lastActedBet: 0,
+                hasActed: false,
+                actionOptions: {
+                    callAmount: 0,
+                    minimumBet: 1,
+                    minimumRaiseTo: 1,
+                    maximumRaiseTo: 100,
+                    canCheck: true,
+                    canCall: false,
+                    canBet: false,
+                    canRaise: false
+                }
+            },
+            {
+                id: "bot_1",
+                name: "Bot",
+                isHuman: false,
+                isBot: true,
+                position: "BB",
+                folded: false,
+                holeCards: null,
+                stack: 0,
+                streetBet: 0,
+                totalContribution: 5,
+                amountToCall: 0,
+                lastActedBet: 0,
+                hasActed: false,
+                allIn: true
+            }
+        ]
+    };
+    current.players[0].position = "BTN";
+
+    const history = [
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "hero", action: "raise", allIn: false }
+        },
+        {
+            type: "player_action",
+            street: "preflop",
+            data: { playerId: "bot_1", action: "call", allIn: false }
+        }
+    ];
+
+    const result = await app.PokerLabPostflopStrategy.solvePostflop(
+        current,
+        history,
+        { iterations: 10, samples: 8, evaluationSamples: 64, seed: 4242 }
+    );
+
+    assert.equal(result.heroRangeUsed, true);
+    assert.equal(result.rangeUsed, true);
+    assert.equal(result.actualHandInHeroRange, true);
+    assert.equal(result.heroEV, 10);
+    assert.equal(result.heroEVStandardError, 0);
+    assert.deepEqual(Array.from(result.actions, action => action.action), ["check"]);
 });
