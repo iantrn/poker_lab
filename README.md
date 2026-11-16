@@ -14,7 +14,7 @@ L'application permet de jouer contre des adversaires automatisés, de consulter 
 - Historique des actions d'une main.
 - Consultation des ranges préflop depuis le module Apprentissage.
 - Analyse d'équité postflop Monte-Carlo en heads-up.
-- Analyse stratégique postflop expérimentale par CFR+ avec échantillonnage des mains adverses et des runouts, arbre de décisions simplifié et estimation des EV par action.
+- Analyse stratégique postflop expérimentale par CFR+ avec rééchantillonnage des mains adverses et des runouts à chaque itération, arbre de décisions simplifié et estimation des EV par action.
 - Mise en cache des ressources et des ranges pour une utilisation hors connexion après le premier chargement.
 - Interface responsive pour ordinateur, tablette et mobile.
 
@@ -122,9 +122,9 @@ Les profils sont définis dans `js/bots/bot-profiles.js`. La logique de décisio
 - `js/modules/training.js` gère la configuration des parties, les actions du joueur et l'enchaînement des tours des bots.
 - `js/components/navigation.js` gère la navigation entre les sections.
 - `js/modules/ranges-viewer.js` et `js/modules/ranges-data.js` gèrent la consultation des ranges préflop.
-- `js/modules/postflop-solver.js` estime l'équité contre une range adverse et utilise les matrices préflop lorsqu'un spot exact est disponible.
-- `js/modules/postflop-strategy.js` construit un arbre de décisions abstrait sur le flop, le turn et la river, puis calcule des fréquences de stratégie par CFR+ avec échantillonnage des runouts.
-- `js/modules/postflop-solver-ui.js` intègre le bouton SOLVE et affiche l'équité, les fréquences d'action et les EV estimées.
+- `js/modules/postflop-solver.js` estime l'équité contre une range adverse, utilise les matrices préflop lorsqu'un spot exact est disponible et ajuste heuristiquement les poids à partir des actions postflop observées. En l'absence du bundle, il conserve une range uniforme.
+- `js/modules/postflop-strategy.js` construit un arbre de décisions abstrait sur le flop, le turn et la river. Le moteur CFR+ rééchantillonne une main adverse et un runout à chaque itération, et respecte les incréments de 0,5 jeton ainsi que la dernière relance complète.
+- `js/modules/postflop-solver-ui.js` construit un instantané versionné et expurgé des cartes adverses, transmis aux deux moteurs. La modale affiche les fréquences d'action et réserve les EV et les limites du modèle aux détails.
 
 ### Données de ranges
 
@@ -156,7 +156,7 @@ node tools/ranges/build-matrix.mjs --input-dir chemin/vers/les-ranges-normalisee
 
 Les commandes d'import et de conversion, leurs paramètres et les conventions de données sont détaillés dans [tools/ranges/README.md](tools/ranges/README.md).
 
-Les tests couvrent les données de ranges ainsi que les premiers modules d'analyse postflop.
+Les tests couvrent les données de ranges, le contrat d'entrée du solveur, l'isolation des cartes adverses, l'ajustement heuristique des ranges, le fallback hors ligne, les contraintes de mises et le moteur CFR+.
 
 Lancer les tests du solveur postflop :
 
