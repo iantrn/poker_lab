@@ -102,18 +102,30 @@
                 actions.push(makeAction("call", "call", toCall));
 
                 const rootRaiseAllowed = !state.root || rootOptions.canRaise;
-                const minRaise = Math.max(toCall, state.pot * BET_FRACTION);
+                const requiredRaiseTotal = state.root && Number.isFinite(rootOptions.minimumRaiseTo)
+                    ? Math.max(toCall, rootOptions.minimumRaiseTo - state.bets[actor])
+                    : Math.max(toCall, state.pot * BET_FRACTION);
+                const maximumRaiseTotal = state.root && Number.isFinite(rootOptions.maximumRaiseTo)
+                    ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor])
+                    : state.stacks[actor];
                 if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
-                    const raiseExtra = Math.min(state.stacks[actor] - toCall, minRaise);
-                    if (raiseExtra > 0.000001) {
-                        actions.push(makeAction("raise", "raise", toCall + raiseExtra));
+                    const desiredRaiseTotal = toCall + Math.max(toCall, state.pot * BET_FRACTION,
+                        requiredRaiseTotal - toCall);
+                    if (desiredRaiseTotal <= maximumRaiseTotal + 0.000001) {
+                        actions.push(makeAction("raise", "raise", desiredRaiseTotal));
+                    } else if (state.root && rootOptions.isAllIn && maximumRaiseTotal > toCall) {
+                        actions.push(makeAction("all_in_raise", "raise", maximumRaiseTotal));
+                    } else if (!state.root && state.stacks[actor] > toCall) {
+                        actions.push(makeAction("all_in_raise", "raise", state.stacks[actor]));
                     }
                 }
             } else {
                 actions.push(makeAction("check", "check"));
                 const rootBetAllowed = !state.root || rootOptions.canBet;
                 if (canRaise && rootBetAllowed && state.stacks[actor] > 0) {
-                    const bet = Math.min(state.stacks[actor], Math.max(1, state.pot * BET_FRACTION));
+                    const minimumBet = state.root && Number.isFinite(rootOptions.minimumBet)
+                        ? rootOptions.minimumBet : 1;
+                    const bet = Math.min(state.stacks[actor], Math.max(minimumBet, state.pot * BET_FRACTION));
                     actions.push(makeAction("bet_50", "bet", bet));
                     if (state.stacks[actor] > bet * 1.8 && state.stacks[other] > bet) {
                         actions.push(makeAction("all_in", "bet", state.stacks[actor]));
