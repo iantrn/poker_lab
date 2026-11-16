@@ -33,6 +33,9 @@ async function run() {
     const page = await context.newPage();
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
+    page.on("framenavigated", frame => {
+      if (frame === page.mainFrame()) console.log("Browser navigation:", frame.url());
+    });
     const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
     assert.equal(response?.status(), 200);
     // The PWA may reload once when its first service worker takes control.
@@ -41,7 +44,8 @@ async function run() {
       await page.waitForFunction(() =>
         window.PokerLab?.app?.initialized === true &&
         Boolean(window.PokerLabV2?.solver) &&
-        document.querySelectorAll("[data-module]").length === 6,
+        document.querySelectorAll("[data-module]").length === 6 &&
+        Boolean(navigator.serviceWorker.controller),
         null, { timeout: 45000 });
     } catch (error) {
       const diagnostic = await page.evaluate(() => ({
@@ -55,7 +59,20 @@ async function run() {
       })).catch((reason) => ({ evaluationFailed: String(reason) }));
       throw new Error(`V2 shell did not initialize: ${JSON.stringify(diagnostic)}; page errors: ${pageErrors.join("; ")}`, { cause: error });
     }
-    assert.equal(await page.locator("[data-module]").count(), 6);
+    // Wait for the PWA worker to claim its first tab and finish the V1-triggered reload.
+    await page.waitForTimeout(1000);
+    await page.waitForFunction(() =>
+      document.querySelectorAll("[data-module]").length === 6 &&
+      window.PokerLab?.app?.initialized === true &&
+      Boolean(navigator.serviceWorker.controller), null, { timeout: 30000 });
+    const uiSnapshot = await page.evaluate(() => ({
+      sections: document.querySelectorAll("[data-module]").length,
+      rootPresent: Boolean(document.getElementById("root")),
+      ready: document.readyState,
+      sw: navigator.serviceWorker.controller?.state
+    }));
+    console.log("Browser UI ready:", JSON.stringify(uiSnapshot));
+    assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
     assert.equal(await page.locator("[data-page]").count() > 5, true);
     assert.equal(await page.locator("#home").isVisible(), true);
 
