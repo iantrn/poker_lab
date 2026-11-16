@@ -7,6 +7,7 @@ import { installSolverPrecompute } from "../solver/precompute";
 import { installBotProfiles } from "../bots/profiles";
 import { installDeck } from "../core/deck";
 import { installPokerRules } from "../core/poker-rules";
+import { installEvaluator } from "../core/evaluator";
 
 // Keep exactly the script order from index.html in the validated V1 snapshot.
 const SCRIPTS = [
@@ -38,6 +39,7 @@ export function loadLegacy(): Promise<void> {
       // Preserve the original module load position with the typed implementation.
       if (file === "js/core/deck.js") { installDeck(); continue; }
       if (file === "js/core/poker-rules.js") { installPokerRules(); continue; }
+      if (file === "js/core/evaluator.js") { installEvaluator(); continue; }
       if (file === "js/bots/bot-profiles.js") { installBotProfiles(); continue; }
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
