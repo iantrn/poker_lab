@@ -154,10 +154,10 @@ test("face à une mise, l'arbre propose fold, call et raise si la relance est l�
     state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: true };
     const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
     assert.deepEqual(
-        Array.from(built.tree.actions, entry => entry.action.type),
-        ["fold", "call", "raise"]
+        Array.from(built.tree.actions, entry => entry.action.label),
+        ["fold", "call", "min_raise", "raise_50", "all_in_raise"]
     );
-    const raiseBranch = built.tree.actions.find(entry => entry.action.type === "raise");
+    const raiseBranch = built.tree.actions.find(entry => entry.action.label === "raise_50");
     assert.deepEqual(
         Array.from(raiseBranch.child.actions, entry => entry.action.label),
         ["fold", "call", "raise_effective"]
@@ -791,10 +791,9 @@ test("une relance qui consomme exactement le stack du héros est étiquetée all
         state,
         state.players[0].actionOptions
     );
-    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+    const raise = built.tree.actions.find(entry => entry.action.label === "all_in_raise");
 
     assert.ok(raise);
-    assert.equal(raise.action.label, "all_in_raise");
     assert.equal(raise.action.amount, 12.5);
 });
 
@@ -1034,4 +1033,34 @@ test("le solveur range-vs-range retrouve une EV exacte sur un spot river déterm
     assert.equal(result.heroEV, 10);
     assert.equal(result.heroEVStandardError, 0);
     assert.deepEqual(Array.from(result.actions, action => action.action), ["check"]);
+});
+
+
+test("à la racine, une relance légale propose le minimum, 50 % pot et le tapis effectif", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 15;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true,
+        canCall: true,
+        canRaise: true,
+        minimumRaiseTo: 6,
+        maximumRaiseTo: 20
+    };
+
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions
+    );
+    const raises = built.tree.actions.filter(entry => entry.action.type === "raise");
+
+    assert.deepEqual(
+        Array.from(raises, entry => [entry.action.label, entry.action.amount]),
+        [
+            ["min_raise", 6],
+            ["raise_50", 12.5],
+            ["all_in_raise", 20]
+        ]
+    );
 });
