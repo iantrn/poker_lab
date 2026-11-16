@@ -201,3 +201,50 @@ test("un information set refuse des actions différentes avec la même cardinali
         /type, ordre, label ou sizing/
     );
 });
+
+
+test("getStrategy refuse un ensemble d'actions modifié dans un information set existant", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "same",
+        utility: () => 0
+    };
+    const first = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_33", terminal(1, 0)]
+    ]);
+    const changed = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_75", terminal(1, 0)]
+    ]);
+
+    core.runCfr(first, {}, 0, [1, 1], maps, callbacks, 1);
+    assert.throws(
+        () => core.getStrategy(changed, {}, maps, callbacks),
+        /type, ordre, label ou sizing/
+    );
+});
+
+test("averageStrategy refuse un sizing différent pour un information set existant", () => {
+    const core = loadCore();
+    const maps = core.createMaps();
+    const callbacks = {
+        informationKey: () => "same",
+        utility: () => 0
+    };
+    const first = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_33", terminal(1, 0)]
+    ]);
+    const changed = decision(0, "same", 1, 0, [
+        ["check", terminal(1, 0)],
+        ["bet_75", terminal(1, 0)]
+    ]);
+
+    core.runCfr(first, {}, 0, [1, 1], maps, callbacks, 1);
+    assert.throws(
+        () => core.averageStrategy(changed, {}, maps, callbacks),
+        /type, ordre, label ou sizing/
+    );
+});
