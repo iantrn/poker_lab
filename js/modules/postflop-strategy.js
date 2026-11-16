@@ -893,6 +893,56 @@
             throw new Error("Impossible d'évaluer la stratégie sur les échantillons indépendants.");
         }
 
+        // Estimation indépendante du NashConv sur les ranges des deux joueurs.
+        // Les meilleures réponses sont exactes dans l'arbre abstrait construit
+        // pour ces deals, mais la mesure reste conditionnelle à cet échantillon.
+        const requestedExploitabilitySamples = Number.isInteger(options.exploitabilitySamples)
+            ? Math.max(8, Math.min(128, options.exploitabilitySamples))
+            : Math.max(12, Math.min(32, samples));
+        const exploitabilityRandom = Number.isInteger(options.seed)
+            ? createRandom((options.seed ^ 0x9E3779B9) >>> 0)
+            : Math.random;
+        const exploitabilityDeals = [];
+
+        for (let sampleIndex = 0; sampleIndex < requestedExploitabilitySamples; sampleIndex++) {
+            const sampled = sampleDeals(
+                hero.holeCards,
+                state.board,
+                rangeInfo.combos,
+                1,
+                rangeInfo.rangeUsed !== false,
+                exploitabilityRandom,
+                heroRangeInfo.combos
+            );
+            const deal = sampled.deals[0];
+            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
+                global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            );
+            const built = buildDecisionTree(
+                normalizedState,
+                hero.actionOptions || {},
+                priorHistory,
+                deal.runout,
+                rootChecks,
+                rootRaises
+            );
+            if (rootActionSignature(built.tree) !== expectedRootSignature) {
+                throw new Error("L'arbre de meilleure réponse ne correspond pas aux actions légales apprises.");
+            }
+            exploitabilityDeals.push({ root: built.tree, deal });
+            if ((sampleIndex + 1) % 4 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        const exploitability = global.PokerLabCFRCore.measureExploitability(
+            exploitabilityDeals,
+            maps,
+            cfrCallbacks(hero.holeCards, state.board),
+            deal => deal.heroImportanceWeight
+        );
+
         const standardError = (sum, sumSquares) => {
             if (evaluatedDeals < 2) return 0;
             const mean = sum / evaluatedDeals;
@@ -940,6 +990,15 @@
             heroEVStandardError,
             heroEVLower95: heroEV - 1.96 * heroEVStandardError,
             heroEVUpper95: heroEV + 1.96 * heroEVStandardError,
+            exploitabilitySamples: exploitabilityDeals.length,
+            exploitabilityMethod: "Meilleures réponses exactes dans l'arbre abstrait sur un échantillon indépendant pondéré par les ranges et les bloqueurs ; mesure conditionnelle à cet échantillon.",
+            profileEV: exploitability.profileValue,
+            heroBestResponseEV: exploitability.player0BestResponse,
+            opponentBestResponseEV: exploitability.player1BestResponse,
+            heroDeviationGain: exploitability.player0Gain,
+            opponentDeviationGain: exploitability.player1Gain,
+            nashConv: exploitability.nashConv,
+            exploitability: exploitability.exploitability,
             treeNodes: Math.round(averageNodeCount / trainingIterations),
             rangeLabel: rangeInfo.rangeUsed === false
                 ? rangeInfo.label
@@ -950,7 +1009,7 @@
             postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
             heroEV,
             actions,
-            convergence: "CFR+ échantillonné sur les ranges des deux joueurs, avec suréchantillonnage corrigé de la main réelle du héros et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
+            convergence: "CFR+ échantillonné sur les ranges des deux joueurs. Le NashConv est estimé par meilleures réponses sur un échantillon indépendant et l'arbre abstrait ; il ne certifie pas l'exploitabilité du jeu complet ni la convergence globale. Les fréquences restent dépendantes de l'abstraction et du budget d'échantillonnage."
         };
     }
 
