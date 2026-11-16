@@ -325,15 +325,19 @@
         };
     }
 
-    function weightedSample(items, random = Math.random) {
+    function weightedSampleEntry(items, random = Math.random) {
         const total = items.reduce((sum, item) => sum + item.weight, 0);
-        if (!(total > 0)) return items[Math.floor(random() * items.length)].cards;
+        if (!(total > 0)) return items[Math.floor(random() * items.length)];
         let cursor = random() * total;
         for (const item of items) {
             cursor -= item.weight;
-            if (cursor <= 0) return item.cards;
+            if (cursor <= 0) return item;
         }
-        return items[items.length - 1].cards;
+        return items[items.length - 1];
+    }
+
+    function weightedSample(items, random = Math.random) {
+        return weightedSampleEntry(items, random).cards;
     }
 
     function buildUniformRange(knownCards) {
@@ -353,26 +357,88 @@
         return combos;
     }
 
-    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true, random = Math.random) {
-        const blocked = new Set([...hero, ...board].map(cardId));
-        let candidates = Array.isArray(range) ? range.filter(item =>
-            item.cards && item.cards.length === 2 &&
-            item.cards.every(card => !blocked.has(cardId(card))) &&
-            cardId(item.cards[0]) !== cardId(item.cards[1]) &&
-            Number(item.weight) > 0
-        ) : [];
+    function sampleDeals(
+        actualHero,
+        board,
+        opponentRange,
+        sampleCount,
+        rangeUsedHint = true,
+        random = Math.random,
+        heroRange = null
+    ) {
+        const boardBlocked = new Set(board.map(cardId));
+        const validCombos = (range, blocked) => Array.isArray(range)
+            ? range.filter(item =>
+                item.cards && item.cards.length === 2 &&
+                item.cards.every(card => card && !blocked.has(cardId(card))) &&
+                cardId(item.cards[0]) !== cardId(item.cards[1]) &&
+                Number.isFinite(Number(item.weight)) && Number(item.weight) > 0
+            )
+            : [];
 
-        const hasRangeCandidates = candidates.length > 0;
-        const rangeUsed = hasRangeCandidates && rangeUsedHint;
-        if (!hasRangeCandidates) {
-            candidates = buildUniformRange([...hero, ...board]);
+        let heroCandidates = validCombos(heroRange, boardBlocked);
+        if (!heroCandidates.length) {
+            heroCandidates = [{ cards: actualHero, weight: 1 }];
         }
-        if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
+
+        const heroTotal = heroCandidates.reduce((sum, item) => sum + Number(item.weight), 0);
+        const actualHeroKey = handId(actualHero);
+        const actualHeroEntry = heroCandidates.find(item => handId(item.cards) === actualHeroKey);
+        const actualHeroProbability = actualHeroEntry
+            ? Number(actualHeroEntry.weight) / heroTotal
+            : 0;
+
+        // Oversample the observed holding so its root information set receives
+        // enough updates. Importance weights restore the original range prior.
+        const actualHandBoost = actualHeroEntry ? 0.25 : 0;
+        const proposalHeroRange = heroCandidates.map(item => {
+            const priorProbability = Number(item.weight) / heroTotal;
+            const isActual = handId(item.cards) === actualHeroKey;
+            return {
+                ...item,
+                priorProbability,
+                proposalProbability: (1 - actualHandBoost) * priorProbability +
+                    (isActual ? actualHandBoost : 0)
+            };
+        });
 
         const deals = [];
         const suits = ["clubs", "diamonds", "hearts", "spades"];
+        let actualHeroSamples = 0;
+        let opponentRangeSamples = 0;
+
         for (let i = 0; i < sampleCount; i++) {
-            const villain = weightedSample(candidates, random);
+            const selectedHero = weightedSampleEntry(
+                proposalHeroRange.map(item => ({
+                    cards: item.cards,
+                    weight: item.proposalProbability,
+                    priorProbability: item.priorProbability,
+                    proposalProbability: item.proposalProbability
+                })),
+                random
+            );
+            const hero = selectedHero.cards;
+            const isActualHero = handId(hero) === actualHeroKey;
+            if (isActualHero) actualHeroSamples++;
+
+            const heroImportanceWeight = selectedHero.proposalProbability > 0
+                ? selectedHero.priorProbability / selectedHero.proposalProbability
+                : 1;
+
+            const blocked = new Set([...hero, ...board].map(cardId));
+            let villainCandidates = validCombos(opponentRange, blocked);
+            const hasRangeCandidates = villainCandidates.length > 0;
+            if (!hasRangeCandidates) {
+                const uniform = buildUniformRange([...hero, ...board]);
+                villainCandidates = uniform;
+            }
+            if (!villainCandidates.length) {
+                throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
+            }
+
+            const villain = weightedSample(villainCandidates, random);
+            if (hasRangeCandidates && rangeUsedHint) opponentRangeSamples++;
+
             const excluded = new Set([...hero, ...board, ...villain].map(cardId));
             const deck = [];
             for (const suit of suits) for (let value = 2; value <= 14; value++) {
@@ -384,9 +450,23 @@
                 [deck[index], deck[swap]] = [deck[swap], deck[index]];
             }
             const runout = deck.slice(0, 5 - board.length);
-            deals.push({ villain, runout, finalBoard: [...board, ...runout] });
+            deals.push({
+                hero,
+                villain,
+                runout,
+                finalBoard: [...board, ...runout],
+                heroImportanceWeight,
+                isActualHero
+            });
         }
-        return { deals, rangeUsed };
+
+        return {
+            deals,
+            rangeUsed: opponentRangeSamples === sampleCount && rangeUsedHint,
+            heroRangeUsed: Array.isArray(heroRange) && heroRange.length > 0,
+            actualHeroInRange: Boolean(actualHeroEntry),
+            actualHeroSamples
+        };
     }
 
     function utility(node, deal, hero, board) {
@@ -398,96 +478,57 @@
         const result = Number.isInteger(deal.showdownResult)
             ? deal.showdownResult
             : global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...hero, ...(deal.finalBoard || board)]).score,
+                global.PokerLabHandEvaluator.evaluate([...(deal.hero || hero), ...(deal.finalBoard || board)]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...(deal.finalBoard || board)]).score
             );
         const payout = result > 0 ? node.pot : result === 0 ? node.pot / 2 : 0;
         return payout - node.heroInvested;
     }
 
-    function regretMatched(regrets, count) {
-        const positive = regrets ? Array.from(regrets, value => Math.max(0, value)) : [];
-        const total = positive.reduce((sum, value) => sum + value, 0);
-        if (total <= 0) return Array(count).fill(1 / count);
-        return positive.map(value => value / total);
-    }
-
-    function informationKey(node, deal, hero, board) {
-        const privateHand = node.actor === 0 ? handId(hero) : handId(deal.villain);
-        const publicState = [
-            roundChips(node.pot),
-            (node.stacks || []).map(roundChips).join(","),
-            (node.bets || []).map(roundChips).join(","),
-            (node.hasActed || []).map(Boolean).join(","),
-            (node.lastActedBets || []).map(roundChips).join(","),
-            roundChips(node.lastFullRaise),
-            node.raises || 0,
-            node.checks || 0
-        ].join(":");
-        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) +
-            "|" + publicState + "|" + node.history;
+    function cfrCallbacks(hero, board) {
+        return {
+            informationKey: (node, deal) =>
+                informationKey(node, deal, deal && deal.hero || hero, board),
+            utility: (node, deal) =>
+                utility(node, deal, deal && deal.hero || hero, board)
+        };
     }
 
     function runCfr(node, deal, traverser, reach, maps, hero, board, averageWeight) {
-        if (node.terminal) return utility(node, deal, hero, board);
-
-        const key = informationKey(node, deal, hero, board);
-        const count = node.actions.length;
-        let regrets = maps.regrets.get(key);
-        if (!regrets) {
-            regrets = new Float64Array(count);
-            maps.regrets.set(key, regrets);
+        if (!global.PokerLabCFRCore) {
+            throw new Error("Le noyau CFR+ n'est pas chargé.");
         }
-        let strategySum = maps.strategy.get(key);
-        if (!strategySum) {
-            strategySum = new Float64Array(count);
-            maps.strategy.set(key, strategySum);
-        }
-        const strategy = regretMatched(regrets, count);
-        const ownReach = reach[node.actor];
-        if (traverser === 0) {
-            for (let i = 0; i < count; i++) {
-                strategySum[i] += averageWeight * ownReach * strategy[i];
-            }
-        }
-
-        const values = new Float64Array(count);
-        let nodeValue = 0;
-        for (let i = 0; i < count; i++) {
-            const nextReach = reach.slice();
-            nextReach[node.actor] *= strategy[i];
-            values[i] = runCfr(node.actions[i].child, deal, traverser, nextReach, maps, hero, board, averageWeight);
-            nodeValue += strategy[i] * values[i];
-        }
-
-        if (node.actor === traverser) {
-            const opponentReach = reach[1 - node.actor];
-            const sign = node.actor === 0 ? 1 : -1;
-            for (let i = 0; i < count; i++) {
-                regrets[i] = Math.max(0, regrets[i] + sign * opponentReach * (values[i] - nodeValue));
-            }
-        }
-        return nodeValue;
+        const chanceWeight = Number(deal.heroImportanceWeight) > 0
+            ? Number(deal.heroImportanceWeight)
+            : 1;
+        return global.PokerLabCFRCore.runCfr(
+            node,
+            deal,
+            traverser,
+            reach,
+            maps,
+            cfrCallbacks(hero, board),
+            averageWeight,
+            chanceWeight
+        );
     }
 
     function averageStrategy(node, deal, maps, hero, board) {
-        if (node.terminal) return utility(node, deal, hero, board);
-        const key = informationKey(node, deal, hero, board);
-        const sums = maps.strategy.get(key);
-        const total = sums ? Array.from(sums).reduce((a, b) => a + b, 0) : 0;
-        const strategy = sums && total > 0
-            ? Array.from(sums, value => value / total)
-            : Array(node.actions.length).fill(1 / node.actions.length);
-        return node.actions.reduce((sum, entry, index) =>
-            sum + strategy[index] * averageStrategy(entry.child, deal, maps, hero, board), 0);
+        return global.PokerLabCFRCore.averageStrategy(
+            node,
+            deal,
+            maps,
+            cfrCallbacks(hero, board)
+        );
     }
 
     function getRootStrategy(tree, deal, maps, hero, board) {
-        const key = informationKey(tree, deal, hero, board);
-        const sums = maps.strategy.get(key);
-        if (!sums) return tree.actions.map(() => 1 / tree.actions.length);
-        const total = Array.from(sums).reduce((a, b) => a + b, 0);
-        return Array.from(sums, value => total > 0 ? value / total : 1 / sums.length);
+        return global.PokerLabCFRCore.getStrategy(
+            tree,
+            deal,
+            maps,
+            cfrCallbacks(hero, board)
+        );
     }
 
     function validate(state) {
@@ -638,6 +679,14 @@
             river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
         }[state.street];
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
+        const heroRangeInfo = typeof global.PokerLabPostflopSolver.getPlayerRange === "function"
+            ? await global.PokerLabPostflopSolver.getPlayerRange(state, history, hero)
+            : {
+                label: "Range héro non renseignée (main réelle uniquement)",
+                rangeUsed: false,
+                actualHandInRange: true,
+                combos: [{ cards: hero.holeCards, weight: 1 }]
+            };
         const requestedIterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
         const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
         // Chaque itération reçoit une nouvelle main adverse et un nouveau runout.
@@ -680,11 +729,13 @@
         const random = Number.isInteger(options.seed)
             ? createRandom(options.seed)
             : Math.random;
-        const maps = { regrets: new Map(), strategy: new Map() };
+        const maps = global.PokerLabCFRCore.createMaps();
         let rootTree = null;
         let expectedRootSignature = null;
         let averageNodeCount = 0;
         let sampledRangeUsed = true;
+        let sampledHeroHands = 0;
+        let sampledActualHeroHand = 0;
 
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = sampleDeals(
@@ -693,12 +744,15 @@
                 rangeInfo.combos,
                 1,
                 rangeInfo.rangeUsed !== false,
-                random
+                random,
+                heroRangeInfo.combos
             );
             const deal = sampled.deals[0];
-            sampledRangeUsed = sampled.rangeUsed;
+            sampledRangeUsed = sampledRangeUsed && sampled.rangeUsed;
+            sampledHeroHands++;
+            sampledActualHeroHand += sampled.actualHeroSamples;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
             );
             const built = buildDecisionTree(
@@ -721,8 +775,8 @@
             averageNodeCount += built.nodeCount;
 
             // Une seule accumulation de stratégie moyenne par itération CFR+.
-            runCfr(built.tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
-            runCfr(built.tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
+            runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1);
+            runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1);
 
             // L'échantillonnage est renouvelé à chaque itération ; le navigateur reste réactif.
             await new Promise(resolve => setTimeout(resolve, 0));
@@ -826,6 +880,11 @@
             samplesPerIteration: 1,
             randomSeed: Number.isInteger(options.seed) ? (options.seed >>> 0) : null,
             sampledOpponentHands: trainingIterations,
+            sampledHeroHands,
+            sampledActualHeroHand,
+            heroRangeLabel: heroRangeInfo.label,
+            heroRangeUsed: heroRangeInfo.rangeUsed !== false,
+            actualHandInHeroRange: heroRangeInfo.actualHandInRange !== false,
             evaluationSamples: evaluatedDeals,
             evaluationMethod: "Échantillons indépendants ; erreur standard conditionnelle à la stratégie moyenne apprise.",
             heroEVStandardError,
@@ -841,7 +900,7 @@
             postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
             heroEV,
             actions,
-            convergence: "CFR+ échantillonné avec une nouvelle main adverse et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
+            convergence: "CFR+ échantillonné sur les ranges des deux joueurs, avec suréchantillonnage corrigé de la main réelle du héros et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
         };
     }
 
