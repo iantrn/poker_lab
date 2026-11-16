@@ -255,7 +255,7 @@ test("le solveur conserve une range uniforme hors ligne si le bundle préflop es
     );
     assert.equal(range.rangeUsed, false);
     assert.match(range.label, /bundle préflop indisponible/);
-    assert.equal(range.combos.length, 1081);
+    assert.equal(range.combos.length, 1176);
 });
 
 
