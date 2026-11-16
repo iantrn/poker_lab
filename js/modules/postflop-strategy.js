@@ -295,10 +295,21 @@
         return { tree, nodeCount: nodes.count };
     }
 
-    function weightedSample(items) {
+    function createRandom(seed) {
+        let state = Number(seed) >>> 0;
+        return function () {
+            state = (state + 0x6D2B79F5) | 0;
+            let value = state;
+            value = Math.imul(value ^ (value >>> 15), value | 1);
+            value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+            return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function weightedSample(items, random = Math.random) {
         const total = items.reduce((sum, item) => sum + item.weight, 0);
-        if (!(total > 0)) return items[Math.floor(Math.random() * items.length)].cards;
-        let cursor = Math.random() * total;
+        if (!(total > 0)) return items[Math.floor(random() * items.length)].cards;
+        let cursor = random() * total;
         for (const item of items) {
             cursor -= item.weight;
             if (cursor <= 0) return item.cards;
@@ -323,7 +334,7 @@
         return combos;
     }
 
-    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true) {
+    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true, random = Math.random) {
         const blocked = new Set([...hero, ...board].map(cardId));
         let candidates = Array.isArray(range) ? range.filter(item =>
             item.cards && item.cards.length === 2 &&
@@ -342,7 +353,7 @@
         const deals = [];
         const suits = ["clubs", "diamonds", "hearts", "spades"];
         for (let i = 0; i < sampleCount; i++) {
-            const villain = weightedSample(candidates);
+            const villain = weightedSample(candidates, random);
             const excluded = new Set([...hero, ...board, ...villain].map(cardId));
             const deck = [];
             for (const suit of suits) for (let value = 2; value <= 14; value++) {
@@ -350,7 +361,7 @@
                 if (!excluded.has(cardId(card))) deck.push(card);
             }
             for (let index = deck.length - 1; index > 0; index--) {
-                const swap = Math.floor(Math.random() * (index + 1));
+                const swap = Math.floor(random() * (index + 1));
                 [deck[index], deck[swap]] = [deck[swap], deck[index]];
             }
             const runout = deck.slice(0, 5 - board.length);
@@ -554,6 +565,9 @@
             players: [hero, opponent],
             postflopFirstActorId
         };
+        const random = Number.isInteger(options.seed)
+            ? createRandom(options.seed)
+            : Math.random;
         const maps = { regrets: new Map(), strategy: new Map() };
         let rootTree = null;
         let averageNodeCount = 0;
@@ -565,7 +579,8 @@
                 state.board,
                 rangeInfo.combos,
                 1,
-                rangeInfo.rangeUsed !== false
+                rangeInfo.rangeUsed !== false,
+                random
             );
             const deal = sampled.deals[0];
             sampledRangeUsed = sampled.rangeUsed;
@@ -609,7 +624,8 @@
                 state.board,
                 rangeInfo.combos,
                 1,
-                rangeInfo.rangeUsed !== false
+                rangeInfo.rangeUsed !== false,
+                random
             );
             const deal = sampled.deals[0];
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
@@ -661,6 +677,7 @@
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
+            randomSeed: Number.isInteger(options.seed) ? (options.seed >>> 0) : null,
             sampledOpponentHands: trainingIterations,
             evaluationSamples: evaluatedDeals,
             treeNodes: Math.round(averageNodeCount / trainingIterations),
