@@ -140,6 +140,188 @@
             : Array(node.actions.length).fill(1 / node.actions.length);
     }
 
+    function evaluateProfile(deals, maps, callbacks, weightOf = () => 1) {
+        let weightedValue = 0;
+        let totalWeight = 0;
+
+        for (const entry of deals) {
+            const weight = Number(weightOf(entry.deal, entry));
+            if (!Number.isFinite(weight) || weight < 0) {
+                throw new Error("Le poids d'un échantillon CFR doit être positif ou nul.");
+            }
+            if (weight === 0) continue;
+            weightedValue += weight * averageStrategy(entry.root, entry.deal, maps, callbacks);
+            totalWeight += weight;
+        }
+
+        if (!(totalWeight > 0)) {
+            throw new Error("Aucun poids d'échantillon exploitable pour évaluer la stratégie.");
+        }
+        return weightedValue / totalWeight;
+    }
+
+    // Approximate best response over an explicit collection of chance deals.
+    // Utility is expressed from player 0's perspective: player 0 maximizes,
+    // player 1 minimizes. Opponent reach and chance weights are included in
+    // information-set aggregation; the responder's own reach is excluded.
+    function bestResponseValue(deals, maps, callbacks, responder, weightOf = () => 1) {
+        if (responder !== 0 && responder !== 1) {
+            throw new Error("Le joueur répondant doit être 0 ou 1.");
+        }
+
+        const records = [];
+        const roots = [];
+        let maximumDepth = 0;
+
+        function collect(node, deal, depth, reach) {
+            maximumDepth = Math.max(maximumDepth, depth);
+            if (node.terminal) {
+                const record = {
+                    terminal: true,
+                    value: callbacks.utility(node, deal),
+                    depth
+                };
+                records.push(record);
+                return record;
+            }
+            if (node.actor !== 0 && node.actor !== 1) {
+                throw new Error("Un nœud CFR doit appartenir au joueur 0 ou au joueur 1.");
+            }
+            if (!Array.isArray(node.actions) || node.actions.length === 0) {
+                throw new Error("Un nœud CFR non terminal doit proposer au moins une action.");
+            }
+
+            const strategy = getStrategy(node, deal, maps, callbacks);
+            const record = {
+                terminal: false,
+                node,
+                deal,
+                depth,
+                reach,
+                key: callbacks.informationKey(node, deal),
+                strategy,
+                children: [],
+                value: 0
+            };
+            records.push(record);
+
+            for (let index = 0; index < node.actions.length; index++) {
+                const childReach = node.actor === responder
+                    ? reach
+                    : reach * strategy[index];
+                record.children.push(collect(
+                    node.actions[index].child,
+                    deal,
+                    depth + 1,
+                    childReach
+                ));
+            }
+            return record;
+        }
+
+        for (const entry of deals) {
+            const weight = Number(weightOf(entry.deal, entry));
+            if (!Number.isFinite(weight) || weight < 0) {
+                throw new Error("Le poids d'un échantillon CFR doit être positif ou nul.");
+            }
+            if (weight === 0) continue;
+            roots.push({
+                weight,
+                record: collect(entry.root, entry.deal, 0, weight)
+            });
+        }
+
+        if (!roots.length) {
+            throw new Error("Aucun échantillon exploitable pour calculer la meilleure réponse.");
+        }
+
+        for (let depth = maximumDepth; depth >= 0; depth--) {
+            const level = records.filter(record =>
+                !record.terminal && record.depth === depth
+            );
+            const responseGroups = new Map();
+
+            for (const record of level) {
+                if (record.node.actor !== responder) continue;
+                let group = responseGroups.get(record.key);
+                if (!group) {
+                    group = [];
+                    responseGroups.set(record.key, group);
+                }
+                group.push(record);
+            }
+
+            for (const group of responseGroups.values()) {
+                const signature = actionSignature(group[0].node.actions);
+                const actionCount = group[0].node.actions.length;
+                const actionValues = new Float64Array(actionCount);
+
+                for (const record of group) {
+                    if (actionSignature(record.node.actions) !== signature) {
+                        throw new Error("Un information set de meilleure réponse contient des actions différentes.");
+                    }
+                    for (let index = 0; index < actionCount; index++) {
+                        actionValues[index] += record.reach * record.children[index].value;
+                    }
+                }
+
+                let bestIndex = 0;
+                for (let index = 1; index < actionCount; index++) {
+                    const isBetter = responder === 0
+                        ? actionValues[index] > actionValues[bestIndex]
+                        : actionValues[index] < actionValues[bestIndex];
+                    if (isBetter) bestIndex = index;
+                }
+                for (const record of group) {
+                    record.value = record.children[bestIndex].value;
+                }
+            }
+
+            for (const record of level) {
+                if (record.node.actor === responder) continue;
+                record.value = record.children.reduce(
+                    (sum, child, index) => sum + record.strategy[index] * child.value,
+                    0
+                );
+            }
+        }
+
+        const totalWeight = roots.reduce((sum, entry) => sum + entry.weight, 0);
+        const weightedValue = roots.reduce(
+            (sum, entry) => sum + entry.weight * entry.record.value,
+            0
+        );
+        return {
+            value: weightedValue / totalWeight,
+            totalWeight,
+            informationSets: new Set(records
+                .filter(record => !record.terminal && record.node.actor === responder)
+                .map(record => record.key)).size
+        };
+    }
+
+    function measureExploitability(deals, maps, callbacks, weightOf = () => 1) {
+        const profileValue = evaluateProfile(deals, maps, callbacks, weightOf);
+        const player0BestResponse = bestResponseValue(deals, maps, callbacks, 0, weightOf);
+        const player1BestResponse = bestResponseValue(deals, maps, callbacks, 1, weightOf);
+        const player0Gain = player0BestResponse.value - profileValue;
+        const player1Gain = profileValue - player1BestResponse.value;
+        const nashConv = player0Gain + player1Gain;
+
+        return {
+            profileValue,
+            player0BestResponse: player0BestResponse.value,
+            player1BestResponse: player1BestResponse.value,
+            player0Gain,
+            player1Gain,
+            nashConv,
+            exploitability: nashConv / 2,
+            player0InformationSets: player0BestResponse.informationSets,
+            player1InformationSets: player1BestResponse.informationSets,
+            sampleWeight: player0BestResponse.totalWeight
+        };
+    }
+
     function createMaps() {
         return { regrets: new Map(), strategy: new Map(), actionSignatures: new Map() };
     }
@@ -149,6 +331,9 @@
         runCfr,
         averageStrategy,
         getStrategy,
+        evaluateProfile,
+        bestResponseValue,
+        measureExploitability,
         createMaps
     };
 })(window);
