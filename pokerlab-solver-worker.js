@@ -6,6 +6,7 @@ self.window = self;
 
 importScripts(
     "./js/core/evaluator.js",
+    "./js/bots/bot-profiles.js",
     "./js/modules/postflop-solver.js",
     "./js/modules/cfr-core.js",
     "./js/modules/postflop-strategy.js"
