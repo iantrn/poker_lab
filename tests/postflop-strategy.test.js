@@ -367,3 +367,21 @@ test("un check adverse déjà joué ferme le tour si le héros check à son tour
     assert.equal(heroCheck.child.terminal, true);
     assert.equal(heroCheck.child.type, "showdown");
 });
+
+
+test("une relance est plafonnée au tapis adverse sans exiger que le héros soit à tapis", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 15;
+    state.players[0].stack = 100;
+    state.players[1].stack = 3;
+    state.players[1].streetBet = 5;
+    state.players[0].actionOptions = {
+        canFold: true, canCall: true, canRaise: true,
+        minimumRaiseTo: 15, maximumRaiseTo: 100, isAllIn: false
+    };
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const raise = built.tree.actions.find(entry => entry.action.label === "raise_effective");
+    assert.ok(raise);
+    assert.equal(raise.action.amount, 8);
+});
