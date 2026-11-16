@@ -276,6 +276,9 @@
         if (!state || !Array.isArray(state.board) || state.board.length < 3 || state.board.length > 5) {
             throw new Error("Le solveur est disponible à partir du flop.");
         }
+        if (!Array.isArray(state.players)) {
+            throw new Error("La liste des joueurs est invalide.");
+        }
         const active = state.players.filter(player => !player.folded && player.stack >= 0);
         if (active.length !== 2) throw new Error("La première version du solveur est limitée au heads-up.");
         const hero = state.players.find(player => player.isHuman);
@@ -390,8 +393,17 @@
     }
 
     async function getOpponentRange(state, history, opponent) {
-        const matrix = await loadMatrix();
-        const baseRange = findOpponentRange(state, history, opponent, matrix);
+        let baseRange;
+        try {
+            const matrix = await loadMatrix();
+            baseRange = findOpponentRange(state, history, opponent, matrix);
+        } catch (error) {
+            baseRange = {
+                combos: null,
+                label: "Range large (bundle préflop indisponible)",
+                rangeError: error && error.message ? error.message : "Chargement des ranges impossible."
+            };
+        }
         const rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
         const sourceRange = rangeUsed
             ? baseRange
