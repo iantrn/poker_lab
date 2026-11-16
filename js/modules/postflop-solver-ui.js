@@ -1,0 +1,107 @@
+/* =========================================================
+   POKERLAB - POSTFLOP SOLVER UI
+   Injects the SOLVE action only on an eligible human turn.
+   ========================================================= */
+"use strict";
+
+(function (global) {
+    let observer = null;
+    let busy = false;
+
+    function element(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    function eligible(state) {
+        if (!state || state.handComplete || !["flop", "turn", "river"].includes(state.street)) return false;
+        if (state.currentPlayerId !== "hero") return false;
+        const active = state.players.filter(player => !player.folded);
+        return active.length === 2 &&
+            state.players.some(player => player.id === "hero" && player.holeCards?.length === 2);
+    }
+
+    function renderResult(container, result) {
+        container.replaceChildren();
+        const heading = element("h4", "font-bold text-lg mb-3", "Analyse postflop");
+        const equity = element("p", "text-2xl font-bold mb-2",
+            (result.equity * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % d'équité");
+        const range = element("p", "text-sm text-textMuted mb-2",
+            "Range adverse : " + result.rangeLabel);
+        const stats = element("p", "text-sm text-textMuted mb-3",
+            result.wins + " victoires · " + result.ties + " égalités · " +
+            result.losses + " défaites sur " + result.iterations.toLocaleString("fr-FR") + " simulations");
+        const action = element("p", "font-semibold text-primaryHover mb-1",
+            "Piste de décision : " + result.decision.action);
+        const explanation = element("p", "text-sm mb-2", result.decision.explanation);
+        const odds = result.decision.potOdds > 0
+            ? "Pot odds : " + (result.decision.potOdds * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"
+            : "Aucune mise à payer";
+        const details = element("p", "text-xs text-textMuted mb-2", odds);
+        const disclaimer = element("p", "text-xs text-textMuted", result.note);
+        container.append(heading, equity, range, stats, action, explanation, details, disclaimer);
+    }
+
+    async function run(button, panel) {
+        if (busy) return;
+        busy = true;
+        button.disabled = true;
+        button.textContent = "Calcul en cours…";
+        panel.classList.remove("hidden");
+        panel.textContent = "Simulation des mains adverses et des cartes restantes…";
+        try {
+            const state = global.PokerLabTraining.getGameState();
+            const history = global.PokerLabTraining.getHandHistory();
+            const result = await global.PokerLabPostflopSolver.analyse(state, history);
+            renderResult(panel, result);
+        } catch (error) {
+            panel.replaceChildren(element("p", "text-red-400 text-sm", error.message));
+        } finally {
+            busy = false;
+            button.disabled = false;
+            button.textContent = "SOLVE";
+        }
+    }
+
+    function sync() {
+        const actions = document.getElementById("training-actions");
+        if (!actions || !global.PokerLabTraining || !global.PokerLabPostflopSolver) return;
+        const state = global.PokerLabTraining.getGameState();
+        const oldButton = actions.querySelector("[data-postflop-solve]");
+        const oldPanel = actions.querySelector("[data-postflop-result]");
+        if (!eligible(state)) {
+            if (oldButton) oldButton.remove();
+            if (oldPanel) oldPanel.remove();
+            return;
+        }
+        if (oldButton) return;
+
+        const button = element("button",
+            "pl-solve-button bg-primary hover:bg-primaryHover text-white font-bold rounded-lg px-5 py-3 transition",
+            "SOLVE");
+        button.type = "button";
+        button.dataset.postflopSolve = "true";
+        button.setAttribute("aria-label", "Analyser cette situation postflop");
+        const panel = element("section",
+            "hidden mt-4 rounded-xl border border-primary/30 bg-background p-4");
+        panel.dataset.postflopResult = "true";
+        button.addEventListener("click", () => run(button, panel));
+        actions.append(button, panel);
+    }
+
+    function init() {
+        const actions = document.getElementById("training-actions");
+        if (!actions || observer) return;
+        observer = new MutationObserver(sync);
+        observer.observe(actions, { childList: true, subtree: true });
+        sync();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+        init();
+    }
+})(window);
