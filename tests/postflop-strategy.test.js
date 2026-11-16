@@ -350,3 +350,20 @@ test("l'interface déclenche CFR+ sur le flop, le turn et la river", () => {
     assert.doesNotMatch(ui, /initialState\.street === ["']river["']/);
     assert.match(ui, /"Stratégie CFR\+ — " \+ strategy\.street/);
 });
+
+
+test("un check adverse déjà joué ferme le tour si le héros check à son tour", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        state.players[0].actionOptions,
+        ["BB:check"],
+        [],
+        1
+    );
+    const heroCheck = built.tree.actions.find(entry => entry.action.type === "check");
+    assert.ok(heroCheck);
+    assert.equal(heroCheck.child.terminal, true);
+    assert.equal(heroCheck.child.type, "showdown");
+});
