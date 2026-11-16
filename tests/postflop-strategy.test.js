@@ -115,9 +115,10 @@ test("CFR+ renvoie des fréquences normalisées et une EV finie", async () => {
         samples: 8
     });
     const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
-    assert.equal(result.algorithm, "Chance-sampled CFR+");
-    assert.equal(result.iterations, 20);
-    assert.equal(result.sampledOpponentHands, 8);
+    assert.equal(result.algorithm, "CFR+ avec rééchantillonnage des chances");
+    assert.equal(result.iterations, 160);
+    assert.equal(result.sampledOpponentHands, 160);
+    assert.equal(result.evaluationSamples, 8);
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.actions.every(action => Number.isFinite(action.ev)));
@@ -276,7 +277,7 @@ test("CFR+ échantillonne les runouts et calcule une stratégie dès le flop", a
     });
     const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
     assert.equal(result.street, "flop");
-    assert.equal(result.sampledOpponentHands, 8);
+    assert.equal(result.sampledOpponentHands, 160);
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.treeNodes > 10);
@@ -301,7 +302,7 @@ test("CFR+ échantillonne la river et calcule une stratégie depuis le turn", as
     });
     const totalFrequency = result.actions.reduce((sum, action) => sum + action.frequency, 0);
     assert.equal(result.street, "turn");
-    assert.equal(result.sampledOpponentHands, 8);
+    assert.equal(result.sampledOpponentHands, 160);
     assert.ok(Math.abs(totalFrequency - 1) < 0.000001);
     assert.ok(Number.isFinite(result.heroEV));
     assert.ok(result.treeNodes > 10);
@@ -346,9 +347,9 @@ test("le moteur signale le fallback uniforme si toutes les combos pondérées so
 
 test("l'interface déclenche CFR+ sur le flop, le turn et la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
-    assert.match(ui, /PokerLabPostflopStrategy\.solvePostflop\(initialState, history\)/);
+    assert.match(ui, /PokerLabPostflopStrategy\.solvePostflop\(solverInput\)/);
     assert.doesNotMatch(ui, /initialState\.street === ["']river["']/);
-    assert.match(ui, /"Stratégie CFR\+ — " \+ strategy\.street/);
+    assert.match(ui, /"Détails stratégiques — " \+ strategy\.street/);
 });
 
 
@@ -390,5 +391,82 @@ test("une relance est plafonnée au tapis adverse sans exiger que le héros soit
 test("le message de repli UI ne prétend pas limiter CFR+ à la river", () => {
     const ui = fs.readFileSync("js/modules/postflop-solver-ui.js", "utf8");
     assert.doesNotMatch(ui, /limité à la river/);
-    assert.match(ui, /L\x27analyse stratégique n\x27a pas pu être calculée/);
+    assert.match(ui, /Fréquences stratégiques indisponibles pour cette situation/);
+});
+
+
+test("les montants de l'arbre stratégique respectent l'unité de 0,5 jeton", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 11;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const amounts = [];
+    function visit(node) {
+        if (!node || node.terminal) return;
+        for (const entry of node.actions) {
+            if (entry.action.amount > 0) amounts.push(entry.action.amount);
+            visit(entry.child);
+        }
+    }
+    visit(built.tree);
+    assert.ok(amounts.length > 0);
+    assert.ok(amounts.every(amount => Math.abs(amount * 2 - Math.round(amount * 2)) < 0.000001));
+});
+
+test("une relance postflop respecte la dernière relance complète de la street", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.players[1].streetBet = 3.5;
+    state.lastFullRaise = 3.5;
+    state.pot = 17;
+    state.players[0].actionOptions = { canFold: true, canCall: true, canRaise: true };
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(state, state.players[0].actionOptions);
+    const raise = built.tree.actions.find(entry => entry.action.type === "raise");
+    assert.ok(raise);
+    assert.ok(raise.action.amount >= 7);
+});
+
+
+test("un short all-in inférieur à la relance minimale ne rouvre pas les enchères", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 1;
+    state.players[1].stack = 0.5;
+    state.players[0].hasActed = false;
+    state.players[0].lastActedBet = 0;
+    state.players[1].hasActed = false;
+    state.players[1].lastActedBet = 0;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        { canCheck: true, canBet: true, canRaise: true, minimumBet: 1, maximumBet: 20 }
+    );
+    const heroCheck = built.tree.actions.find(entry => entry.action.type === "check");
+    const shortBet = heroCheck.child.actions.find(entry => entry.action.type === "bet");
+    assert.ok(shortBet);
+    assert.equal(shortBet.action.amount, 0.5);
+    assert.deepEqual(
+        Array.from(shortBet.child.actions, entry => entry.action.type),
+        ["fold", "call"]
+    );
+});
+
+test("une mise complète rouvre le droit de relance d'un joueur ayant déjà checké", () => {
+    const app = loadStrategy();
+    const state = riverState();
+    state.pot = 1;
+    state.players[1].stack = 10;
+    state.players[0].hasActed = false;
+    state.players[0].lastActedBet = 0;
+    state.players[1].hasActed = false;
+    state.players[1].lastActedBet = 0;
+    const built = app.PokerLabPostflopStrategy.buildDecisionTree(
+        state,
+        { canCheck: true, canBet: true, canRaise: true, minimumBet: 1, maximumBet: 20 }
+    );
+    const heroCheck = built.tree.actions.find(entry => entry.action.type === "check");
+    const fullBet = heroCheck.child.actions.find(entry =>
+        entry.action.type === "bet" && entry.action.amount >= 1
+    );
+    assert.ok(fullBet);
+    assert.ok(fullBet.child.actions.some(entry => entry.action.type === "raise"));
 });

@@ -37,6 +37,8 @@
             player.totalContribution,
             player.folded,
             player.allIn,
+            player.hasActed,
+            player.lastActedBet,
             player.amountToCall
         ].join(":")).join("|");
         return [
@@ -101,9 +103,10 @@
             details.append(
                 element("h5", "pl-solve-details-heading", "Détails stratégiques — " + strategy.street),
                 element("p", "pl-solve-detail-line",
-                    strategy.iterations + " itérations · " +
-                    strategy.sampledOpponentHands + " scénarios main adverse / runout · " +
-                    strategy.treeNodes + " nœuds dans l'arbre")
+                    strategy.iterations + " itérations CFR+ · " +
+                    strategy.sampledOpponentHands + " échantillons d'apprentissage renouvelés · " +
+                    strategy.evaluationSamples + " échantillons d'évaluation indépendants · " +
+                    strategy.treeNodes + " nœuds moyens dans l'arbre")
             );
 
             strategy.actions.forEach(item => {
@@ -117,6 +120,10 @@
                 element("p", "pl-solve-detail-line pl-solve-detail-emphasis",
                     "EV estimée depuis cette décision : " +
                     strategy.heroEV.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " jetons"),
+                element("p", "pl-solve-detail-line",
+                    strategy.postflopActionsUsed
+                        ? strategy.postflopActionsUsed + " actions postflop adverses intégrées à l'ajustement heuristique de la range."
+                        : "Aucune action postflop adverse antérieure à cette décision à intégrer."),
                 element("p", "pl-solve-detail-line", strategy.abstraction),
                 element("p", "pl-solve-detail-line", strategy.convergence)
             );
@@ -156,7 +163,8 @@
 
         try {
             const history = global.PokerLabTraining.getHandHistory();
-            const result = await global.PokerLabPostflopSolver.analyse(initialState, history);
+            const solverInput = global.PokerLabPostflopSolver.createInput(initialState, history);
+            const result = await global.PokerLabPostflopSolver.analyse(solverInput);
             const stateAfterEquity = global.PokerLabTraining.getGameState();
             if (!button.isConnected || stateKey(stateAfterEquity) !== initialKey) {
                 if (button.isConnected) {
@@ -171,7 +179,7 @@
             if (global.PokerLabPostflopStrategy) {
                 panel.textContent = "Calcul CFR+ de l'arbre de décisions et échantillonnage des runouts…";
                 try {
-                    strategy = await global.PokerLabPostflopStrategy.solvePostflop(initialState, history);
+                    strategy = await global.PokerLabPostflopStrategy.solvePostflop(solverInput);
                 } catch (error) {
                     strategyError = error.message;
                 }

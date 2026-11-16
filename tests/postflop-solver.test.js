@@ -182,3 +182,74 @@ test("le solveur ne remplace pas une séquence absente par une range de profonde
     assert.equal(result.rangeUsed, false);
     assert.match(result.rangeLabel, /Range large/);
 });
+
+
+test("le contrat solver v1 copie l'état et n'expose jamais les cartes adverses", () => {
+    const app = loadSolver();
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        [card(14, "spades"), card(14, "hearts")]
+    );
+    current.players[1].holeCards = [card(3, "clubs"), card(4, "clubs")];
+    const history = [{
+        type: "player_action",
+        street: "flop",
+        data: { playerId: "bot_1", action: "check", amount: 0, secret: "must-not-pass" }
+    }];
+    const input = app.PokerLabPostflopSolver.createInput(current, history);
+    assert.equal(input.schemaVersion, 1);
+    assert.equal(input.state.players[1].holeCards, null);
+    assert.notEqual(input.state.board, current.board);
+    assert.equal(input.history[0].data.secret, undefined);
+    input.state.board[0].value = 3;
+    assert.equal(current.board[0].value, 2);
+});
+
+test("une action postflop adverse modifie les poids de la range sans prétendre à une range GTO", async () => {
+    const fetcher = async url => ({
+        ok: true,
+        json: async () => url.endsWith("index.json")
+            ? { version: 1, spots: [{ id: "bb/BB_call_vs_BU_RFI", p: "BB", a: "call", s: "BU RFI" }] }
+            : { version: 1, ranges: { "bb/BB_call_vs_BU_RFI": { AA: 100, "43o": 100 } } }
+    });
+    const app = loadSolver(fetcher);
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        [card(14, "spades"), card(14, "hearts")]
+    );
+    current.players[0].position = "BU";
+    current.players[1].position = "BB";
+    const history = [
+        { type: "player_action", street: "preflop", data: { playerId: "hero", action: "raise" } },
+        { type: "player_action", street: "preflop", data: { playerId: "bot_1", action: "call" } },
+        { type: "player_action", street: "flop", data: { playerId: "bot_1", action: "check", amount: 0 } }
+    ];
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(current, history, current.players[1]);
+    const aaWeight = range.combos.filter(item => item.cards.every(c => c.value === 14))
+        .reduce((sum, item) => sum + item.weight, 0);
+    const weakWeight = range.combos.filter(item =>
+        item.cards.some(c => c.value === 4) && item.cards.some(c => c.value === 3))
+        .reduce((sum, item) => sum + item.weight, 0);
+    assert.equal(range.rangeUsed, true);
+    assert.equal(range.postflopActionsUsed, 1);
+    assert.match(range.label, /ajustée postflop/);
+    assert.ok(weakWeight > aaWeight);
+});
+
+
+test("le solveur conserve une range uniforme hors ligne si le bundle préflop est indisponible", async () => {
+    const app = loadSolver(async () => ({ ok: false, json: async () => ({}) }));
+    const current = state(
+        [card(2, "clubs"), card(7, "diamonds"), card(9, "hearts")],
+        [card(14, "spades"), card(14, "hearts")]
+    );
+    current.players[1].position = "BB";
+    const range = await app.PokerLabPostflopSolver.getOpponentRange(
+        current,
+        [],
+        current.players[1]
+    );
+    assert.equal(range.rangeUsed, false);
+    assert.match(range.label, /bundle préflop indisponible/);
+    assert.equal(range.combos.length, 1081);
+});

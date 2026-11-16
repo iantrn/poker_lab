@@ -2243,6 +2243,8 @@ const position = positionNames[index];
 
             minimumRaiseTo: this.getMinimumRaiseTo(),
 
+            blinds: { ...this.blinds },
+
             dealerIndex: this.dealerIndex,
 
             currentPlayerId: this.currentPlayerId,
@@ -2302,6 +2304,8 @@ const position = positionNames[index];
                         allIn: player.allIn,
 
                         hasActed: player.hasActed,
+
+                        lastActedBet: player.lastActedBet,
 
                         position: player.position,
 

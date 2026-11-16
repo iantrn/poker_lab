@@ -192,9 +192,105 @@
         return weightedChoice(available);
     }
 
+    function resolveInput(input, history = []) {
+        if (input && Object.prototype.hasOwnProperty.call(input, "schemaVersion")) {
+            if (input.schemaVersion !== 1 || !input.state) {
+                throw new Error("Version du contrat de données du solveur non prise en charge.");
+            }
+            return {
+                state: input.state,
+                history: Array.isArray(input.history) ? input.history : []
+            };
+        }
+        return { state: input, history: Array.isArray(history) ? history : [] };
+    }
+
+    function createInput(state, history = []) {
+        if (!state || !Array.isArray(state.players)) {
+            throw new Error("Impossible de construire les données du solveur : état invalide.");
+        }
+
+        const chipAmount = (value, label) => {
+            const amount = value === undefined || value === null ? 0 : Number(value);
+            if (!Number.isFinite(amount) || amount < 0 ||
+                Math.abs(amount * 2 - Math.round(amount * 2)) > 0.000001) {
+                throw new Error("Contrat du solveur invalide : " + label + " doit respecter les incréments de 0,5 jeton.");
+            }
+            return amount;
+        };
+
+        const players = state.players.map(player => ({
+            id: player.id,
+            name: player.name,
+            isHuman: Boolean(player.isHuman),
+            isBot: Boolean(player.isBot),
+            botProfile: player.botProfile || null,
+            botDifficulty: player.botDifficulty || null,
+            position: player.position || null,
+            stack: chipAmount(player.stack, "stack"),
+            streetBet: chipAmount(player.streetBet, "streetBet"),
+            totalContribution: chipAmount(player.totalContribution, "totalContribution"),
+            folded: Boolean(player.folded),
+            allIn: Boolean(player.allIn),
+            hasActed: Boolean(player.hasActed),
+            lastActedBet: chipAmount(player.lastActedBet, "lastActedBet"),
+            amountToCall: chipAmount(player.amountToCall, "amountToCall"),
+            holeCards: player.isHuman && Array.isArray(player.holeCards)
+                ? player.holeCards.map(card => ({ value: card.value, suit: card.suit }))
+                : null,
+            actionOptions: player.isHuman && player.actionOptions
+                ? { ...player.actionOptions }
+                : null
+        }));
+
+        const allowedHistoryFields = [
+            "playerId", "playerName", "action", "amount", "pot",
+            "street", "board", "smallBlind", "smallBlindAmount",
+            "bigBlind", "bigBlindAmount", "winnerId"
+        ];
+        const safeHistory = (Array.isArray(history) ? history : []).map(event => {
+            const data = {};
+            for (const key of allowedHistoryFields) {
+                if (event && event.data && Object.prototype.hasOwnProperty.call(event.data, key)) {
+                    const value = event.data[key];
+                    data[key] = key === "board" && Array.isArray(value)
+                        ? value.map(card => ({ value: card.value, suit: card.suit }))
+                        : value;
+                }
+            }
+            return {
+                type: event && event.type,
+                street: event && event.street,
+                timestamp: Number(event && event.timestamp) || 0,
+                data
+            };
+        });
+
+        const snapshot = {
+            handNumber: state.handNumber,
+            street: state.street,
+            board: (state.board || []).map(card => ({ value: card.value, suit: card.suit })),
+            pot: chipAmount(state.pot, "pot"),
+            currentBet: chipAmount(state.currentBet, "currentBet"),
+            lastFullRaise: chipAmount(state.lastFullRaise, "lastFullRaise"),
+            minimumRaiseTo: chipAmount(state.minimumRaiseTo, "minimumRaiseTo"),
+            blinds: state.blinds ? { ...state.blinds } : { smallBlind: 0.5, bigBlind: 1 },
+            dealerIndex: state.dealerIndex,
+            currentPlayerId: state.currentPlayerId,
+            pendingPlayers: Array.isArray(state.pendingPlayers) ? state.pendingPlayers.slice() : [],
+            handComplete: Boolean(state.handComplete),
+            players
+        };
+
+        return { schemaVersion: 1, state: snapshot, history: safeHistory };
+    }
+
     function validateState(state) {
         if (!state || !Array.isArray(state.board) || state.board.length < 3 || state.board.length > 5) {
             throw new Error("Le solveur est disponible à partir du flop.");
+        }
+        if (!Array.isArray(state.players)) {
+            throw new Error("La liste des joueurs est invalide.");
         }
         const active = state.players.filter(player => !player.folded && player.stack >= 0);
         if (active.length !== 2) throw new Error("La première version du solveur est limitée au heads-up.");
@@ -233,12 +329,113 @@
         return { action, explanation, potOdds, margin };
     }
 
-    async function getOpponentRange(state, history, opponent) {
-        const matrix = await loadMatrix();
-        return findOpponentRange(state, history, opponent, matrix);
+    function buildUniformCombos(knownCards) {
+        const deck = makeDeck(new Set(knownCards.map(cardKey)));
+        const combos = [];
+        for (let first = 0; first < deck.length; first++) {
+            for (let second = first + 1; second < deck.length; second++) {
+                combos.push({ cards: [deck[first], deck[second]], weight: 1 });
+            }
+        }
+        return combos;
     }
 
-    async function analyse(state, history, options = {}) {
+    function estimateBotHandStrength(holeCards, board) {
+        const result = global.PokerLabHandEvaluator.evaluate([...holeCards, ...board]);
+        const categoryStrength = [0.24, 0.40, 0.56, 0.68, 0.78, 0.84, 0.91, 0.96, 0.985, 0.995];
+        let strength = categoryStrength[result.score[0]] ?? 0.5;
+        if (Array.isArray(result.score) && result.score.length > 1) {
+            const kickerSum = result.score.slice(1).reduce((sum, value) =>
+                sum + (Number.isFinite(value) ? value : 0), 0);
+            strength += Math.max(0, Math.min(0.025, kickerSum / 1000));
+        }
+        return Math.max(0.05, Math.min(0.995, strength));
+    }
+
+    function conditionRangeOnPostflopActions(state, history, opponent, range) {
+        if (!range || !Array.isArray(range.combos)) return range;
+        const streetOrder = { flop: 3, turn: 4, river: 5 };
+        const actions = (history || []).filter(event =>
+            event.type === "player_action" &&
+            event.data &&
+            event.data.playerId === opponent.id &&
+            Object.prototype.hasOwnProperty.call(streetOrder, event.street) &&
+            streetOrder[event.street] <= state.board.length &&
+            ["check", "call", "all_in_call", "bet", "raise", "short_raise", "short_all_in_bet"].includes(event.data.action)
+        );
+        if (!actions.length) return { ...range, postflopActionsUsed: 0 };
+
+        const conditioned = range.combos.map(item => {
+            let logWeight = Math.log(Math.max(Number(item.weight) || 0, 1e-12));
+            for (const event of actions) {
+                const boardLength = streetOrder[event.street];
+                const board = state.board.slice(0, boardLength);
+                let strength = 0.5;
+                try {
+                    strength = estimateBotHandStrength(item.cards, board);
+                } catch (error) {
+                    // An invalid historical board must not silently discard a combo.
+                    strength = 0.5;
+                }
+                const action = event.data.action;
+                let likelihood;
+                if (action === "check") {
+                    likelihood = 0.25 + (1 - strength) * 0.75;
+                } else if (action === "call" || action === "all_in_call") {
+                    likelihood = 0.20 + strength * 0.80;
+                } else {
+                    likelihood = 0.12 + strength * 0.88;
+                }
+                logWeight += Math.log(Math.max(0.05, likelihood));
+            }
+            return { cards: item.cards, logWeight };
+        });
+
+        const maxLogWeight = Math.max(...conditioned.map(item => item.logWeight));
+        const combos = conditioned.map(item => ({
+            cards: item.cards,
+            weight: Math.exp(item.logWeight - maxLogWeight)
+        })).filter(item => item.weight > 0);
+
+        return {
+            ...range,
+            combos,
+            postflopActionsUsed: actions.length,
+            conditioning: "heuristique basée sur les catégories de mains et les actions observées"
+        };
+    }
+
+    async function getOpponentRange(state, history, opponent) {
+        let baseRange;
+        try {
+            const matrix = await loadMatrix();
+            baseRange = findOpponentRange(state, history, opponent, matrix);
+        } catch (error) {
+            baseRange = {
+                combos: null,
+                label: "Range large (bundle préflop indisponible)",
+                rangeError: error && error.message ? error.message : "Chargement des ranges impossible."
+            };
+        }
+        const rangeUsed = Array.isArray(baseRange.combos) && baseRange.combos.length > 0;
+        const sourceRange = rangeUsed
+            ? baseRange
+            : { ...baseRange, combos: buildUniformCombos([
+                ...(state.players.find(player => player.isHuman)?.holeCards || []),
+                ...state.board
+            ]) };
+        const conditioned = conditionRangeOnPostflopActions(state, history, opponent, sourceRange);
+        conditioned.rangeUsed = rangeUsed;
+        if (conditioned.postflopActionsUsed > 0 && conditioned.combos) {
+            conditioned.label += " · ajustée postflop";
+        }
+        return conditioned;
+    }
+
+    async function analyse(input, history = [], options = {}) {
+        const resolved = resolveInput(input, history);
+        const state = resolved.state;
+        history = resolved.history;
         const { hero, opponent } = validateState(state);
         const known = [...hero.holeCards, ...state.board];
         const seen = new Set();
@@ -249,11 +446,18 @@
         }
         const range = await getOpponentRange(state, history, opponent);
         const baseDeck = makeDeck(seen);
+        const availableCombos = Array.isArray(range.combos)
+            ? range.combos.filter(item =>
+                item.cards.every(card => baseDeck.some(candidate => cardKey(candidate) === cardKey(card)))
+            )
+            : [];
+        const weightedRange = availableCombos.length ? availableCombos : null;
+        const preflopRangeUsed = range.rangeUsed !== false && availableCombos.length > 0;
         const iterations = Math.max(300, Math.min(10000, Number(options.iterations) || DEFAULT_ITERATIONS));
         let wins = 0, ties = 0, losses = 0;
         for (let i = 0; i < iterations; i++) {
             const deck = baseDeck.slice();
-            const villain = sampleOpponentHand(deck, range.combos);
+            const villain = sampleOpponentHand(deck, weightedRange);
             const villainKeys = new Set(villain.map(cardKey));
             const remaining = deck.filter(card => !villainKeys.has(cardKey(card)));
             shuffle(remaining);
@@ -267,12 +471,16 @@
         const decision = recommend(equity, state, hero);
         return {
             iterations, wins, ties, losses, equity,
-            rangeLabel: range.label,
-            rangeUsed: Boolean(range.combos),
+            rangeLabel: range.rangeUsed === false
+                ? range.label
+                : preflopRangeUsed
+                    ? range.label
+                    : "Range large (combinaisons bloquées)",
+            rangeUsed: preflopRangeUsed,
             decision,
-            note: "Équité Monte-Carlo contre la range estimée. Les fréquences stratégiques affichées séparément sont issues d'un arbre CFR+ abstrait et ne constituent pas un équilibre GTO certifié."
+            note: "Équité Monte-Carlo contre une range préflop, éventuellement ajustée par un modèle heuristique des actions postflop observées. Les fréquences stratégiques proviennent d'un arbre CFR+ abstrait ; elles ne constituent pas un équilibre GTO certifié."
         };
     }
 
-    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange };
+    global.PokerLabPostflopSolver = { analyse, validateState, getOpponentRange, createInput, resolveInput };
 })(window);

@@ -13,6 +13,21 @@
     const BET_SIZINGS = [0.33, 0.75];
     const ACTION_LIMIT = 4;
 
+    const CHIP_UNIT = 0.5;
+    const CHIP_EPSILON = 0.000001;
+
+    function roundChips(amount) {
+        return Math.round((Number(amount) || 0) / CHIP_UNIT) * CHIP_UNIT;
+    }
+
+    function ceilChips(amount) {
+        return Math.ceil((Number(amount) || 0) / CHIP_UNIT - CHIP_EPSILON) * CHIP_UNIT;
+    }
+
+    function floorChips(amount) {
+        return Math.floor((Number(amount) || 0) / CHIP_UNIT + CHIP_EPSILON) * CHIP_UNIT;
+    }
+
     function cardId(card) {
         return card.value + "_" + card.suit;
     }
@@ -31,6 +46,10 @@
             pot: state.pot,
             stacks: state.stacks.slice(),
             bets: state.bets.slice(),
+            hasActed: state.hasActed.slice(),
+            lastActedBets: state.lastActedBets.slice(),
+            lastFullRaise: state.lastFullRaise,
+            bigBlind: state.bigBlind,
             heroInvested: state.heroInvested,
             raises: state.raises,
             checks: state.checks,
@@ -40,7 +59,7 @@
     }
 
     function amountToCall(state, actor) {
-        return Math.max(0, state.bets[1 - actor] - state.bets[actor]);
+        return roundChips(Math.max(0, state.bets[1 - actor] - state.bets[actor]));
     }
 
     function terminal(type, state, winner = null) {
@@ -54,7 +73,7 @@
     }
 
     function applyContribution(state, actor, amount) {
-        const paid = Math.max(0, Math.min(state.stacks[actor], amount));
+        const paid = floorChips(Math.max(0, Math.min(state.stacks[actor], amount)));
         state.stacks[actor] -= paid;
         state.bets[actor] += paid;
         state.pot += paid;
@@ -69,9 +88,13 @@
     function buildDecisionTree(input, rootOptions, priorHistory = [], runout = [], rootChecks = 0) {
         const initial = {
             actor: 0,
-            pot: Number(input.pot) || 0,
-            stacks: input.players.map(player => Number(player.stack) || 0),
-            bets: input.players.map(player => Number(player.streetBet) || 0),
+            pot: roundChips(input.pot),
+            stacks: input.players.map(player => floorChips(player.stack)),
+            bets: input.players.map(player => roundChips(player.streetBet)),
+            hasActed: input.players.map(player => Boolean(player.hasActed)),
+            lastActedBets: input.players.map(player => roundChips(player.lastActedBet)),
+            lastFullRaise: roundChips(input.lastFullRaise) || 1,
+            bigBlind: roundChips(input.blinds && input.blinds.bigBlind) || 1,
             heroInvested: 0,
             raises: 0,
             checks: rootChecks,
@@ -101,6 +124,9 @@
             const next = cloneState(state);
             next.actor = firstToAct();
             next.bets = [0, 0];
+            next.hasActed = [false, false];
+            next.lastActedBets = [0, 0];
+            next.lastFullRaise = next.bigBlind;
             next.raises = 0;
             next.checks = 0;
             next.root = false;
@@ -124,23 +150,30 @@
             }
 
             const actions = [];
-            const canRaise = state.raises < 1 && state.stacks[other] > 0;
+            const currentBet = Math.max(state.bets[0], state.bets[1]);
+            const actorRaiseRights = !state.hasActed[actor] ||
+                currentBet - state.lastActedBets[actor] >= state.lastFullRaise - CHIP_EPSILON;
+            const canContinueAggression = state.raises < 1 &&
+                state.stacks[other] > 0 &&
+                actorRaiseRights;
+            const canRaise = canContinueAggression &&
+                !(state.root && actor === 0 && rootOptions.canRaise === false);
 
             if (toCall > 0) {
                 actions.push(makeAction("fold", "fold"));
                 actions.push(makeAction("call", "call", toCall));
 
                 const rootRaiseAllowed = !state.root || rootOptions.canRaise;
-                const requiredRaiseTotal = state.root && Number.isFinite(rootOptions.minimumRaiseTo)
+                const requiredRaiseTotal = ceilChips(state.root && Number.isFinite(rootOptions.minimumRaiseTo)
                     ? Math.max(toCall, rootOptions.minimumRaiseTo - state.bets[actor])
-                    : Math.max(toCall, state.pot * BET_FRACTION);
-                const effectiveMaximum = toCall + state.stacks[other];
-                const maximumRaiseTotal = state.root && Number.isFinite(rootOptions.maximumRaiseTo)
+                    : toCall + state.lastFullRaise);
+                const effectiveMaximum = floorChips(toCall + state.stacks[other]);
+                const maximumRaiseTotal = floorChips(state.root && Number.isFinite(rootOptions.maximumRaiseTo)
                     ? Math.min(state.stacks[actor], rootOptions.maximumRaiseTo - state.bets[actor], effectiveMaximum)
-                    : Math.min(state.stacks[actor], effectiveMaximum);
+                    : Math.min(state.stacks[actor], effectiveMaximum));
                 if (canRaise && rootRaiseAllowed && state.stacks[actor] > toCall) {
-                    const desiredRaiseTotal = toCall + Math.max(toCall, state.pot * BET_FRACTION,
-                        requiredRaiseTotal - toCall);
+                    const desiredRaiseTotal = ceilChips(toCall + Math.max(toCall, state.pot * BET_FRACTION,
+                        requiredRaiseTotal - toCall, state.lastFullRaise));
                     if (desiredRaiseTotal <= maximumRaiseTotal + 0.000001) {
                         actions.push(makeAction("raise", "raise", desiredRaiseTotal));
                     } else if (state.root && rootOptions.isAllIn && maximumRaiseTotal > toCall) {
@@ -154,14 +187,14 @@
             } else {
                 actions.push(makeAction("check", "check"));
                 const rootBetAllowed = !state.root || rootOptions.canBet;
-                if (canRaise && rootBetAllowed && state.stacks[actor] > 0) {
-                    const minimumBet = state.root && Number.isFinite(rootOptions.minimumBet)
-                        ? rootOptions.minimumBet : 1;
-                    const effectiveBetStack = Math.min(state.stacks[actor], state.stacks[other]);
+                if (canContinueAggression && rootBetAllowed && state.stacks[actor] > 0) {
+                    const minimumBet = ceilChips(state.root && Number.isFinite(rootOptions.minimumBet)
+                        ? rootOptions.minimumBet : 1);
+                    const effectiveBetStack = floorChips(Math.min(state.stacks[actor], state.stacks[other]));
                     const addedBetAmounts = new Set();
                     let largestBet = 0;
                     for (const fraction of BET_SIZINGS) {
-                        const amount = Math.min(effectiveBetStack, Math.max(minimumBet, state.pot * fraction));
+                        const amount = floorChips(Math.min(effectiveBetStack, Math.max(minimumBet, roundChips(state.pot * fraction))));
                         if (amount <= 0 || addedBetAmounts.has(amount)) continue;
                         addedBetAmounts.add(amount);
                         largestBet = Math.max(largestBet, amount);
@@ -177,6 +210,14 @@
                 terminal: false,
                 actor,
                 board: board.slice(),
+                pot: state.pot,
+                stacks: state.stacks.slice(),
+                bets: state.bets.slice(),
+                hasActed: state.hasActed.slice(),
+                lastActedBets: state.lastActedBets.slice(),
+                lastFullRaise: state.lastFullRaise,
+                raises: state.raises,
+                checks: state.checks,
                 history: state.history.join("/"),
                 actions: []
             };
@@ -193,6 +234,8 @@
 
                 if (action.type === "check") {
                     next.checks++;
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     next.actor = other;
                     node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                     continue;
@@ -207,6 +250,8 @@
                         next.stacks[other] += uncalled;
                         if (other === 0) next.heroInvested -= uncalled;
                     }
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     const child = next.stacks[0] <= 0 || next.stacks[1] <= 0
                         ? terminal("showdown", next)
                         : advanceStreet(next, board, runoutIndex, depth + 1);
@@ -215,15 +260,26 @@
                 }
 
                 if (action.type === "bet") {
-                    applyContribution(next, actor, action.amount);
+                    const paid = applyContribution(next, actor, action.amount);
                     next.checks = 0;
+                    if (paid >= next.bigBlind - CHIP_EPSILON) {
+                        next.lastFullRaise = paid;
+                    }
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     next.actor = other;
                     node.actions.push({ action, child: build(next, board, runoutIndex, depth + 1) });
                     continue;
                 }
 
                 if (action.type === "raise") {
-                    applyContribution(next, actor, action.amount);
+                    const paid = applyContribution(next, actor, action.amount);
+                    const raiseIncrement = Math.max(0, paid - toCall);
+                    if (raiseIncrement >= next.lastFullRaise - CHIP_EPSILON) {
+                        next.lastFullRaise = raiseIncrement;
+                    }
+                    next.hasActed[actor] = true;
+                    next.lastActedBets[actor] = next.bets[actor];
                     next.raises++;
                     next.checks = 0;
                     next.actor = other;
@@ -267,7 +323,7 @@
         return combos;
     }
 
-    function sampleDeals(hero, board, range, sampleCount) {
+    function sampleDeals(hero, board, range, sampleCount, rangeUsedHint = true) {
         const blocked = new Set([...hero, ...board].map(cardId));
         let candidates = Array.isArray(range) ? range.filter(item =>
             item.cards && item.cards.length === 2 &&
@@ -276,8 +332,9 @@
             Number(item.weight) > 0
         ) : [];
 
-        const rangeUsed = candidates.length > 0;
-        if (!rangeUsed) {
+        const hasRangeCandidates = candidates.length > 0;
+        const rangeUsed = hasRangeCandidates && rangeUsedHint;
+        if (!hasRangeCandidates) {
             candidates = buildUniformRange([...hero, ...board]);
         }
         if (!candidates.length) throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
@@ -327,7 +384,18 @@
 
     function informationKey(node, deal, hero, board) {
         const privateHand = node.actor === 0 ? handId(hero) : handId(deal.villain);
-        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) + "|" + node.history;
+        const publicState = [
+            roundChips(node.pot),
+            (node.stacks || []).map(roundChips).join(","),
+            (node.bets || []).map(roundChips).join(","),
+            (node.hasActed || []).map(Boolean).join(","),
+            (node.lastActedBets || []).map(roundChips).join(","),
+            roundChips(node.lastFullRaise),
+            node.raises || 0,
+            node.checks || 0
+        ].join(":");
+        return node.actor + "|" + privateHand + "|" + boardId(node.board || board) +
+            "|" + publicState + "|" + node.history;
     }
 
     function runCfr(node, deal, traverser, reach, maps, hero, board, averageWeight) {
@@ -347,7 +415,11 @@
         }
         const strategy = regretMatched(regrets, count);
         const ownReach = reach[node.actor];
-        for (let i = 0; i < count; i++) strategySum[i] += averageWeight * ownReach * strategy[i];
+        if (traverser === 0) {
+            for (let i = 0; i < count; i++) {
+                strategySum[i] += averageWeight * ownReach * strategy[i];
+            }
+        }
 
         const values = new Float64Array(count);
         let nodeValue = 0;
@@ -398,7 +470,7 @@
         const active = state.players.filter(player => !player.folded);
         if (active.length !== 2) throw new Error("Le moteur CFR+ est limité au heads-up.");
         const hero = state.players.find(player => player.isHuman);
-        if (!hero || !hero.holeCards || hero.holeCards.length !== 2) {
+        if (!hero || !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) {
             throw new Error("Les cartes du joueur sont indisponibles.");
         }
         if (state.currentPlayerId !== hero.id) {
@@ -406,10 +478,36 @@
         }
         const opponent = active.find(player => player.id !== hero.id);
         if (!opponent) throw new Error("Adversaire heads-up introuvable.");
+
+        const seen = new Set();
+        for (const card of [...hero.holeCards, ...state.board]) {
+            if (!card || !Number.isInteger(card.value) || card.value < 2 || card.value > 14 ||
+                !["clubs", "diamonds", "hearts", "spades"].includes(card.suit)) {
+                throw new Error("Une carte de l'état stratégique est invalide.");
+            }
+            const key = cardId(card);
+            if (seen.has(key)) throw new Error("L'état stratégique contient des cartes dupliquées.");
+            seen.add(key);
+        }
+
+        const chipValues = [
+            state.pot, hero.stack, opponent.stack, hero.streetBet, opponent.streetBet,
+            hero.amountToCall, state.lastFullRaise, hero.lastActedBet, opponent.lastActedBet
+        ].filter(value => value !== undefined && value !== null);
+        if (chipValues.some(value => !Number.isFinite(Number(value)) || Number(value) < 0 ||
+            Math.abs(Number(value) * 2 - Math.round(Number(value) * 2)) > CHIP_EPSILON)) {
+            throw new Error("L'état stratégique contient un montant qui ne respecte pas l'unité de 0,5 jeton.");
+        }
         return { hero, opponent };
     }
 
-    async function solvePostflop(state, history = [], options = {}) {
+    async function solvePostflop(input, history = [], options = {}) {
+        const resolved = global.PokerLabPostflopSolver &&
+            typeof global.PokerLabPostflopSolver.resolveInput === "function"
+            ? global.PokerLabPostflopSolver.resolveInput(input, history)
+            : { state: input, history: Array.isArray(history) ? history : [] };
+        const state = resolved.state;
+        history = resolved.history;
         const { hero, opponent } = validate(state);
         const defaults = {
             flop: { iterations: 20, samples: 8 },
@@ -417,18 +515,11 @@
             river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
         }[state.street];
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
-        const iterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
+        const requestedIterations = Math.max(10, Math.min(1000, Number(options.iterations) || defaults.iterations));
         const samples = Math.max(8, Math.min(160, Number(options.samples) || defaults.samples));
-        const sampled = sampleDeals(hero.holeCards, state.board, rangeInfo.combos, samples);
-        const deals = sampled.deals;
-        // A deal's showdown result is invariant across every betting path.
-        // Evaluate it once instead of re-running the hand evaluator at each leaf.
-        for (const deal of deals) {
-            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
-                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
-            );
-        }
+        // Chaque itération reçoit une nouvelle main adverse et un nouveau runout.
+        // Le budget total de traversées reste proche de l'ancienne version iterations × samples.
+        const trainingIterations = Math.min(4000, requestedIterations * samples);
         const currentStreetActions = (history || [])
             .filter(event => event.type === "player_action" && event.street === state.street);
         const priorHistory = currentStreetActions.map(event => {
@@ -444,9 +535,6 @@
             lastStreetAction.data && lastStreetAction.data.action === "check" &&
             lastActorId !== hero.id ? 1 : 0;
 
-        // Normalize the internal seat order: hero = 0, opponent = 1.
-        // Preserve the real postflop action order from the original table seats,
-        // including hands where the small blind/button has already folded.
         let postflopFirstActorId = null;
         if (Number.isInteger(state.dealerIndex) && state.players.length > 0) {
             const activeIds = new Set([hero.id, opponent.id]);
@@ -463,60 +551,124 @@
             players: [hero, opponent],
             postflopFirstActorId
         };
-        const trees = deals.map(deal =>
-            buildDecisionTree(normalizedState, hero.actionOptions || {}, priorHistory, deal.runout, rootChecks)
-        );
-        if (trees.some(item => item.tree.terminal || !item.tree.actions || !item.tree.actions.length)) {
-            throw new Error("Aucune décision stratégique disponible dans cette situation.");
-        }
-        const nodeCount = trees.reduce((sum, item) => sum + item.nodeCount, 0);
         const maps = { regrets: new Map(), strategy: new Map() };
+        let rootTree = null;
+        let averageNodeCount = 0;
+        let sampledRangeUsed = true;
 
-        for (let iteration = 0; iteration < iterations; iteration++) {
-            for (let index = 0; index < deals.length; index++) {
-                const tree = trees[index].tree;
-                const deal = deals[index];
-                runCfr(tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
-                runCfr(tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
+        for (let iteration = 0; iteration < trainingIterations; iteration++) {
+            const sampled = sampleDeals(
+                hero.holeCards,
+                state.board,
+                rangeInfo.combos,
+                1,
+                rangeInfo.rangeUsed !== false
+            );
+            const deal = sampled.deals[0];
+            sampledRangeUsed = sampled.rangeUsed;
+            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
+                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            );
+            const built = buildDecisionTree(
+                normalizedState,
+                hero.actionOptions || {},
+                priorHistory,
+                deal.runout,
+                rootChecks
+            );
+            if (built.tree.terminal || !built.tree.actions || !built.tree.actions.length) {
+                throw new Error("Aucune décision stratégique disponible dans cette situation.");
             }
-            // Yield after every iteration so the PWA remains responsive.
+            if (rootTree && built.tree.actions.length !== rootTree.actions.length) {
+                throw new Error("L'arbre stratégique change de structure entre deux échantillons.");
+            }
+            rootTree = built.tree;
+            averageNodeCount += built.nodeCount;
+
+            // Une seule accumulation de stratégie moyenne par itération CFR+.
+            runCfr(built.tree, deal, 0, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
+            runCfr(built.tree, deal, 1, [1, 1], maps, hero.holeCards, state.board, iteration + 1);
+
+            // L'échantillonnage est renouvelé à chaque itération ; le navigateur reste réactif.
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
-        const rootTree = trees[0].tree;
-        const rootStrategy = getRootStrategy(rootTree, deals[0], maps, hero.holeCards, state.board);
-        const actionValues = rootTree.actions.map((entry, actionIndex) => {
-            let total = 0;
-            for (let dealIndex = 0; dealIndex < deals.length; dealIndex++) {
-                const child = trees[dealIndex].tree.actions[actionIndex].child;
-                total += averageStrategy(child, deals[dealIndex], maps, hero.holeCards, state.board);
+        const evaluationSamples = Math.min(samples, 32);
+        const rootStrategy = getRootStrategy(rootTree, null, maps, hero.holeCards, state.board);
+        const actionValues = new Array(rootTree.actions.length).fill(0);
+        let evaluatedDeals = 0;
+
+        for (let sampleIndex = 0; sampleIndex < evaluationSamples; sampleIndex++) {
+            const sampled = sampleDeals(
+                hero.holeCards,
+                state.board,
+                rangeInfo.combos,
+                1,
+                rangeInfo.rangeUsed !== false
+            );
+            const deal = sampled.deals[0];
+            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
+                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
+                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            );
+            const built = buildDecisionTree(
+                normalizedState,
+                hero.actionOptions || {},
+                priorHistory,
+                deal.runout,
+                rootChecks
+            );
+            if (built.tree.actions.length !== rootTree.actions.length) continue;
+            for (let actionIndex = 0; actionIndex < rootTree.actions.length; actionIndex++) {
+                actionValues[actionIndex] += averageStrategy(
+                    built.tree.actions[actionIndex].child,
+                    deal,
+                    maps,
+                    hero.holeCards,
+                    state.board
+                );
             }
-            return total / deals.length;
-        });
+            evaluatedDeals++;
+        }
+
+        if (!evaluatedDeals) {
+            throw new Error("Impossible d'évaluer la stratégie sur les échantillons indépendants.");
+        }
+
+        for (let index = 0; index < actionValues.length; index++) {
+            actionValues[index] /= evaluatedDeals;
+        }
         const actions = rootTree.actions.map((entry, index) => ({
             action: entry.action.label,
             frequency: rootStrategy[index],
             ev: actionValues[index]
         })).sort((a, b) => b.frequency - a.frequency);
-
-        const ev = actionValues.reduce((sum, value, index) =>
+        const heroEV = actionValues.reduce((sum, value, index) =>
             sum + rootStrategy[index] * value, 0);
 
         return {
-            algorithm: "Chance-sampled CFR+",
-            averageStrategyWeighting: "linear",
+            algorithm: "CFR+ avec rééchantillonnage des chances",
+            averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
-                " → river HU · runouts échantillonnés · check · mises 33 % / 75 % pot · relance abstraite 50 % pot · tapis effectif · une relance maximale par street",
-            iterations,
-            sampledOpponentHands: samples,
-            treeNodes: Math.round(nodeCount / samples),
-            rangeLabel: sampled.rangeUsed ? rangeInfo.label :
-                (rangeInfo.combos ? "Range large (combinaisons bloquées)" : rangeInfo.label),
-            rangeUsed: sampled.rangeUsed,
-            heroEV: ev,
+                " → river HU · mises arrondies à 0,5 jeton · check · mises 33 % / 75 % pot · relance minimale respectée · tapis effectif · une relance maximale par street",
+            iterations: trainingIterations,
+            requestedIterations,
+            samplesPerIteration: 1,
+            sampledOpponentHands: trainingIterations,
+            evaluationSamples: evaluatedDeals,
+            treeNodes: Math.round(averageNodeCount / trainingIterations),
+            rangeLabel: rangeInfo.rangeUsed === false
+                ? rangeInfo.label
+                : sampledRangeUsed
+                    ? rangeInfo.label
+                    : "Range large (combinaisons bloquées)",
+            rangeUsed: rangeInfo.rangeUsed === false ? false : sampledRangeUsed,
+            postflopActionsUsed: rangeInfo.postflopActionsUsed || 0,
+            heroEV,
             actions,
-            convergence: "Approximation CFR+ avec échantillonnage des mains et des runouts ; exploitabilité et convergence non certifiées."
+            convergence: "CFR+ échantillonné avec une nouvelle main adverse et un nouveau runout par itération. L'exploitabilité et la convergence ne sont pas certifiées ; les fréquences restent une approximation dépendante de l'abstraction."
         };
     }
 
