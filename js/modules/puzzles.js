@@ -168,12 +168,21 @@ window.PokerLabPuzzles = (function () {
 
         }
 
-        if (
-            puzzle.options !== undefined &&
-            !Array.isArray(puzzle.options)
-        ) {
+        if (puzzle.options !== undefined) {
 
-            errors.push("Les propositions doivent être un tableau.");
+            if (!Array.isArray(puzzle.options) || puzzle.options.length < 2) {
+                errors.push("Les propositions doivent contenir au moins deux choix.");
+            } else {
+                puzzle.options.forEach((option, index) => {
+                    const action = typeof option === "string"
+                        ? option
+                        : option && option.action;
+
+                    if (!VALID_ACTIONS.includes(normalizeAction(action))) {
+                        errors.push(`Proposition invalide à l'index ${index}.`);
+                    }
+                });
+            }
 
         }
 
@@ -197,6 +206,7 @@ window.PokerLabPuzzles = (function () {
         }
 
         const errors = [];
+        const ids = new Set();
 
         collection.forEach((puzzle, index) => {
 
@@ -213,6 +223,16 @@ window.PokerLabPuzzles = (function () {
                 });
 
             }
+
+            const id = String(puzzle?.id ?? "").trim();
+            if (id && ids.has(id)) {
+                errors.push({
+                    index,
+                    id,
+                    errors: ["Identifiant d'exercice dupliqué."]
+                });
+            }
+            if (id) ids.add(id);
 
         });
 
@@ -377,9 +397,7 @@ window.PokerLabPuzzles = (function () {
 
     function getRandomPuzzle() {
 
-        const available = filteredPuzzles.length
-            ? filteredPuzzles
-            : puzzles;
+        const available = filteredPuzzles;
 
         if (available.length === 0) {
 
@@ -569,6 +587,21 @@ window.PokerLabPuzzles = (function () {
             ...statistics,
             accuracy: Math.round(accuracy * 10) / 10
         };
+
+    }
+
+
+    function renderStatistics() {
+
+        const container = document.querySelector("[data-puzzle-stats]");
+        if (!container) return getStatistics();
+
+        const stats = getStatistics();
+        container.textContent = stats.attempted > 0
+            ? `Session : ${stats.correct}/${stats.attempted} bonnes réponses (${stats.accuracy} %)`
+            : `${puzzles.length} exercices disponibles · aucune réponse soumise`;
+
+        return stats;
 
     }
 
@@ -779,6 +812,22 @@ window.PokerLabPuzzles = (function () {
 
         }
 
+        renderStatistics();
+
+        const nextButton = document.createElement("button");
+        nextButton.type = "button";
+        nextButton.className = "pl-button pl-puzzle-next";
+        nextButton.textContent = "Exercice suivant";
+        nextButton.addEventListener("click", () => {
+            const selection = getRandomPuzzle();
+            if (!selection.success) {
+                container.textContent = selection.error;
+                return;
+            }
+            renderPuzzle(container);
+        });
+        resultContainer.appendChild(nextButton);
+
         container.appendChild(resultContainer);
 
     }
@@ -800,8 +849,12 @@ window.PokerLabPuzzles = (function () {
 
         if (!result.success) {
             initialized = false;
+            const container = document.querySelector(SELECTORS.container);
+            if (container) container.textContent = "Les exercices n'ont pas pu être chargés. Vérifie les données ou réessaie après actualisation.";
             return;
         }
+
+        renderStatistics();
 
         const startButtons = document.querySelectorAll(
             SELECTORS.startButton
@@ -813,13 +866,14 @@ window.PokerLabPuzzles = (function () {
 
                 const selection = getRandomPuzzle();
 
-                if (!selection.success) {
-                    return;
-                }
-
                 const container = document.querySelector(
                     SELECTORS.container
                 );
+
+                if (!selection.success) {
+                    if (container) container.textContent = selection.error;
+                    return;
+                }
 
                 if (container) {
                     renderPuzzle(container);
@@ -837,9 +891,15 @@ window.PokerLabPuzzles = (function () {
 
             categorySelect.addEventListener("change", () => {
 
-                filterPuzzles({
-                    category: categorySelect.value
+                const results = filterPuzzles({
+                    category: categorySelect.value,
+                    difficulty: difficultySelect ? difficultySelect.value : null
                 });
+                renderStatistics();
+                if (!results.length) {
+                    const container = document.querySelector(SELECTORS.container);
+                    if (container) container.textContent = "Aucun exercice ne correspond à ces filtres.";
+                }
 
             });
 
@@ -853,12 +913,15 @@ window.PokerLabPuzzles = (function () {
 
             difficultySelect.addEventListener("change", () => {
 
-                filterPuzzles({
-                    category: categorySelect
-                        ? categorySelect.value
-                        : null,
+                const results = filterPuzzles({
+                    category: categorySelect ? categorySelect.value : null,
                     difficulty: difficultySelect.value
                 });
+                renderStatistics();
+                if (!results.length) {
+                    const container = document.querySelector(SELECTORS.container);
+                    if (container) container.textContent = "Aucun exercice ne correspond à ces filtres.";
+                }
 
             });
 
@@ -892,6 +955,8 @@ window.PokerLabPuzzles = (function () {
         submitAnswer,
 
         getStatistics,
+
+        renderStatistics,
 
         resetStatistics,
 
