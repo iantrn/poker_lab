@@ -400,6 +400,23 @@
                     likelihood = 0.20 + strength * 0.80;
                 } else {
                     likelihood = 0.12 + strength * 0.88;
+
+                    // Les sizings observés apportent un signal supplémentaire :
+                    // un sizing plus élevé augmente légèrement le poids des mains
+                    // fortes, sans supposer qu'une grosse mise exclut les bluffs.
+                    const potBefore = Number(event.data.potBefore);
+                    const sizeAmount = Number(
+                        action === "bet" || action === "short_all_in_bet"
+                            ? (event.data.betTo ?? event.data.amount)
+                            : (event.data.raiseSize ?? event.data.amount)
+                    );
+                    if (Number.isFinite(potBefore) && potBefore > 0 &&
+                        Number.isFinite(sizeAmount) && sizeAmount > 0) {
+                        const sizeRatio = sizeAmount / potBefore;
+                        const sizingSignal = Math.min(1, Math.log1p(sizeRatio) / Math.LN2);
+                        const sizingMultiplier = Math.exp((strength - 0.5) * 0.8 * sizingSignal);
+                        likelihood *= Math.max(0.5, Math.min(1.5, sizingMultiplier));
+                    }
                 }
                 logWeight += Math.log(Math.max(0.05, likelihood));
             }
@@ -416,7 +433,7 @@
             ...range,
             combos,
             postflopActionsUsed: actions.length,
-            conditioning: "heuristique basée sur les catégories de mains et les actions observées"
+            conditioning: "heuristique basée sur la force de main, les actions et les sizings observés"
         };
     }
 
