@@ -21,6 +21,13 @@ on:
       - "tests/postflop-solver.test.js"
       - "tests/postflop-strategy.test.js"
       - "tests/cfr-core.test.js"
+      - "tests/learning-modules.test.js"
+      - "data/lessons/lessons.json"
+      - "data/puzzles/puzzles.json"
+      - "js/app.js"
+      - "js/modules/lessons.js"
+      - "js/modules/puzzles.js"
+      - "js/modules/game-review.js"
       - ".github/workflows/postflop-solver.yml"
   push:
     branches:
@@ -58,4 +65,4 @@ jobs:
       - name: Check solver UI syntax
         run: node --check js/modules/postflop-solver-ui.js
       - name: Run game engine and postflop solver tests
-        run: node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js
+        run: node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js tests/learning-modules.test.js
