@@ -19,7 +19,7 @@ ctx.window.PokerLabDeck=FixedDeck;
 globalThis.window=ctx.window;
 installGameEngine();
 const migrated=PokerLabGameEngine;
-delete globalThis.window;
+// Keep the shared browser global until every deterministic hand has completed.
 const plain=value=>JSON.parse(JSON.stringify(value));
 test("strict TS game engine has exact V1 public state and actions over 120 full deterministic hands",()=>{
  let state=0x7f9a52d;
