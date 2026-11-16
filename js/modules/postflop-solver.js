@@ -90,7 +90,7 @@
         return { index, ranges };
     }
 
-    function actionCode(action, aggressorNumber) {
+    function actionCode(action, aggressorNumber, data = {}) {
         if (action === "call" || action === "all_in_call") return "call";
         if (action === "fold") return "fold";
         if (action === "check") return "check";
@@ -98,7 +98,7 @@
         if (aggressorNumber === 1) return "RFI";
         if (aggressorNumber === 2) return "3bet";
         if (aggressorNumber === 3) return "4bet";
-        if (aggressorNumber === 4) return "5bet";
+        if (aggressorNumber === 4) return data.allIn ? "5bet" : "5bet_small";
         return "6bet";
     }
 
@@ -126,7 +126,7 @@
             const action = event.data.action;
             const isAggressive = ["bet", "raise", "short_raise", "short_all_in_bet"].includes(action);
             if (isAggressive) aggressorNumber++;
-            const code = actionCode(action, aggressorNumber);
+            const code = actionCode(action, aggressorNumber, event.data || {});
             if (index === actorIndex) {
                 targetCode = code;
                 break;
