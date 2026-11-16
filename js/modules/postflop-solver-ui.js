@@ -37,6 +37,8 @@
             player.totalContribution,
             player.folded,
             player.allIn,
+            player.hasActed,
+            player.lastActedBet,
             player.amountToCall
         ].join(":")).join("|");
         return [
