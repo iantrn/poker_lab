@@ -5,7 +5,7 @@
 import type {CFRCoreApi,CFRMaps,CFRNode} from "./cfr-core";
 import type {AbstractTreeNode} from "./decision-tree";
 import {flattenCfrTree,createCfrInformationRegistry,
-  type CfrInformationRegistry} from "./tree-adapter";
+  type CfrInformationRegistry} from "./tree-adapter.ts";
 
 export interface RustCfrSession {
   step(actors:Int8Array,infos:Uint32Array,offsets:Uint32Array,counts:Uint8Array,
