@@ -72,15 +72,16 @@ export function createReusableRustTreeSerializer() {
       index.byPrefix.clear();
       index.size=originalSize;
     }
+    const activeIndex:NumericIndex=index;
     // Rollbacks may originate from an older generic (unsplit-key) request.
     // Drop any accelerated entries no longer present in the authoritative
     // string registry. This slow recovery path executes only after rejection.
     function pruneInvalidNumbers():void {
-      for(const [prefix,slots] of index.byPrefix){
+      for(const [prefix,slots] of activeIndex.byPrefix){
         for(const [suffix,entry] of slots){
           if(registry.byKey.get(prefix+suffix)!==entry)slots.delete(suffix);
         }
-        if(slots.size===0)index.byPrefix.delete(prefix);
+        if(slots.size===0)activeIndex.byPrefix.delete(prefix);
       }
     }
     let shape=shapes.get(root);
