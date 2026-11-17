@@ -23,6 +23,11 @@ export interface MultiwayRangeInfo {
 export interface MultiwayDeal {
   readonly holes:ReadonlyArray<readonly Card[]|null>;
   readonly board:readonly Card[];
+  /** Corrects the sequential blocker-aware proposal toward the joint
+   * distribution proportional to the product of seat-specific range weights.
+   * The ratio lies in (0, 1] and is safe for Rust/WASM chance weighting.
+   */
+  readonly importanceWeight:number;
 }
 export interface MultiwayCfrKernel {
   step(actors:Int8Array,ids:Uint32Array,offsets:Uint32Array,
@@ -109,6 +114,7 @@ function sampler(
   }
   const uniform=uniformHands(reserved);
   const pools=new Map<number,readonly WeightedCombo[]>();
+  const baseMasses=new Map<number,number>();
   const labels:string[]=[];
   let rangeUsed=true;
   for(const player of active){
@@ -118,14 +124,16 @@ function sampler(
       Number.isFinite(combo.weight)&&combo.weight>0 &&
       combo.cards.every(card=>validCard(card)&&!reserved.has(id(card)))&&
       id(combo.cards[0]!)!==id(combo.cards[1]!));
-    if(!valid.length||range?.rangeUsed===false){
-      pools.set(player.seat,uniform);
+    const pool=!valid.length||range?.rangeUsed===false?uniform:valid;
+    if(pool===uniform){
       rangeUsed=false;
       labels.push(player.position+" : "+(range?.label??"Range uniforme"));
-    }else{
-      pools.set(player.seat,valid);
-      labels.push(player.position+" : "+range!.label);
-    }
+    }else labels.push(player.position+" : "+range!.label);
+    pools.set(player.seat,pool);
+    const mass=pool.reduce((sum,combo)=>sum+combo.weight,0);
+    if(!(mass>0)||!Number.isFinite(mass))
+      throw new RangeError("Range multiway : somme des poids invalide.");
+    baseMasses.set(player.seat,mass);
   }
   return {
     labels,rangeUsed,
@@ -137,6 +145,7 @@ function sampler(
         const used=new Set(reserved);
         holes[hero.seat]=hero.knownPrivateCards;
         let feasible=true;
+        let importanceWeight=1;
         for(const player of active){
           if(player.isHuman)continue;
           const pool=pools.get(player.seat)!;
@@ -146,6 +155,10 @@ function sampler(
               total+=combo.weight;
           }
           if(total<=0){feasible=false;break;}
+          // q_i = comboWeight / feasibleMass_i; the target joint range is
+          // proportional to product(comboWeight) under card disjointness.
+          // The proposal correction is product(feasibleMass_i / baseMass_i).
+          importanceWeight*=total/baseMasses.get(player.seat)!;
           let draw=random()*total;
           let selected:readonly Card[]|null=null;
           for(const combo of pool){
@@ -172,7 +185,9 @@ function sampler(
             runout.push(remaining[i]!);
           }
         }
-        return {holes,board:runout};
+        if(!(importanceWeight>0)||!Number.isFinite(importanceWeight))
+          throw new Error("Poids joint multiway non fini.");
+        return {holes,board:runout,importanceWeight};
       }
       throw new Error("Impossible d'échantillonner des mains multiway sans collisions.");
     }
@@ -261,11 +276,32 @@ function evaluatePolicy(
   }
   return expected;
 }
-function error95(values:readonly number[]):number{
-  if(values.length<2)return 0;
-  const mean=values.reduce((a,b)=>a+b,0)/values.length;
-  const variance=values.reduce((sum,x)=>sum+(x-mean)**2,0)/(values.length-1);
-  return 1.96*Math.sqrt(Math.max(variance,0)/values.length);
+/** Importance-weighted moments and Kish effective sample size. */
+class WeightedMoments {
+  sum=0;
+  sumSquared=0;
+  weight=0;
+  weightSquared=0;
+  count=0;
+  add(value:number,importance:number):void{
+    if(!Number.isFinite(value)||!Number.isFinite(importance)||importance<=0)
+      throw new RangeError("Échantillon multiway pondéré invalide.");
+    this.sum+=importance*value;
+    this.sumSquared+=importance*value*value;
+    this.weight+=importance;
+    this.weightSquared+=importance*importance;
+    this.count++;
+  }
+  get mean():number{return this.sum/this.weight;}
+  get effectiveSamples():number{
+    return this.weightSquared>0?this.weight*this.weight/this.weightSquared:0;
+  }
+  get radius95():number{
+    const ess=this.effectiveSamples;
+    if(ess<=1+1e-9)return Number.NaN;
+    const variance=Math.max(0,this.sumSquared/this.weight-this.mean*this.mean);
+    return 1.96*Math.sqrt(variance/(ess-1));
+  }
 }
 async function createSampler(
   state:StrategicGameState,environment:MultiwayEnvironment,seed:number
@@ -311,7 +347,7 @@ export async function solveMultiway(
     const packed=flatten(game,deal,board,scores,environment.compareScores,registry);
     try{
       session.step(packed.actors,packed.ids,packed.offsets,packed.counts,
-        packed.children,packed.payoffs,1);
+        packed.children,packed.payoffs,deal.importanceWeight);
       rootInfo=packed.rootInfo;
     }catch(error){packed.rollback();throw error;}
     const completed=iteration+1;
@@ -338,34 +374,32 @@ export async function solveMultiway(
     throw new Error("Table multiway Rust incohérente avec les information sets.");
   const evaluationSamples=boundedInt(options.evaluationSamples,32,16,128);
   const evaluation=await createSampler(state,environment,seed^0x9e3779b9);
-  const actionSamples=game.root.actions.map(()=>[] as number[]);
-  const evSamples:number[]=[];
+  const actionSamples=game.root.actions.map(()=>new WeightedMoments());
+  const evSamples=new WeightedMoments();
   for(let i=0;i<evaluationSamples;i++){
     const deal=evaluation.deal(),scores=scoresFor(state,deal,environment);
     let heroEV=0;
     game.root.actions.forEach((entry,index)=>{
       const ev=evaluatePolicy(entry.child,deal,board,hero.seat,
         scores,environment.compareScores,policy);
-      actionSamples[index]!.push(ev);
+      actionSamples[index]!.add(ev,deal.importanceWeight);
       heroEV+=rootPolicy[index]!*ev;
     });
-    evSamples.push(heroEV);
+    evSamples.add(heroEV,deal.importanceWeight);
     if((i+1)%8===0){
       progress("evaluation",0.8+0.2*(i+1)/evaluationSamples,requested);
       await new Promise<void>(resolve=>setTimeout(resolve,0));
     }
   }
-  const average=(values:readonly number[])=>
-    values.reduce((sum,value)=>sum+value,0)/values.length;
   const actions=game.root.actions.map((entry,index)=>{
     const values=actionSamples[index]!;
-    const ev=average(values),range=error95(values);
+    const ev=values.mean,range=values.radius95;
     return {
       action:entry.action.label,frequency:rootPolicy[index]!,
       ev,evLower95:ev-range,evUpper95:ev+range
     };
   }).sort((a,b)=>b.frequency-a.frequency);
-  const heroEV=average(evSamples),band=error95(evSamples);
+  const heroEV=evSamples.mean,band=evSamples.radius95;
   return {
     algorithm:"CFR+ multiway échantillonné",
     quality:"sampled_estimate" as const,provisional:false,
@@ -374,12 +408,14 @@ export async function solveMultiway(
     sampledActualHeroHand:requested,heroRangeEffectiveSampleSize:requested,
     heroRangeLabel:"Main réelle du héros (range conditionnelle)",
     actualHandInHeroRange:true,
-    evaluationSamples,treeNodes:game.nodes,
+    evaluationSamples,
+    evaluationEffectiveSampleSize:evSamples.effectiveSamples,
+    treeNodes:game.nodes,
     rangeLabel:training.labels.join(" · "),
-    rangeConditioning:"Ranges préflop/adversaires pondérées ; tirage successif sans cartes communes.",
+    rangeConditioning:"Ranges adverses par siège, tirage successif sans collisions, corrigé par importance pour la distribution jointe conditionnelle.",
     rangeUsed:training.rangeUsed,
     heroEV,heroEVLower95:heroEV-band,heroEVUpper95:heroEV+band,
-    evaluationMethod:"EV Monte-Carlo indépendante avec stratégie moyenne CFR+ multiway.",
+    evaluationMethod:"EV Monte-Carlo indépendante pondérée par importance, intervalle 95 % approximatif selon ESS de Kish (hors biais de stratégie).",
     nashConv:null,exploitability:null,
     exploitabilitySamples:0,exploitabilityEffectiveSampleSize:0,
     heroDeviationGain:null,opponentDeviationGain:null,
@@ -404,7 +440,8 @@ export async function analyzeMultiwayEquity(
   const sample=await createSampler(state,environment,seed);
   const iterations=boundedInt(options.iterations,1_200,300,3_000);
   const hero=state.players.find(p=>p.isHuman)!;
-  let wins=0,losses=0,ties=0,equitySum=0;
+  let wins=0,losses=0,ties=0;
+  const equityMoments=new WeightedMoments();
   const baseTerminal:MultiwayTerminal={
     terminal:true,
     contributions:state.players.map(player=>player.totalContribution),
@@ -419,7 +456,7 @@ export async function analyzeMultiwayEquity(
     // Money-equity is the share of ALL chips in the pot, including layers
     // from which the hero is ineligible. Showdown win/tie counts are only
     // descriptive of hand ranking, not side-pot payouts.
-    equitySum+=gross/state.pot;
+    equityMoments.add(gross/state.pot,deal.importanceWeight);
     const heroScore=scores[hero.seat];
     if(!heroScore)throw new Error("Score héro manquant pour le multiway.");
     let top=heroScore,winners=1,heroBest=true;
@@ -437,17 +474,18 @@ export async function analyzeMultiwayEquity(
     }else losses++;
     if((i+1)%128===0)await new Promise<void>(resolve=>setTimeout(resolve,0));
   }
-  const equity=equitySum/iterations;
+  const equity=equityMoments.mean;
   const potOdds=(hero.amountToCall>0)
     ?Math.min(hero.amountToCall,hero.stack)/
       (state.pot+Math.min(hero.amountToCall,hero.stack)):0;
   return {
     equity,wins,ties,losses,iterations,
+    effectiveSampleSize:equityMoments.effectiveSamples,
     rangeLabel:sample.labels.join(" · "),
     decision:{
       potOdds,action:"Équité indicative multiway",
       explanation:"L'équité de showdown n'est pas une stratégie de mise. La réalisation de l'équité, les side pots et les mises futures changent les décisions."
     },
-    note:"Équité = fraction moyenne du pot attribuée au héros, pots secondaires et bloqueurs inclus (mises futures non modélisées). Victoires/égalités/défaites décrivent uniquement le classement des mains, pas le partage des side pots."
+    note:"Équité = fraction moyenne pondérée du pot attribuée au héros, range jointe corrigée par importance, pots secondaires et bloqueurs inclus (mises futures non modélisées). Victoires/égalités/défaites sont des comptes bruts de tirages, pas des probabilités pondérées ni le partage des side pots."
   };
 }
