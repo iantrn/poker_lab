@@ -66,7 +66,15 @@ async function ineligible(typed){
 }
 for(const [label,scenario] of Object.entries({cache,cancel,ineligible})){
   test('typed precompute matches JS '+label,async()=>{
-    assert.deepEqual(await scenario(true),await scenario(false));
+    const typed=await scenario(true),legacy=await scenario(false);
+    if(label==="ineligible"){
+      // Explicit multiway enablement intentionally expands the eligibility
+      // contract and changes only the user-facing rejection explanation.
+      assert.equal(typed.active,legacy.active);
+      assert.equal(typed.workers,legacy.workers);
+      assert.match(typed.error,/2–6 joueurs actifs/);
+      assert.match(legacy.error,/heads-up/);
+    }else assert.deepEqual(typed,legacy);
   });
 }
 
