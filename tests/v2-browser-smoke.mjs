@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "../frontend/node_modules/playwright-core/index.mjs";
+import { chromium, webkit } from "../frontend/node_modules/playwright-core/index.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "dist");
 const mime = { ".html":"text/html", ".js":"application/javascript", ".json":"application/json", ".webmanifest":"application/manifest+json", ".css":"text/css", ".png":"image/png", ".wasm":"application/wasm" };
@@ -24,10 +24,13 @@ async function run() {
   const address = server.address();
   if (!address || typeof address === "string") throw Error("Server address unavailable");
   const url = `http://127.0.0.1:${address.port}/poker_lab/`;
-  const browser = await chromium.launch({
-    executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome",
-    args: ["--no-sandbox", "--disable-dev-shm-usage"]
-  });
+  const isWebKit=process.env.PLAYWRIGHT_BROWSER==="webkit";
+  const browser = await (isWebKit ? webkit : chromium).launch(
+    isWebKit ? {headless:true} : {
+      executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome",
+      args: ["--no-sandbox", "--disable-dev-shm-usage"]
+    }
+  );
   try {
     const context = await browser.newContext({ serviceWorkers: "allow", viewport: { width: 1365, height: 768 } });
     const page = await context.newPage();
