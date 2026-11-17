@@ -78,3 +78,144 @@ test("new information set IDs are reverted on invalid sampled payoff",()=>{
   assert.equal(registry.byKey.size,size);
   assert.equal(registry.byKey.has("hero|b"),false);
 });
+
+
+test("numeric prefix/suffix IDs preserve canonical keys across private hands and public boards",()=>{
+  const fast=createReusableRustTreeSerializer();
+  const plain=createReusableRustTreeSerializer();
+  const indexed=createCfrInformationRegistry();
+  const canonical=createCfrInformationRegistry();
+  let concatenations=0;
+  for(let i=0;i<240;i++){
+    const hand=["AhAs","KdKc","8h7h"][i%3];
+    const board=["2c7d9h","2c7d9hTs"][i%2];
+    const utilityScale=i%2?1.5:-0.75;
+    const cb={
+      informationKey(node){concatenations++;return node.key+"|"+hand+"|"+board;},
+      informationPrefix:node=>node.key+"|"+hand+"|",
+      informationSuffix:()=>board,
+      terminalUtility:node=>node.value*utilityScale
+    };
+    const before=concatenations;
+    const efficient=fast(tree,cb,indexed);
+    const exact=plain(tree,{
+      informationKey:cb.informationKey,
+      terminalUtility:cb.terminalUtility
+    },canonical);
+    assert.deepEqual([...efficient.informationSets],[...exact.informationSets]);
+    assert.deepEqual([...efficient.terminalUtilities],[...exact.terminalUtilities]);
+    // After the first visit of a hand/board pair, the numeric index should
+    // not construct ANY full string key for an existing info set.
+    if(i>=6)assert.equal(concatenations,before);
+  }
+  assert.deepEqual([...indexed.byKey],[...canonical.byKey]);
+  assert.equal(indexed.byKey.size,12);
+});
+test("numeric registry isolation and batch rollback reject orphan IDs",()=>{
+  const build=createReusableRustTreeSerializer();
+  const a=createCfrInformationRegistry();
+  const b=createCfrInformationRegistry();
+  const callbacks=hand=>({
+    informationKey:node=>node.key+"|"+hand,
+    informationPrefix:node=>node.key+"|",
+    informationSuffix:()=>hand,
+    terminalUtility:node=>node.value
+  });
+  const first=build(tree,callbacks("a"),a);
+  const repeat=build(tree,callbacks("a"),a);
+  repeat.rollback();
+  first.rollback();
+  assert.equal(a.byKey.size,0);
+  const fresh=build(tree,callbacks("b"),b);
+  const retry=build(tree,callbacks("a"),a);
+  assert.deepEqual([...retry.informationSets],[...fresh.informationSets]);
+  assert.deepEqual([...a.byKey].map(([k,v])=>[k,v.id]),
+    [["hero|a",0],["villain|a",1]]);
+  retry.rollback();
+  assert.equal(a.byKey.size,0);
+  assert.equal(b.byKey.size,2);
+  // A failed sample must clean up newly indexed numerical IDs and allow
+  // their exact reuse, including when terminal utility validation fails.
+  const invalid=callbacks("bad");
+  invalid.terminalUtility=()=>Number.NaN;
+  assert.throws(()=>build(tree,invalid,a),/terminale n'est pas finie/);
+  assert.equal(a.byKey.size,0);
+  const recovered=build(tree,callbacks("bad"),a);
+  assert.deepEqual([...recovered.informationSets],[0,1,1,0,0,0,0]);
+  assert.equal(a.byKey.size,2);
+});
+test("numeric split rejects noncanonical identities without reserving IDs",()=>{
+  const build=createReusableRustTreeSerializer();
+  const registry=createCfrInformationRegistry();
+  const initial=build(tree,{
+    informationKey:node=>node.key+"|a",
+    informationPrefix:node=>node.key+"|",
+    informationSuffix:()=>"a",
+    terminalUtility:node=>node.value
+  },registry);
+  initial.rollback();
+  assert.equal(registry.byKey.size,0);
+  assert.throws(()=>build(tree,{
+    informationKey:node=>node.key+"|private-new",
+    informationPrefix:node=>node.key+"|",
+    informationSuffix:()=>"not-the-real-key",
+    terminalUtility:node=>node.value
+  },registry),/incompatible/);
+  assert.equal(registry.byKey.size,0);
+  const valid=build(tree,{
+    informationKey:node=>node.key+"|a",
+    informationPrefix:node=>node.key+"|",
+    informationSuffix:()=>"a",
+    terminalUtility:node=>node.value
+  },registry);
+  assert.equal(registry.byKey.size,2);
+  assert.deepEqual([...valid.informationSets],[0,1,1,0,0,0,0]);
+});
+test("non-gating reusable CFR numeric key benchmark compares equal serializations",()=>{
+  const {performance}=globalThis;
+  const prefixSamples=180;
+  function makeTree(depth,actor=0,path=""){
+    if(depth===0)return terminal(path.length%2?1:-1);
+    return decision(actor,actor+":"+path,
+      makeTree(depth-1,1-actor,path+"L"),
+      makeTree(depth-1,1-actor,path+"R"));
+  }
+  const root=makeTree(7); // 127 distinct decision nodes, 255 total
+  function measure(fast){
+    const run=createReusableRustTreeSerializer();
+    const registry=createCfrInformationRegistry();
+    const durations=[];
+    const hands=Array.from({length:15},(_,i)=>"hand-"+i);
+    let lastSize=0;
+    for(let round=0;round<5;round++){
+      const begin=performance.now();
+      for(let sample=0;sample<prefixSamples;sample++){
+        const hand=hands[sample%hands.length],board="board-"+sample%3;
+        const key=node=>node.key+"|"+hand+"|"+board;
+        run(root,{
+          informationKey:key,
+          ...(fast?{
+            informationPrefix:node=>node.key+"|",
+            informationSuffix:()=>hand+"|"+board
+          }:{}),
+          terminalUtility:node=>node.value*(sample%2?1:-1)
+        },registry);
+      }
+      durations.push(performance.now()-begin);
+      lastSize=registry.byKey.size;
+    }
+    const ordered=[...durations].sort((a,b)=>a-b);
+    return {p50:ordered[2],times:durations,lastSize};
+  }
+  const original=measure(false),indexed=measure(true);
+  assert.equal(indexed.lastSize,original.lastSize);
+  console.log("CFR+ numeric information-key benchmark: "+JSON.stringify({
+    topologyNodes:255,samplesPerRound:prefixSamples,rounds:5,
+    normalMs:original.times.map(x=>+x.toFixed(2)),
+    indexedMs:indexed.times.map(x=>+x.toFixed(2)),
+    normalP50Ms:+original.p50.toFixed(2),
+    indexedP50Ms:+indexed.p50.toFixed(2),
+    speedupP50:+(original.p50/indexed.p50).toFixed(2),
+    matchingInformationSets:indexed.lastSize
+  }));
+});
