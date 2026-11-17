@@ -177,7 +177,7 @@ impl MultiwayCfrSession {
                     return Err("Multiway poker terminal payoffs must sum to zero");
                 }
             }else if actor<0||actor as usize>=self.players||
-                     count<2||count>MAX_ACTIONS{
+                     count<1||count>MAX_ACTIONS{
                 return Err("Invalid multiway decision actor or action count");
             }else{
                 let id=ids[i] as usize;
