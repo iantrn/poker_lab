@@ -6,9 +6,13 @@ use wasm_bindgen::prelude::*;
 const MAX_ACTIONS:usize=5;
 const MAX_DEPTH:usize=128;
 const MAX_NODES:usize=250_000;
+// Bound session-owned topologies so caching cannot exhaust mobile WASM memory.
+const MAX_PREPARED_TREES:usize=2048;
+const MAX_PREPARED_NODES:usize=1_000_000;
 
 #[derive(Clone,Copy)]
 struct Node {actor:i8,info:usize,start:usize,len:usize,payoff:f64}
+struct PreparedTopology {nodes:Vec<Node>,edges:Vec<u32>}
 struct Info {actor:i8,len:usize,regret:[f64;MAX_ACTIONS],sum:[f64;MAX_ACTIONS]}
 impl Info {
     fn new(actor:i8,len:usize)->Self{
@@ -84,14 +88,17 @@ pub struct CfrSession {
     // regrets/strategy sums are kept in infos.
     nodes:Vec<Node>,
     pending:Vec<(i8,usize)>,
-    marks:Vec<u8>
+    marks:Vec<u8>,
+    prepared:Vec<PreparedTopology>,
+    prepared_nodes:usize
 }
 #[wasm_bindgen]
 impl CfrSession {
     #[wasm_bindgen(constructor)]
     pub fn new()->CfrSession{CfrSession{
         infos:Vec::new(),steps:0,
-        nodes:Vec::new(),pending:Vec::new(),marks:Vec::new()
+        nodes:Vec::new(),pending:Vec::new(),marks:Vec::new(),
+        prepared:Vec::new(),prepared_nodes:0
     }}
 
     pub fn step(
@@ -99,6 +106,21 @@ impl CfrSession {
         children:&[u32],payoffs:&[f64],chance_weight:f64
     )->Result<u32,JsValue>{
         self.step_internal(actors,ids,offsets,counts,children,payoffs,chance_weight)
+            .map_err(JsValue::from_str)
+    }
+    /// Validate and store the immutable public tree once. Information-set IDs
+    /// and terminal payoffs remain per-sample data, supplied to step_prepared.
+    pub fn prepare_tree(
+        &mut self,actors:&[i8],offsets:&[u32],counts:&[u8],children:&[u32]
+    )->Result<u32,JsValue>{
+        self.prepare_tree_internal(actors,offsets,counts,children)
+            .map_err(JsValue::from_str)
+    }
+    /// Run one complete two-player CFR+ update on a previously validated tree.
+    pub fn step_prepared(
+        &mut self,handle:u32,ids:&[u32],payoffs:&[f64],chance_weight:f64
+    )->Result<u32,JsValue>{
+        self.step_prepared_internal(handle,ids,payoffs,chance_weight)
             .map_err(JsValue::from_str)
     }
     pub fn average_strategy(&self)->Vec<f64>{
@@ -116,6 +138,88 @@ impl CfrSession {
 }
 impl Default for CfrSession {fn default()->Self{Self::new()}}
 impl CfrSession {
+    pub(crate) fn prepare_tree_internal(
+        &mut self,actors:&[i8],offsets:&[u32],counts:&[u8],edges:&[u32]
+    )->Result<u32,&'static str>{
+        let n=actors.len();
+        if n==0||n>MAX_NODES||offsets.len()!=n||counts.len()!=n||
+            actors[0]==-1||self.prepared.len()>=MAX_PREPARED_TREES||
+            self.prepared_nodes.checked_add(n).map_or(true,|size|size>MAX_PREPARED_NODES){
+            return Err("Invalid or oversized prepared CFR+ topology");
+        }
+        let mut nodes=Vec::with_capacity(n);
+        for i in 0..n {
+            let actor=actors[i];
+            let start=offsets[i] as usize;
+            let count=counts[i] as usize;
+            if start.checked_add(count).map_or(true,|end|end>edges.len()){
+                return Err("CFR+ edge offset out of bounds");
+            }
+            if actor==-1 {
+                if count!=0 {return Err("CFR+ terminal cannot have children");}
+            }else if actor==0||actor==1 {
+                if count==0||count>MAX_ACTIONS {return Err("Invalid CFR+ action count");}
+            }else {return Err("Invalid CFR+ actor");}
+            nodes.push(Node{actor,info:0,start,len:count,payoff:0.});
+        }
+        for &child in edges {
+            if child as usize>=n {return Err("CFR+ child index out of bounds");}
+        }
+        let mut marks=vec![0;n];
+        check(&nodes,edges,0,0,&mut marks)?;
+        let handle=self.prepared.len() as u32;
+        self.prepared.push(PreparedTopology{nodes,edges:edges.to_vec()});
+        self.prepared_nodes+=n;
+        Ok(handle)
+    }
+
+    pub(crate) fn step_prepared_internal(
+        &mut self,handle:u32,ids:&[u32],payoffs:&[f64],chance_weight:f64
+    )->Result<u32,&'static str>{
+        let topology=self.prepared.get_mut(handle as usize)
+            .ok_or("Unknown prepared CFR+ topology")?;
+        let n=topology.nodes.len();
+        if self.steps>=1_000_000||ids.len()!=n||payoffs.len()!=n||
+            payoffs.iter().any(|x|!x.is_finite())||
+            !chance_weight.is_finite()||chance_weight<0. {
+            return Err("Invalid prepared CFR+ sample");
+        }
+        // A rejected sample must never reserve information sets or update regrets.
+        self.pending.clear();
+        for i in 0..n {
+            let actor=topology.nodes[i].actor;
+            if actor<0 {continue;}
+            let id=ids[i] as usize;
+            let count=topology.nodes[i].len;
+            if id<self.infos.len(){
+                let info=&self.infos[id];
+                if info.actor!=actor||info.len!=count{
+                    return Err("Inconsistent persistent information set");
+                }
+            }else{
+                let new_id=id-self.infos.len();
+                if new_id>self.pending.len(){return Err("CFR+ information set IDs contain gaps");}
+                if new_id==self.pending.len(){self.pending.push((actor,count));}
+                else if self.pending[new_id]!=(actor,count){
+                    return Err("Inconsistent new information set");
+                }
+            }
+        }
+        for i in 0..n {
+            topology.nodes[i].info=ids[i] as usize;
+            topology.nodes[i].payoff=payoffs[i];
+        }
+        for &(actor,len) in &self.pending {self.infos.push(Info::new(actor,len));}
+        let average_weight=self.steps as f64+1.;
+        for player in 0..2 {
+            let mut reach=[1.,1.];
+            traverse(&topology.nodes,&topology.edges,&mut self.infos,0,player,
+                &mut reach,average_weight,chance_weight);
+        }
+        self.steps+=1;
+        Ok(self.steps)
+    }
+
     pub(crate) fn step_internal(
         &mut self,actors:&[i8],ids:&[u32],offsets:&[u32],counts:&[u8],
         edges:&[u32],payoffs:&[f64],chance_weight:f64
@@ -242,6 +346,54 @@ mod tests {
         sample(&mut session,[1.,-1.,-1.,1.],1.);
         assert_eq!(session.iterations(),202);
     }
+
+    #[test]
+    fn prepared_topology_matches_legacy_step_with_changing_ids_and_payoffs(){
+        let mut prepared=CfrSession::new();
+        let mut legacy=CfrSession::new();
+        let actors=[0,1,1,-1,-1,-1,-1];
+        let offsets=[0,2,4,6,6,6,6];
+        let counts=[2,2,2,0,0,0,0];
+        let edges=[1,2,3,4,5,6];
+        let handle=prepared.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        assert_eq!(handle,0);
+        for i in 0..300 {
+            // A different pair of private-hand keys shares the public topology.
+            let ids=if i%2==0 {[0,1,1,0,0,0,0]} else {[2,3,3,0,0,0,0]};
+            let payoffs=if i%3==0 {[0.,0.,0.,1.,-1.,-1.,1.]}
+                else {[0.,0.,0.,-1.,1.,1.,-1.]};
+            let weight=if i%5==0 {2.5}else{0.75};
+            prepared.step_prepared_internal(handle,&ids,&payoffs,weight).unwrap();
+            legacy.step_internal(&actors,&ids,&offsets,&counts,&edges,&payoffs,weight).unwrap();
+        }
+        assert_eq!(prepared.information_set_count(),legacy.information_set_count());
+        assert_eq!(prepared.average_strategy(),legacy.average_strategy());
+    }
+    #[test]
+    fn prepared_topology_rejects_bad_samples_without_changing_strategy(){
+        let mut session=CfrSession::new();
+        let actors=[0,1,1,-1,-1,-1,-1];
+        let offsets=[0,2,4,6,6,6,6];
+        let counts=[2,2,2,0,0,0,0];
+        let edges=[1,2,3,4,5,6];
+        assert!(session.prepare_tree_internal(&actors,&offsets,&counts,
+            &[1,2,3,4,5,0]).is_err()); // cycle through root
+        let handle=session.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        let ids=[0,1,1,0,0,0,0];
+        let good=[0.,0.,0.,1.,-1.,-1.,1.];
+        session.step_prepared_internal(handle,&ids,&good,1.).unwrap();
+        let before=session.average_strategy();
+        assert!(session.step_prepared_internal(handle,&[0,2,2,0,0,0,0],
+            &good,1.).is_err()); // gap in new info-set IDs
+        assert!(session.step_prepared_internal(handle,&ids,
+            &[0.,0.,0.,f64::NAN,-1.,-1.,1.],1.).is_err());
+        assert!(session.step_prepared_internal(handle+1,&ids,&good,1.).is_err());
+        assert_eq!(session.iterations(),1);
+        assert_eq!(session.average_strategy(),before);
+        session.step_prepared_internal(handle,&ids,&good,1.).unwrap();
+        assert_eq!(session.iterations(),2);
+    }
+
     #[test]
     fn actor_and_action_count_must_match_prior_information_set(){
         let mut session=CfrSession::new();
