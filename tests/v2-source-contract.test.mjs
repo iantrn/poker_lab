@@ -216,3 +216,20 @@ test("Folded players preserve unmodified navy card backs and tiny phones fit sea
   assert.match(css, /\.pl-table-six-max \.pl-seat-3/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "No card-back graphic changes");
 });
+
+test("UI rail clearance and wagers stay central without moving cards or the engine", () => {
+  const css = read("frontend/src/styles/poker-table.css");
+  const smoke = read("tests/v2-browser-smoke.mjs");
+  const table = read("frontend/src/components/table.ts");
+  assert.match(css, /top: calc\(12% \+ 72px\) !important/);
+  assert.match(css, /height: calc\(76% - 144px\) !important/);
+  assert.match(css, /top: calc\(19% \+ 68px\) !important/);
+  assert.match(css, /height: calc\(69% - 136px\) !important/);
+  assert.match(css, /top: calc\(100% \+ 86px\)/);
+  assert.match(css, /bottom: calc\(100% \+ 105px\)/);
+  assert.match(css, /bottom: calc\(100% \+ 125px\)/);
+  assert.match(smoke, /Far-side opponents must remain at least 40px away/);
+  assert.match(smoke, /Every bet must be nearer the table's horizontal axis/);
+  assert.match(table, /if \(player\.streetBet > 0\)/);
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "The existing card design must remain untouched");
+});

@@ -240,3 +240,23 @@ six-max screenshot alongside the existing 390px and WebKit views.
 - On 320–600px six-max, the dealer and current-turn badges now sit above
   the hero pill instead of covering the “Vous” label. Browser geometry
   tests assert that their bottom edge stays above the hero-name capsule.
+
+## Further table refinements — rail spacing and wager positioning
+
+The approved long-rail seating remains the same; we do **not** bring back
+the original `inset: 40px` on the entire seat layer, which broke table
+alignment. Instead, we reserve **44px between the near edge of the upper
+seat capsule and the felt** on desktop, and at least **~44px on mobile**
+(including the smallest screen), using a symmetrical felt rectangle
+calculated from the 12%/88% (desktop) and 19%/88% (mobile) seat baselines.
+
+All wager badges are **closer to the horizontal symmetry axis than the
+corresponding hole cards**. Upper-row bets appear below their cards,
+and lower-row bets above them. At 767px or below the lower-row wagers
+receive a separate 125px offset because the mobile card positions are
+different. No chip values, blind rules, bet controls, card art, or game
+logic have changed.
+
+Browser regression checks measure real seat-to-felt gaps and the
+ordering/axis distance of wager and hole-card boxes at desktop, 390px,
+and 320px viewport widths.

@@ -201,13 +201,22 @@ async function run() {
         const lower = [...table.querySelectorAll(".pl-seat-lower .pl-player-info")].map(rect)
           .sort((a,b)=>a.midX-b.midX);
         const hand = rect(table.querySelector(".pl-hand-strength"));
+        const seatBets = [...table.querySelectorAll(".pl-seat")].flatMap(seat => {
+          const bet = seat.querySelector(".pl-player-bet");
+          const cards = seat.querySelector(".pl-player-cards");
+          if (!bet || !cards) return [];
+          return [{
+            rail: seat.classList.contains("pl-seat-upper") ? "upper" : "lower",
+            bet: rect(bet),cards: rect(cards)
+          }];
+        });
         const solverButton = document.querySelector("#training-solver-dock > .pl-solve-button");
         const solver = rect(solverButton);
         const backs = [...table.querySelectorAll(".pl-seat .pl-card--back")];
         const empty = [...table.querySelectorAll(".pl-board .pl-card--empty")];
         const handValue = table.querySelector(".pl-hand-strength-value");
         return {
-          felt,upper,lower,hand,solver,
+          felt,upper,lower,hand,solver,seatBets,
           stage:rect(document.querySelector(".pl-live-table-stage")),
           solverOpacity:Number(getComputedStyle(solverButton).opacity),
           solverDisabled:solverButton.disabled,
@@ -233,6 +242,25 @@ async function run() {
         "Upper capsules must remain outside the red felt");
       assert.ok(geometry.lower.every(seat=>seat.top>=geometry.felt.bottom-5),
         "Lower capsules must remain outside the red felt");
+      const upperRailGap = Math.min(...geometry.upper.map(seat=>geometry.felt.top-seat.bottom));
+      const lowerRailGap = Math.min(...geometry.lower.map(seat=>seat.top-geometry.felt.bottom));
+      assert.ok(upperRailGap >= 39,
+        "Far-side opponents must remain at least 40px away from the felt's top edge");
+      assert.ok(lowerRailGap >= 39,
+        "Lower row must stay outside the felt without shifting seat overlays");
+      assert.ok(geometry.seatBets.length>=1,"At least one player should have posted a bet");
+      for (const {rail, bet, cards} of geometry.seatBets) {
+        if (rail==="upper") {
+          assert.ok(bet.top>=cards.bottom+6,
+            "Top-row bet must be below the hole cards, closer to the table centre");
+        } else {
+          assert.ok(bet.bottom<=cards.top-6,
+            "Bottom-row bet must be above the hole cards, closer to the table centre");
+        }
+        const axis=(geometry.felt.top+geometry.felt.bottom)/2;
+        assert.ok(Math.abs(axis-bet.midY)<Math.abs(axis-cards.midY),
+          "Every bet must be nearer the table's horizontal axis than its hole cards");
+      }
       assert.ok(Math.abs(geometry.hand.midX-geometry.upper[1].midX)<=2,
         "The hand pill must align exactly with the central Bot 3 seat");
       assert.ok(geometry.solver.left>=geometry.hand.right+4,
@@ -311,6 +339,7 @@ async function run() {
     assert.ok(foldedAppearance.every(s => s.seatOpacity===1 && s.infoOpacity<1 &&
       s.cardsOpacity===1), "Only folded identities, not their card backs, should be muted");
     await page.setViewportSize({ width: 320, height: 844 });
+    await verifyTableGeometry(true);
     const narrowSeats = await page.evaluate(() => {
       const bounds = el => {
         const r=el.getBoundingClientRect();
