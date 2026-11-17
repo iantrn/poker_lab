@@ -475,7 +475,10 @@ async function run() {
     // Opponent cards remain hidden; the worker must sample valid blockers.
     const multiwaySmoke=await page.evaluate(async()=>{
       const scenarios=[];
-      for(const seats of [3,6]){
+      for(const {seats,street} of [
+        {seats:3,street:"river"},{seats:6,street:"river"},
+        {seats:3,street:"flop"},{seats:6,street:"flop"}
+      ]){
         const worker=window.PokerLabV2.createTypedPostflopWorker();
         const ranks=[
           {value:2,suit:"clubs"},{value:7,suit:"diamonds"},
@@ -497,7 +500,7 @@ async function run() {
           }:null
         }));
         const input={schemaVersion:1,history:[],state:{
-          street:"river",board:ranks,handComplete:false,
+          street,board:ranks.slice(0,street==="flop"?3:5),handComplete:false,
           pot:seats*5,currentBet:0,lastFullRaise:1,minimumRaiseTo:1,
           blinds:{smallBlind:0.5,bigBlind:1},dealerIndex:0,
           currentPlayerId:"seat-0",pendingPlayers:players.map((_,i)=>i),
@@ -530,13 +533,17 @@ async function run() {
           worker.postMessage({id,task,input,options});
         });
         try{
-          const equity=seats===3?await invoke("equity",{iterations:300,seed:123}):null;
+          const equity=seats===3&&street==="river"
+            ?await invoke("equity",{iterations:300,seed:123}):null;
           const start=performance.now();
           const strategy=await invoke("strategy",{
             iterations:16,samples:1,evaluationSamples:16,seed:123
           });
           scenarios.push({
-            seats,elapsedMs:performance.now()-start,
+            seats,street,elapsedMs:performance.now()-start,
+            modeledStreets:strategy.modeledStreets,
+            decisionNodes:strategy.decisionNodes,
+            requestedIterations:strategy.requestedIterations,
             actions:strategy.actions,algorithm:strategy.algorithm,
             quality:strategy.quality,nashConv:strategy.nashConv,
             ev:strategy.heroEV,iterations:strategy.iterations,
@@ -560,7 +567,15 @@ async function run() {
       assert.ok(Math.abs(report.actions.reduce((total,action)=>
         total+action.frequency,0)-1)<1e-8);
       assert.ok(Number.isFinite(report.ev));
-      assert.ok(report.abstraction.includes("une seule street"));
+      if(report.street==="flop"){
+        assert.ok(report.modeledStreets>=2,
+          "3–6-seat flop scenarios must model a future betting street");
+        assert.match(report.abstraction,/cartes futures révélées progressivement/);
+      }else{
+        assert.equal(report.modeledStreets,1);
+        assert.match(report.abstraction,/1 street\(s\) de mises/);
+      }
+      assert.ok(report.decisionNodes>=1);
       assert.ok(report.progress.some(item=>item.provisional&&
         item.phase==="strategy_training"));
       assert.ok(report.progress.some(item=>item.provisional&&
@@ -572,7 +587,8 @@ async function run() {
         assert.equal(report.equity.counts,300);
         assert.ok(report.equity.equity>=0&&report.equity.equity<=1);
       }
-      console.log("Typed Rust "+report.seats+"-seat multiway river solve: "+
+      console.log("Typed Rust "+report.seats+"-seat multiway "+report.street+
+        " solve ("+report.modeledStreets+" modeled betting streets): "+
         report.elapsedMs.toFixed(1)+"ms (non-gating, CI browser)");
     }
 
