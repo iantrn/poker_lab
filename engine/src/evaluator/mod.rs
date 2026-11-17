@@ -1,5 +1,5 @@
-//! Bit-packed cards: rank in the low 4 bits (2..=14), suit in bits 4..5.
-//! Ranking is byte-for-byte equivalent to the legacy JS `score` arrays.
+//! Allocation-free hot-path five-card hand ranking for packed cards.
+//! Public scoring arrays retain exact V1 ordering, categories, and kickers.
 use std::cmp::Ordering;
 
 #[inline]
@@ -21,6 +21,23 @@ pub fn validate(cards: &[u8]) -> Result<(), &'static str> {
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+struct HandScore {
+    bytes: [u8; 6],
+    len: usize,
+}
+impl HandScore {
+    #[inline]
+    fn new<const N: usize>(data: [u8; N]) -> Self {
+        let mut bytes = [0; 6];
+        bytes[..N].copy_from_slice(&data);
+        Self { bytes, len: N }
+    }
+    #[inline]
+    fn as_slice(&self) -> &[u8] { &self.bytes[..self.len] }
+}
+
+#[inline]
 fn straight_high(values: &[u8; 5]) -> Option<u8> {
     let mut present = [false; 15];
     for &value in values { present[value as usize] = true; }
@@ -31,7 +48,8 @@ fn straight_high(values: &[u8; 5]) -> Option<u8> {
     None
 }
 
-pub fn rank_five(cards: &[u8; 5]) -> Vec<u8> {
+#[inline]
+fn rank_five_inline(cards: &[u8; 5]) -> HandScore {
     let mut values = [0u8; 5];
     for (index, &card) in cards.iter().enumerate() { values[index] = rank(card); }
     values.sort_unstable_by(|a, b| b.cmp(a));
@@ -39,43 +57,67 @@ pub fn rank_five(cards: &[u8; 5]) -> Vec<u8> {
     let straight = straight_high(&values);
     if is_flush {
         if let Some(high) = straight {
-            return if high == 14 { vec![9, 14] } else { vec![8, high] };
+            return if high == 14 { HandScore::new([9, 14]) }
+            else { HandScore::new([8, high]) };
         }
     }
+
     let mut counts = [0u8; 15];
     for &value in &values { counts[value as usize] += 1; }
-    let mut groups: Vec<(u8, u8)> = (2..=14)
-        .filter(|&value| counts[value as usize] > 0)
-        .map(|value| (value, counts[value as usize])).collect();
-    groups.sort_unstable_by(|a, b| b.1.cmp(&a.1).then_with(|| b.0.cmp(&a.0)));
-    if groups[0].1 == 4 { return vec![7, groups[0].0, groups[1].0]; }
-    if groups[0].1 == 3 && groups[1].1 == 2 { return vec![6, groups[0].0, groups[1].0]; }
-    if is_flush { return [vec![5], values.to_vec()].concat(); }
-    if let Some(high) = straight { return vec![4, high]; }
-    if groups[0].1 == 3 { return [vec![3, groups[0].0], groups[1..].iter().map(|g| g.0).collect()].concat(); }
-    if groups[0].1 == 2 && groups[1].1 == 2 {
-        return vec![2, groups[0].0.max(groups[1].0), groups[0].0.min(groups[1].0), groups[2].0];
+    // There are at most five distinct ranks.  Keep the grouping on the stack
+    // rather than collecting/sorting a Vec on every combination.
+    let mut groups = [(0u8, 0u8); 5];
+    let mut group_count = 0usize;
+    for value in (2u8..=14).rev() {
+        let count = counts[value as usize];
+        if count > 0 {
+            groups[group_count] = (value, count);
+            group_count += 1;
+        }
     }
-    if groups[0].1 == 2 { return [vec![1, groups[0].0], groups[1..].iter().map(|g| g.0).collect()].concat(); }
-    [vec![0], values.to_vec()].concat()
+    groups[..group_count].sort_unstable_by(|a, b| b.1.cmp(&a.1).then_with(|| b.0.cmp(&a.0)));
+
+    if groups[0].1 == 4 { return HandScore::new([7, groups[0].0, groups[1].0]); }
+    if groups[0].1 == 3 && groups[1].1 == 2 {
+        return HandScore::new([6, groups[0].0, groups[1].0]);
+    }
+    if is_flush { return HandScore::new([5, values[0], values[1], values[2], values[3], values[4]]); }
+    if let Some(high) = straight { return HandScore::new([4, high]); }
+    if groups[0].1 == 3 {
+        return HandScore::new([3, groups[0].0, groups[1].0, groups[2].0]);
+    }
+    if groups[0].1 == 2 && groups[1].1 == 2 {
+        return HandScore::new([2, groups[0].0.max(groups[1].0), groups[0].0.min(groups[1].0), groups[2].0]);
+    }
+    if groups[0].1 == 2 {
+        return HandScore::new([1, groups[0].0, groups[1].0, groups[2].0, groups[3].0]);
+    }
+    HandScore::new([0, values[0], values[1], values[2], values[3], values[4]])
+}
+
+/// Kept for the existing public Rust API, with only one final allocation.
+pub fn rank_five(cards: &[u8; 5]) -> Vec<u8> {
+    rank_five_inline(cards).as_slice().to_vec()
 }
 
 pub fn score(cards: &[u8]) -> Result<Vec<u8>, &'static str> {
     validate(cards)?;
-    let mut best = Vec::new();
+    let mut best: Option<HandScore> = None;
     for a in 0..cards.len() - 4 {
         for b in a + 1..cards.len() - 3 {
             for c in b + 1..cards.len() - 2 {
                 for d in c + 1..cards.len() - 1 {
                     for e in d + 1..cards.len() {
-                        let candidate = rank_five(&[cards[a], cards[b], cards[c], cards[d], cards[e]]);
-                        if candidate > best { best = candidate; }
+                        let candidate = rank_five_inline(&[cards[a], cards[b], cards[c], cards[d], cards[e]]);
+                        if best.map_or(true, |current| candidate.as_slice() > current.as_slice()) {
+                            best = Some(candidate);
+                        }
                     }
                 }
             }
         }
     }
-    Ok(best)
+    Ok(best.expect("validated hand must contain at least five cards").as_slice().to_vec())
 }
 
 pub fn compare(left: &[u8], right: &[u8]) -> Ordering {
@@ -97,5 +139,11 @@ mod tests {
     fn picks_best_five_from_seven() {
         assert_eq!(score(&[c(14,0),c(14,1),c(14,2),c(13,0),c(13,1),c(8,0),c(2,1)]).unwrap(),vec![6,14,13]);
         assert!(validate(&[c(2,0),c(2,0),c(3,0),c(4,0),c(5,0)]).is_err());
+    }
+    #[test]
+    fn stable_kickers_and_multi_pair_tie_breaks() {
+        assert_eq!(score(&[c(14,0),c(14,1),c(13,2),c(13,3),c(12,0)]).unwrap(),vec![2,14,13,12]);
+        assert_eq!(score(&[c(14,0),c(14,1),c(14,2),c(13,3),c(12,0)]).unwrap(),vec![3,14,13,12]);
+        assert_eq!(score(&[c(14,0),c(14,1),c(13,0),c(12,0),c(11,1)]).unwrap(),vec![1,14,13,12,11]);
     }
 }
