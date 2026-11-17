@@ -1,13 +1,17 @@
-/** A bounded, privacy-preserving *one-street* multiway NLHE betting game.
- * All future streets are checked down. Not an exact multiway Nash model.
- * The actual PokerLab game engine supplies the authoritative root legal actions.
+/** Bounded multi-street chance-sampled multiway NLHE game.
+ * Each node exposes only the cards already dealt on its street. The sampled
+ * runout enters the CFR information key at turn/river, never at the flop.
+ * The poker engine supplies the authoritative ROOT legal actions and the
+ * current pending queue; future streets use a documented coarse abstraction.
+ * This is not an exact multiway Nash equilibrium model.
  */
 import type {SolverCard} from "./input-contract.ts";
 import type {StrategicGameState,StrategicPlayer} from "./strategic-state.ts";
 
 const CHIP=0.5;
 const MAX_NODES=12_000;
-const MAX_DEPTH=40;
+const MAX_DEPTH=64;
+const MAX_MOBILE_INFO_SETS=60_000;
 const MAX_RAISES=1; // keep 3–6 seat mobile abstractions tractable
 const round=(amount:number)=>Math.round(amount/CHIP)*CHIP;
 
@@ -25,6 +29,9 @@ export interface MultiwayDecision {
   readonly terminal:false;
   readonly actor:number;
   readonly history:string;
+  /** Public board size at this decision; no future-card information leakage. */
+  readonly boardLength:3|4|5;
+  readonly street:"flop"|"turn"|"river";
   readonly actions:readonly {action:MultiwayAction;child:MultiwayNode}[];
 }
 export type MultiwayNode=MultiwayTerminal|MultiwayDecision;
@@ -38,13 +45,18 @@ interface MutableStreet {
   currentBet:number;
   lastFullRaise:number;
   raises:number;
+  boardLength:3|4|5;
+  streetsVisited:number;
+  openingSeat:number;
   path:string;
 }
 export interface MultiwayTree {
   readonly root:MultiwayDecision;
   readonly nodes:number;
   readonly players:number;
-  readonly model:"single-street-checkdown";
+  readonly model:"single-street-checkdown"|"multi-street-sampled-runout";
+  readonly streetsModeled:number;
+  readonly decisionNodes:number;
   readonly raiseCap:number;
 }
 function clone(s:MutableStreet):MutableStreet {
@@ -53,7 +65,8 @@ function clone(s:MutableStreet):MutableStreet {
     contributions:s.contributions.slice(),folded:s.folded.slice(),
     allIn:s.allIn.slice(),pending:s.pending.slice(),
     currentBet:s.currentBet,lastFullRaise:s.lastFullRaise,
-    raises:s.raises,path:s.path
+    raises:s.raises,boardLength:s.boardLength,
+    streetsVisited:s.streetsVisited,openingSeat:s.openingSeat,path:s.path
   };
 }
 function actionable(s:MutableStreet,seat:number):boolean {
@@ -96,7 +109,10 @@ function options(s:MutableStreet,actor:number,
   if(call>0){
     add("fold","Se coucher");
     add("call",s.stacks[actor]!<=call?"Suivre (tapis)":"Suivre");
-    if(s.raises<MAX_RAISES && s.stacks[actor]!>call){
+    // From five seats onward, future streets intentionally disallow raises
+    // to prevent the exponential multiway branch explosion on mobile.
+    if(s.raises<MAX_RAISES && s.stacks[actor]!>call &&
+       (s.streetsVisited===1||s.stacks.length<=4)){
       const minTo=round(s.currentBet+Math.max(publicState.bigBlind,s.lastFullRaise));
       if(maxTo>=minTo){
         add("raise","Relance minimale",minTo);
@@ -108,7 +124,11 @@ function options(s:MutableStreet,actor:number,
     }
   }else{
     add("check","Checker");
-    if(s.raises<MAX_RAISES){
+    // For 5–6-seat tables, a future street may be opened only by
+    // its first actionable player. Everyone else still chooses fold/call
+    // facing the bet. This coarse future abstraction is shown in the UI.
+    if(s.raises<MAX_RAISES &&
+       (s.streetsVisited===1||s.stacks.length<=4||actor===s.openingSeat)){
       const minBet=Math.min(s.stacks[actor]!,publicState.bigBlind);
       const rootLimit=root?
         publicState.legalActions.find(action=>action.action==="bet")?.maxTo:
@@ -118,8 +138,8 @@ function options(s:MutableStreet,actor:number,
         Math.max(minBet,pot*0.5)));
       if(size>0){
         add("bet","Miser 50 % pot",s.bets[actor]!+size);
-        if(s.stacks.length<=3){
-          const full=round(Math.min(available,Math.max(minBet,pot)));
+        if(s.stacks.length<=3 && s.streetsVisited===1){
+          const full=(Math.min(available,Math.max(minBet,pot)));
           if(full>size)add("bet","Miser pot",s.bets[actor]!+full);
         }
       }
@@ -153,8 +173,18 @@ function transition(s:MutableStreet,actor:number,action:MultiwayAction):MutableS
   updated.path+="|"+actor+":"+action.type+":"+action.target;
   return updated;
 }
-export function buildMultiwayTree(state:StrategicGameState):MultiwayTree {
+/** Build a deterministic topology once; chance cards affect infoset keys
+ * and terminal payoffs but not graph structure. maxStreets=1 preserves the
+ * original one-street oracle for parity tests and rollback diagnostics.
+ */
+export function buildMultiwayTree(
+  state:StrategicGameState,config:{maxStreets?:number}={}
+):MultiwayTree {
   const players=state.players;
+  const availableStreets=6-state.board.length;
+  const maxStreets=config.maxStreets??1;
+  if(!Number.isInteger(maxStreets)||maxStreets<1||maxStreets>availableStreets)
+    throw new RangeError("Nombre de streets stratégiques invalide.");
   if(players.length<3||players.length>6||
      !["flop","turn","river"].includes(state.street)||
      state.handComplete)
@@ -183,25 +213,58 @@ export function buildMultiwayTree(state:StrategicGameState):MultiwayTree {
     folded:players.map(p=>p.folded),
     allIn:players.map(p=>p.allIn),
     pending,currentBet:state.currentBet,lastFullRaise:state.lastFullRaise,
-    raises:0,path:state.street+":"+state.currentActor
+    raises:0,boardLength:state.board.length as 3|4|5,
+    streetsVisited:1,openingSeat:rootSeat,
+    path:state.street+":"+state.currentActor
   };
-  let nodes=0;
+  let nodes=0,decisionNodes=0;
+  // New betting rounds reset street contributions but never the committed
+  // pot/stack; action always resumes left of the dealer among live players.
+  function nextStreet(s:MutableStreet):MutableStreet{
+    const updated=clone(s);
+    updated.boardLength=(s.boardLength+1) as 4|5;
+    updated.streetsVisited++;
+    updated.bets.fill(0);
+    updated.currentBet=0;
+    updated.lastFullRaise=state.bigBlind;
+    updated.raises=0;
+    const seats:number[]=[];
+    for(let distance=1;distance<=updated.stacks.length;distance++){
+      const seat=(state.dealerSeat+distance)%updated.stacks.length;
+      if(actionable(updated,seat))seats.push(seat);
+    }
+    updated.openingSeat=seats[0]??-1;
+    updated.pending=seats;
+    updated.path+="|"+(updated.boardLength===4?"turn":"river");
+    return updated;
+  }
   function build(s:MutableStreet,depth:number):MultiwayNode {
     nodes++;
     if(nodes>MAX_NODES||depth>MAX_DEPTH)
       throw new RangeError("Arbre abstrait multiway trop grand pour le budget mobile.");
     const alive=s.folded.filter(value=>!value).length;
     const actor=s.pending.find(seat=>actionable(s,seat));
+    if(alive>1&&actor===undefined&&s.boardLength<5&&
+       s.streetsVisited<maxStreets &&
+       s.stacks.filter((_,seat)=>actionable(s,seat)).length>=2){
+      // Chance reveals exactly one additional card before anyone can act.
+      // No information from that sampled card is placed in the previous
+      // street's information sets.
+      return build(nextStreet(s),depth+1);
+    }
     if(alive<=1||actor===undefined){
       return {
         terminal:true,contributions:s.contributions.slice(),folded:s.folded.slice()
       };
     }
+    decisionNodes++;
     const actions=options(s,actor,state,depth===0);
     if(!actions.length)
       throw new Error("Aucune action multiway légale dans une décision active.");
     return {
       terminal:false,actor,history:s.path,
+      boardLength:s.boardLength,
+      street:s.boardLength===3?"flop":s.boardLength===4?"turn":"river",
       actions:actions.map(action=>({
         action,child:build(transition(s,actor,action),depth+1)
       }))
@@ -209,7 +272,36 @@ export function buildMultiwayTree(state:StrategicGameState):MultiwayTree {
   }
   const root=build(initial,0);
   if(root.terminal)throw new Error("Arbre multiway sans décision.");
-  return {root,nodes,players:players.length,model:"single-street-checkdown",raiseCap:MAX_RAISES};
+  return {root,nodes,decisionNodes,players:players.length,
+    model:maxStreets>1?"multi-street-sampled-runout":"single-street-checkdown",
+    streetsModeled:maxStreets,raiseCap:MAX_RAISES};
+}
+/** Choose the largest safe street horizon once, before training.
+ * The worst-case number of distinct infosets is bounded by decision nodes ×
+ * sample count; Rust has 65,536 slots, so reserve headroom for mobile.
+ * If a full flop→river graph is too large, reduce ONLY the future horizon,
+ * never silently exceed the WASM memory/CPU budget.
+ */
+export function buildAdaptiveMultiwayTree(
+  state:StrategicGameState,requestedSamples:number
+):{tree:MultiwayTree;trainingSamples:number}{
+  if(!Number.isSafeInteger(requestedSamples)||requestedSamples<1)
+    throw new RangeError("Budget multiway de sampling invalide.");
+  const max=6-state.board.length;
+  for(let horizon=max;horizon>=1;horizon--){
+    let tree:MultiwayTree;
+    try{tree=buildMultiwayTree(state,{maxStreets:horizon});}
+    catch(error){
+      if(error instanceof RangeError &&
+         /Arbre abstrait multiway trop grand/.test(error.message))continue;
+      throw error;
+    }
+    const cap=Math.floor(MAX_MOBILE_INFO_SETS/Math.max(1,tree.decisionNodes));
+    if(cap<16&&horizon>1)continue;
+    const samples=Math.min(requestedSamples,Math.max(1,cap));
+    return {tree,trainingSamples:samples};
+  }
+  throw new RangeError("Aucun arbre multiway compatible avec le budget mobile.");
 }
 export type CompareScores=(a:readonly number[],b:readonly number[])=>number;
 /** Net chips for EVERY seat, including already folded players. Tied pots are
