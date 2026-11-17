@@ -162,16 +162,27 @@ export function createDealSampler(
       const villain=pickVillain().cards;
       if(useOpponentRange && rangeUsedHint)opponentRangeSamples++;
       const excluded=new Set([...hero,...board,...villain].map(cardId));
-      const deck:SolverCard[]=[];
-      for(const suit of suits)for(let value=2;value<=14;value++){
-        const card={value,suit};
-        if(!excluded.has(cardId(card)))deck.push(card);
+      let runout:SolverCard[];
+      if(board.length===5 && excluded.size===9){
+        // A river has no future board cards. V1 still shuffled the 43-card
+        // remainder; consume its 42 RNG calls to retain seeded CFR parity,
+        // but skip 43 card allocations and 42 unnecessary array swaps.
+        for(let index=42;index>0;index--)random();
+        runout=[];
+      }else{
+        // The entire Fisher-Yates shuffle is required on flop/turn to keep
+        // the identical ordered runout and RNG state as the V1 sampler.
+        const deck:SolverCard[]=[];
+        for(const suit of suits)for(let value=2;value<=14;value++){
+          const card={value,suit};
+          if(!excluded.has(cardId(card)))deck.push(card);
+        }
+        for(let index=deck.length-1;index>0;index--){
+          const swap=Math.floor(random()*(index+1));
+          [deck[index],deck[swap]]=[deck[swap]!,deck[index]!];
+        }
+        runout=deck.slice(0,5-board.length);
       }
-      for(let index=deck.length-1;index>0;index--){
-        const swap=Math.floor(random()*(index+1));
-        [deck[index],deck[swap]]=[deck[swap]!,deck[index]!];
-      }
-      const runout=deck.slice(0,5-board.length);
       deals.push({
         hero,villain,runout,finalBoard:[...board,...runout],
         heroImportanceWeight,isActualHero
