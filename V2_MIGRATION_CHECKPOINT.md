@@ -26,6 +26,20 @@
 - Le Worker postflop ES module exécute le solveur TypeScript et accélère
   le scoring par Rust/WASM. Il est maintenant privilégié par le pré-calcul
   de l'interface, avec repli vers le Worker classique en cas d'échec.
+- La session Rust CFR+ persistante est exécutable de bout en bout dans le
+  Worker typé via `experimentalRustCfr`, **sur demande uniquement**.
+  Le mode par défaut reste TypeScript : la validation de parité n'est pas
+  une preuve de gain de performances.
+- Optimisations vérifiées du solveur TS : distribution pondérée et candidats
+  filtrés préparés une fois par résolution, tirage cumulatif O(log n), cache
+  borné des ranges adverses, suppression du mélange de cartes inutile à la
+  river (avec conservation exacte du flux RNG de la V1), **arbre de mises
+  public construit une seule fois** sur flop/turn/river, cache par deal des
+  mains privées, préfixes de board et suffixes d'information sets.
+  Le board des nœuds sert de gabarit : les clés d'information des calculs
+  multi-runouts doivent impérativement utiliser le board du deal courant.
+- Le sérialiseur Rust réutilise le même arbre public, et la session WASM
+  réutilise ses buffers de travail entre échantillons.
 
 ## Tests disponibles
 
@@ -38,16 +52,31 @@ Le workflow .github/workflows/v2-migration.yml comprend :
 - Parité de solveur chance-sampled avec graine : fréquences, EV, NashConv.
 - Vérification du repli automatique sur le Worker classique, de la
   cancellation, du cache et de l'utilisation du Worker typé.
-- Benchmark indicatif de **l'évaluateur** : 1 200 évaluations de 7 cartes,
-  179,31 ms JS contre 8,50 ms Rust/WASM, soit ~21,1x sur ce runner.
-  **Ce n'est pas une mesure du temps de résolution postflop complet.**
+- Parité **complète du pipeline stratégique TS/Rust** sur flop, turn et river :
+  fréquences, EV, NashConv, à graine et échantillons identiques.
+  Invariance testée de la topologie de mises par rapport aux futures cartes.
+- Benchmark indicatif à **80 échantillons CFR+ avec petits arbres abstraits**,
+  run CI Node.js du 17/11/2026 (non bloquant) :
+  river V1 296,0 ms / V2 TS 72,5 ms (~4,08x) ;
+  turn V1 324,8 ms / V2 TS 71,2 ms (~4,56x) ;
+  flop V1 379,4 ms / V2 TS 73,7 ms (~5,15x).
+  Ces chiffres varient selon l'environnement et ne représentent pas
+  les performances iOS ni les grands budgets.
+- Benchmark navigateur Chromium, 80 échantillons river : le calcul complet
+  Rust persisté est actuellement seulement ~1,05x plus rapide que le solveur
+  TypeScript (runner du 17/11/2026, non bloquant). **Ne pas activer Rust
+  par défaut sans gain démontré sur des scénarios représentatifs**.
+- L'accélération de l'évaluateur de mains JS/WASM ne permet pas d'inférer
+  directement l'accélération du solveur complet.
 
 ## Travaux bloquants restants
 
-1. Intégrer la session Rust CFR+ persistante au pipeline postflop complet
-   avec les mêmes informations sets, poids de chances, ranges et abstractions.
-   Comparer sorties et performances sur river, turn et flop, y compris
-   EV/NashConv et variance, puis conserver un rollback documenté.
+1. Finaliser l'optimisation du CFR+ Rust persistant, déjà utilisable en
+   expérimental et validé en parité sur les trois streets. Profiler le
+   calcul **end-to-end** (sampling, scoring, construction de clés, traversées,
+   EV et NashConv), mesurer les grands budgets, la variance et la mémoire
+   navigateur/mobile, puis décider du backend par défaut avec rollback explicite.
+   Le gain Rust vs TypeScript reste limité dans le benchmark de référence.
 2. Finir les composants React des écrans d'entraînement et du tapis :
    éviter les doubles listeners et garantir les IDs, data-attributes,
    événements et interactions historiques.
