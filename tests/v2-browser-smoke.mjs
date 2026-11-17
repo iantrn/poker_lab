@@ -325,7 +325,7 @@ async function run() {
         });
       } finally {worker.terminate();}
     });
-    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust"});
+    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust",multiway:"rust-sampled"});
 
     // Integration gate: the typed module Worker must run a real river equity
     // calculation and a seeded range-vs-range CFR+ solve, not just initialize.
