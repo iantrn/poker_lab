@@ -34,6 +34,8 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: latest
+      - name: Record Git tree SHA for auditable atomic commits
+        run: echo "BASE_TREE_SHA=$(git rev-parse HEAD^{tree})"
       - name: Record complete V1 file inventory
         run: |
           printf '%s\n' '=== GIT-TRACKED ROOT / JS / CSS / TESTS / WORKFLOWS ==='
