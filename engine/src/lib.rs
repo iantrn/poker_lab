@@ -17,6 +17,17 @@ pub fn equity_monte_carlo(holes: &[u8], board: &[u8], iterations: u32, seed: u64
     equity::monte_carlo(holes, board, iterations, seed).map_err(|error| JsValue::from_str(error))
 }
 
+
+/// Blocker-filtered weighted postflop range equity. Exact on the river.
+#[wasm_bindgen]
+pub fn equity_vs_range(
+    hero: &[u8], board: &[u8], opponent_pairs: &[u8], weights: &[f64],
+    iterations: u32, seed: u64
+) -> Result<Vec<f64>, JsValue> {
+    equity::weighted::weighted_equity(hero, board, opponent_pairs, weights, iterations, seed)
+        .map_err(|error| JsValue::from_str(error))
+}
+
 #[wasm_bindgen]
 pub fn range_category_histogram(cards: &[u8], weights: &[f64], width: usize) -> Result<Vec<f64>, JsValue> {
     ranges::category_histogram(cards, weights, width).map_err(|error| JsValue::from_str(error))

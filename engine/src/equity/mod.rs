@@ -1,5 +1,7 @@
 //! Unbiased draw-without-replacement Monte Carlo sampler for two known hands.
 use crate::evaluator;
+
+pub mod weighted;
 use std::cmp::Ordering;
 
 struct XorShift64(u64);
