@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
-import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
 import { createRequire } from "node:module";
-import path from "node:path";
+import { installEvaluator } from "../frontend/src/core/evaluator.ts";
 const require = createRequire(import.meta.url);
 const wasm = require("../engine/pkg-node");
-const target={window:{}};
-runInNewContext(readFileSync("js/core/evaluator.js","utf8"),target);
-const legacy=target.window.PokerLabHandEvaluator;
+const previousWindow=globalThis.window;
+globalThis.window={};
+const legacy=installEvaluator();
+if(previousWindow===undefined)delete globalThis.window;
+else globalThis.window=previousWindow;
 const SUITS=["clubs","diamonds","hearts","spades"];
 const deck=Array.from({length:52},(_,index)=>({value:2+index%13,suit:SUITS[Math.floor(index/13)]}));
 let state=12345;
@@ -20,7 +20,7 @@ const hands=Array.from({length:1200},()=>{
   return copy.slice(0,7);
 });
 const packed=hands.map(hand=>Uint8Array.from(hand.map(c=>c.value|(SUITS.indexOf(c.suit)<<4))));
-test("non-gating evaluator benchmark measures JS vs Rust/WASM at identical seven-card workload",()=>{
+test("non-gating evaluator benchmark measures V2 TypeScript vs Rust/WASM at identical seven-card workload",()=>{
   for(let i=0;i<100;i++) {
     legacy.evaluate(hands[i]); wasm.evaluate_score(packed[i]);
   }

@@ -1,50 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const read = file => fs.readFileSync(path.join(root, file), "utf8");
+const read = file => readFileSync(path.join(root, file), "utf8");
 
-test("authoritative V1 index records the functional IDs, data hooks and nav anchors for React parity", () => {
-  const legacy=read("index.html");
-  const start=legacy.indexOf('<div id="app"');
-  const end=legacy.indexOf("<!-- JAVASCRIPT");
-  assert.ok(start>=0&&end>start,"V1 source of truth must expose the app shell");
-  const originalBody=legacy.slice(start,end);
-  const identifiers=[...originalBody.matchAll(/\sid="([^"]+)"/g)].map(match=>match[1]);
-  const hooks=[...originalBody.matchAll(/\sdata-[\w-]+="([^"]+)"/g)];
-  const navigation=[...originalBody.matchAll(/href="#([^"]+)"/g)];
-  assert.equal(identifiers.length,21,"V1 ID contract changed");
-  assert.equal(hooks.length,31,"V1 data-hook contract changed");
-  assert.equal(navigation.length,17,"V1 navigation-anchor contract changed");
+test("V2 React entrypoint owns the poker application shell", () => {
+  const main = read("frontend/src/main.tsx");
+  const html = read("frontend/index.html");
+  const shell = read("frontend/src/ui/AppShell.tsx");
+  assert.match(main, /createRoot\(root\)\.render/);
+  assert.match(html, /<div id="root"><\/div>/);
+  assert.match(shell, /<div id="app"/);
+  for (const page of ["HomePage", "TrainingPage", "TacticsPage", "LessonsPage", "ReviewPage", "SettingsPage"])
+    assert.ok(shell.includes(page), page + " must be rendered by the React application");
+  assert.doesNotMatch(main, /loadClassicScript|importScripts/);
 });
 
-test("V2 executes typed installers in the exact V1 dependency order without injecting scripts", () => {
-  const index = read("index.html");
+test("V2 bootstraps strongly typed application modules without injecting classic scripts", () => {
   const loader = read("frontend/src/legacy/loader.ts");
-  const scripts = [...index.matchAll(/<script src="\.\/([^"]+)" defer><\/script>/g)]
-    .map(match => match[1]);
-  const installers = [...loader.matchAll(/\["(js\/[^"]+\.js)", (install\w+)\]/g)];
-  assert.deepEqual(installers.map(match => match[1]), scripts);
-  assert.equal(new Set(installers.map(match => match[2])).size, installers.length);
-  for (const match of installers)
-    assert.match(loader, new RegExp("import \\{[^}]*\\b" + match[2] + "\\b[^}]*\\} from"));
-  assert.doesNotMatch(loader, /\b(?:loadClassicScript|importScripts|document\.createElement\(["']script["']\))\b/);
-  assert.match(loader, /for \(const \[, install\] of MIGRATED_BOOTSTRAP\) install\(\)/);
+  const installs = [...loader.matchAll(/import \{ (install\w+) \} from "[^"]+";/g)].map(match => match[1]);
+  assert.ok(installs.length >= 20, "Expected all typed poker modules to be imported");
+  assert.equal(new Set(installs).size, installs.length, "Duplicate typed module installer");
+  assert.match(loader, /installStorageMirror\(\)/);
+  assert.match(loader, /createTypedPostflopWorker/);
+  assert.doesNotMatch(loader, /loadClassicScript|importScripts|document\.createElement\(["']script["']\)/);
 });
 
-test("V2 keeps existing engines and source data unchanged", () => {
+test("Typed postflop Worker is emitted from the Vite module graph", () => {
+  const client = read("frontend/src/workers/postflop-client.ts");
+  const precompute = read("frontend/src/solver/precompute.ts");
+  assert.match(client, /new Worker\(new URL\("\.\/postflop\.worker\.ts", import\.meta\.url\)/);
+  assert.match(precompute, /createTypedPostflopWorker/);
+  assert.doesNotMatch(precompute, /pokerlab-solver-worker(?:-v2)?[.]js|retryWithClassicWorker/);
+});
+
+test("V2 source data is complete and available independent of the archived V1", () => {
   for (const file of [
-    "js/core/game-engine.js", "js/modules/postflop-solver.js", "js/modules/cfr-core.js",
-    "data/ranges/preflop/matrix/index.json", "data/ranges/preflop/matrix/ranges.json"
-  ]) assert.ok(fs.statSync(path.join(root, file)).size > 100);
-});
-
-test("V2 main thread uses the strict TypeScript postflop strategy without loading its classic script", () => {
-  const loader = read("frontend/src/legacy/loader.ts");
-  assert.match(loader, /\["js\/modules\/postflop-strategy\.js", installStrategy\]/);
-  assert.doesNotMatch(loader, /loadClassicScript\("js\/modules\/postflop-strategy\.js"\)/);
-  assert.match(loader, /import \{ installStrategy \} from "\.\.\/solver\/strategy"/);
+    "data/ranges/preflop/matrix/index.json",
+    "data/ranges/preflop/matrix/ranges.json",
+    "data/lessons/lessons.json",
+    "data/puzzles/puzzles.json"
+  ]) assert.ok(statSync(path.join(root, file)).size > 100, file);
 });

@@ -1,17 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { installEvaluator } from "../frontend/src/core/evaluator.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const wasm = require(path.join(root, "engine", "pkg-node"));
-const context = {window:{}};
-vm.runInNewContext(fs.readFileSync(path.join(root, "js/core/evaluator.js"), "utf8"), context);
-const evaluator = context.window.PokerLabHandEvaluator;
+const previousWindow = globalThis.window;
+globalThis.window = {};
+const evaluator = installEvaluator();
+if (previousWindow === undefined) delete globalThis.window;
+else globalThis.window = previousWindow;
 const suits = ["clubs","diamonds","hearts","spades"];
 const deck = Array.from({length:52},(_,i)=>({value:i%13+2,suit:suits[Math.floor(i/13)]}));
 const pack = card => card.value | (suits.indexOf(card.suit) << 4);
@@ -20,7 +21,7 @@ function random(upper) {
   rng^=rng<<13;rng^=rng>>>17;rng^=rng<<5;
   return (rng>>>0)%upper;
 }
-test("weighted river equity exactly matches V1 on 120 randomized boards and blocker-heavy ranges",()=>{
+test("weighted river equity exactly matches V2 TypeScript on 120 randomized boards and blocker-heavy ranges",()=>{
   for(let trial=0;trial<120;trial++) {
     const cards=deck.slice();
     for(let index=0;index<cards.length;index++) {
