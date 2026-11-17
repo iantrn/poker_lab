@@ -27,10 +27,10 @@ export function createRustCfrStrategyCore(
   function sync(maps:CFRMaps):void {
     const session=sessions.get(maps);
     if(!session||!session.dirty)return;
-    const values=session.engine.average_strategy();
+    const values=Array.from(session.engine.average_strategy());
     let offset=0;
     for(const [key,entry] of session.registry.byKey){
-      const probabilities=Array.from(values).slice(offset,offset+entry.actions);
+      const probabilities=values.slice(offset,offset+entry.actions);
       if(probabilities.length!==entry.actions){
         throw new Error("La session CFR+ Rust a retourné des probabilités incomplètes.");
       }
