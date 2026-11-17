@@ -6,7 +6,7 @@ import { installEvaluator, type PokerLabHandEvaluatorApi } from "../core/evaluat
 import { installBotProfiles } from "../bots/profiles";
 import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
-import { installStrategy, createStrategy } from "../solver/strategy";
+import { installStrategy, createStrategy, type StrategyProgress } from "../solver/strategy";
 import { createRustCfrStrategyCore, type RustCfrSession } from "../solver/rust-cfr-strategy-core";
 import type { SolverCard } from "../solver/input-contract";
 
@@ -134,6 +134,20 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
           [],message.options);
       } else if(message.task==="strategy") {
+        const strategyOptions={
+          ...message.options,
+          onProgress:(update:StrategyProgress)=>{
+            // Updates are provisional and associated with this request ID.
+            // The parent terminates obsolete Workers, so old state versions
+            // cannot send a final strategy through an active Worker.
+            scope.postMessage({
+              id:message.id,progress:update.progress,
+              phase:"strategy_"+update.phase,
+              provisional:true,iterations:update.iterations,
+              ...(update.actions?{previewActions:update.actions}:{})
+            });
+          }
+        };
         const wantsRust=message.experimentalRustCfr===true ||
           (message.experimentalRustCfr===undefined &&
            Boolean(rustSessionFactory) && !autoRustDisabled);
@@ -150,7 +164,7 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
                 rustSessionFactory!
               )
             }) as Parameters<typeof createStrategy>[0];
-            result=await createStrategy(isolated).solvePostflop(message.input,[],message.options);
+            result=await createStrategy(isolated).solvePostflop(message.input,[],strategyOptions);
           }catch(error:unknown){
             // Explicit opt-in is a diagnostic tool: report the real failure.
             // Automatic production mode must keep the poker table usable
@@ -159,12 +173,12 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
             autoRustDisabled=true;
             console.warn("[PokerLab V2] Rust CFR+ auto fallback to TypeScript:",error);
             result=await globals.PokerLabPostflopStrategy.solvePostflop(
-              message.input,[],message.options
+              message.input,[],strategyOptions
             );
           }
         }else{
           result=await globals.PokerLabPostflopStrategy.solvePostflop(
-            message.input,[],message.options
+            message.input,[],strategyOptions
           );
         }
       } else throw new Error("Tâche de solveur inconnue.");
