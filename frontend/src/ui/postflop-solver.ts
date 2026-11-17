@@ -104,7 +104,7 @@ export function installPostflopSolverUI(): void {
         const heading = element("h4", "pl-solve-heading", "Stratégie");
         const summary = element("p", "pl-solve-summary",
             strategy
-                ? "Fréquence de chaque action dans cette situation"
+                ? "Fréquences estimées — CFR+ sur arbre abstrait"
                 : "Fréquences stratégiques indisponibles pour cette situation.");
 
         const frequencies = element("div", "pl-solve-frequencies");
