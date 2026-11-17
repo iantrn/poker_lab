@@ -859,6 +859,10 @@
   #app #training-game #training-table .pl-table-six-max .pl-seat-lower:not(.pl-seat-hero) .pl-player-avatar {
     left: -2px;
   }
+  #app #training-game #training-table .pl-table-six-max .pl-player-badges {
+    /* Keep folded/turn badges below the centred hand-info header. */
+    top: 1px;
+  }
   #app #training-game #training-table .pl-table-six-max .pl-player-name {
     font-size: .61rem;
   }
@@ -881,6 +885,22 @@
   }
   #app #training-game #training-table .pl-table-six-max .pl-seat-lower .pl-player-cards {
     bottom: calc(100% + 64px);
+  }
+}
+
+/* 320px: keep the hand summary on a single line, without clipping the
+   Solver on its right and without letting the top seat badges overlap it. */
+@media (max-width: 380px) {
+  #app #training-game #training-table .pl-table-container > .pl-hand-strength {
+    flex-wrap: nowrap !important;
+    gap: 3px;
+  }
+  #app #training-game #training-table .pl-hand-strength-label {
+    font-size: .44rem;
+    letter-spacing: .025em;
+  }
+  #app #training-game #training-table .pl-hand-strength-value {
+    font-size: .64rem;
   }
 }
 

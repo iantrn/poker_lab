@@ -335,6 +335,22 @@ async function run() {
       }
     }
     assert.ok(narrowSeats.overflow<=1);
+    const narrowHeader = await page.evaluate(() => {
+      const hand = document.querySelector("#training-table .pl-hand-strength");
+      const value = hand?.querySelector(".pl-hand-strength-value");
+      const label = hand?.querySelector(".pl-hand-strength-label");
+      const middleSeat = document.querySelector("#training-table .pl-seat-4");
+      const badge = middleSeat?.querySelector(".pl-player-badges");
+      const r = el => el?.getBoundingClientRect();
+      return {
+        valueTop:r(value)?.top ?? 0,labelTop:r(label)?.top ?? 0,
+        handBottom:r(hand)?.bottom ?? 0,badgeTop:r(badge)?.top ?? 9999
+      };
+    });
+    assert.ok(Math.abs(narrowHeader.valueTop-narrowHeader.labelTop)<=3,
+      "Hand strength must remain on one line at 320px");
+    assert.ok(narrowHeader.badgeTop>=narrowHeader.handBottom-2,
+      "Centre top-seat badges must not cover the hand pill at 320px");
     await captureGameElement("table-6max-complete-mobile-320", "#training-game");
     await page.setViewportSize({ width: 1365, height: 768 });
     await page.locator('button[data-training-action="stop"]').click();

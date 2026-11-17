@@ -232,3 +232,7 @@ Folded players' **identity** is muted, but the card area remains fully opaque
 and uses the unchanged original navy-blue card-back style.
 CI now checks 320px capsule / avatar separations and captures a 320px
 six-max screenshot alongside the existing 390px and WebKit views.
+
+- The 320px header uses tighter type and a no-wrap hand pill, preserving a
+  single-line “VOTRE MAIN / Hauteur…” with adjacent Solver; folded/active
+  seat badges are kept below this header to avoid visual overlap.
