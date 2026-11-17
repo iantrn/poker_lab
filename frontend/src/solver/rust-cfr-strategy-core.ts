@@ -4,8 +4,9 @@
  */
 import type {CFRCoreApi,CFRMaps,CFRNode} from "./cfr-core";
 import type {AbstractTreeNode} from "./decision-tree";
-import {flattenCfrTree,createCfrInformationRegistry,
+import {createCfrInformationRegistry,
   type CfrInformationRegistry} from "./tree-adapter.ts";
+import {createReusableRustTreeSerializer} from "./reusable-cfr-tree.ts";
 
 export interface RustCfrSession {
   step(actors:Int8Array,infos:Uint32Array,offsets:Uint32Array,counts:Uint8Array,
@@ -24,6 +25,7 @@ export function createRustCfrStrategyCore(
   newSession:()=>RustCfrSession
 ):CFRCoreApi {
   const sessions=new WeakMap<CFRMaps,Session>();
+  const serialize=createReusableRustTreeSerializer();
   function sync(maps:CFRMaps):void {
     const session=sessions.get(maps);
     if(!session||!session.dirty)return;
@@ -61,19 +63,20 @@ export function createRustCfrStrategyCore(
           Math.abs(averageWeight-(session.engine.iterations()+1))>1e-8){
         throw new Error("CFR+ Rust exige des itérations complètes et séquentielles.");
       }
-      const request=flattenCfrTree(root as unknown as AbstractTreeNode,{
+      const request=serialize(root as unknown as AbstractTreeNode,{
         informationKey:node=>callbacks.informationKey(node as unknown as CFRNode,deal),
         terminalUtility:node=>callbacks.utility(node as unknown as CFRNode,deal)
-      },1,session.registry).request;
-      session.engine.step(
-        Int8Array.from(request.actors),
-        Uint32Array.from(request.informationSets),
-        Uint32Array.from(request.childOffsets),
-        Uint8Array.from(request.childCounts),
-        Uint32Array.from(request.children),
-        Float64Array.from(request.terminalUtilities),
-        chanceWeight
-      );
+      },session.registry);
+      try {
+        session.engine.step(
+          request.actors,request.informationSets,request.childOffsets,
+          request.childCounts,request.children,request.terminalUtilities,
+          chanceWeight
+        );
+      }catch(error:unknown){
+        request.rollback();
+        throw error;
+      }
       session.dirty=true;
       return 0;
     },
