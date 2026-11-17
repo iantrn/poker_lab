@@ -202,6 +202,15 @@ async function run() {
       "Player text must not be covered by the avatar");
     await page.setViewportSize({ width: 390, height: 844 });
     await captureGameElement("table-6max-complete-mobile", "#training-game");
+    const mobileNames = await page.locator("#training-table .pl-player-name").evaluateAll(items =>
+      items.map(item => ({
+        text: item.textContent,
+        visibleWidth: item.clientWidth,
+        actualWidth: item.scrollWidth
+      })));
+    assert.equal(mobileNames.length, 6);
+    assert.ok(mobileNames.every(item => item.actualWidth <= item.visibleWidth + 1),
+      "Bot names must not be clipped by the position badge on 390px 6-max");
     assert.equal(await page.locator("#training-table .pl-seat .pl-player-avatar svg").count(), 6);
     await page.setViewportSize({ width: 1365, height: 768 });
     await page.locator('button[data-training-action="stop"]').click();

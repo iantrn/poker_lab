@@ -166,3 +166,11 @@ anchored to the actual maximum 1200px stage, not the wider page container.
 CI now asserts avatar-to-name separation and that the button remains inside
 the table stage, plus records full desktop **table with actions** and a
 six-max mobile screenshot.
+
+### Six-max mobile seat polish
+
+On 390px screens, the full `UTG`, `HJ`, `CO`, `SB`, `BB`
+position indicators no longer compete horizontally with player names.
+They remain visible as tiny lower-right chips; the name label now
+has its own row within each player pill. Browser tests assert all six
+names fit their available width.

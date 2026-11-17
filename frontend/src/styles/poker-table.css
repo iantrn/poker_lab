@@ -676,7 +676,22 @@
   }
   #app #training-game #training-table .pl-player-name { font-size: .67rem; }
   #app #training-game #training-table .pl-player-stack { font-size: .69rem; }
-  #app #training-game #training-table .pl-player-position { font-size: .48rem; }
+  /* Keep positional knowledge visible without stealing width from
+     the nickname: a tiny detached chip sits on the pill's lower-right. */
+  #app #training-game #training-table .pl-player-position {
+    position: absolute;
+    z-index: 4;
+    right: 7px;
+    bottom: -10px;
+    display: inline-flex !important;
+    padding: 1px 4px;
+    border: 1px solid rgba(201,173,104,.3);
+    border-radius: 5px;
+    background: #20262b;
+    color: #c4cbd0;
+    font-size: .48rem;
+    line-height: 1.35;
+  }
   #app #training-game #training-table .pl-player-badges {
     top: -13px;
     right: -6px;
@@ -741,7 +756,11 @@
   }
   #app #training-game #training-table .pl-player-name { font-size: .62rem; }
   #app #training-game #training-table .pl-player-stack { font-size: .65rem; }
-  #app #training-game #training-table .pl-player-position { display: none; }
+  #app #training-game #training-table .pl-player-position {
+    display: inline-flex !important;
+    font-size: .43rem;
+    right: 4px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   #app #training-game .pl-table-solver-dock > .pl-solve-button { transition: none !important; }
