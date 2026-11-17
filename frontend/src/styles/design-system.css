@@ -913,3 +913,54 @@
   outline: 2px solid var(--pl-color-selection) !important;
   outline-offset: 2px !important;
 }
+
+/* Phase 5 — screenshot-verified mobile navigation and learning discovery. */
+#app .pl-mobile-link {
+  padding-inline: 2px;
+}
+#app .pl-mobile-link span {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#app .pl-learning-shortcuts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--pl-space-2);
+  margin: calc(-1 * var(--pl-space-2)) 0 var(--pl-space-6);
+}
+#app .pl-learning-shortcut {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--pl-space-2);
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--pl-color-border-strong);
+  border-radius: var(--pl-radius-control);
+  background: var(--pl-color-background);
+  color: var(--pl-color-text-secondary);
+  font-size: .82rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color var(--pl-duration-fast), background-color var(--pl-duration-fast),
+              border-color var(--pl-duration-fast);
+}
+#app .pl-learning-shortcut:hover {
+  background: var(--pl-color-surface-raised);
+  color: var(--pl-color-text);
+}
+#app .pl-learning-shortcut:focus-visible {
+  outline: 2px solid var(--pl-color-selection);
+  outline-offset: 3px;
+}
+#app #preflop-ranges-title {
+  scroll-margin-top: var(--pl-space-4);
+}
+@media (prefers-reduced-motion: reduce) {
+  #app .pl-learning-shortcut { transition: none; }
+}

@@ -57,6 +57,10 @@ export function installNavigation(): NavigationApi {
     if (updateHash && window.location.hash !== "#" + page) window.location.hash = page;
     updateNavigationLinks(page);
     updatePageSections(page);
+    // Hash navigation may scroll the browser directly to the section ID.
+    // After toggling the active view, always expose its heading/header.
+    // Do not use smooth scrolling: this also respects reduced motion.
+    window.scrollTo(0, 0);
     window.dispatchEvent(new CustomEvent("pokerlab:navigate", { detail: { page } }));
     return true;
   };

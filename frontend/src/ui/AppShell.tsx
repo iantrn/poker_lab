@@ -17,12 +17,12 @@ const DESKTOP_NAV: ReadonlyArray<{ page: string; label: string; icon: PokerLabIc
   { page: "lessons", label: "Apprentissage", icon: "learn" },
   { page: "review", label: "Game Review", icon: "review" }
 ];
-const MOBILE_NAV: ReadonlyArray<{ page: string; label: string; icon: PokerLabIconName }> = [
-  { page: "home", label: "Accueil", icon: "home" },
-  { page: "training", label: "Jouer", icon: "play" },
-  { page: "tactics", label: "Tactiques", icon: "tactics" },
-  { page: "lessons", label: "Apprendre", icon: "learn" },
-  { page: "review", label: "Review", icon: "review" }
+const MOBILE_NAV: ReadonlyArray<{ page: string; label: string; ariaLabel: string; icon: PokerLabIconName }> = [
+  { page: "home", label: "Accueil", ariaLabel: "Accueil", icon: "home" },
+  { page: "training", label: "Jouer", ariaLabel: "Jouer", icon: "play" },
+  { page: "tactics", label: "Exos", ariaLabel: "Tactiques et exercices", icon: "tactics" },
+  { page: "lessons", label: "Leçons", ariaLabel: "Apprentissage et ranges", icon: "learn" },
+  { page: "review", label: "Analyse", ariaLabel: "Game Review", icon: "review" }
 ];
 const pageClass = "mb-10 scroll-mt-6";
 
@@ -63,8 +63,9 @@ export function AppShell() {
     <nav className="pl-mobile-nav md:hidden fixed bottom-0 left-0 w-full z-50"
       aria-label="Navigation mobile">
       <div className="pl-mobile-nav-grid grid grid-cols-5 max-w-xl mx-auto">
-        {MOBILE_NAV.map(({ page, icon, label }) =>
-          <a href={"#" + page} data-page={page} key={page} className="pl-mobile-link">
+        {MOBILE_NAV.map(({ page, icon, label, ariaLabel }) =>
+          <a href={"#" + page} data-page={page} key={page} className="pl-mobile-link"
+            aria-label={ariaLabel} title={ariaLabel}>
             <PokerLabIcon name={icon} size={21} /><span>{label}</span>
           </a>)}
       </div>

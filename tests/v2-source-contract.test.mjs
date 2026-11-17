@@ -62,7 +62,7 @@ test("UI phase 1 uses scoped palette aliases and protects card rendering", () =>
   for (const section of ["home", "training", "tactics", "lessons", "review", "settings"])
     assert.ok(shell.includes('data-module="' + section + '"'), "Missing module hook: " + section);
   assert.match(shell, /pl-mobile-nav/);
-  assert.match(shell, /page: "review", label: "Review"/);
+  assert.match(shell, /page: "review", label: "Analyse"/);
   assert.match(home, /pl-home-card-title/);
   assert.match(mark, /viewBox="0 0 64 64"/);
   assert.doesNotMatch(shell, /[🎯📚⚙]/u);
@@ -135,4 +135,22 @@ test("Mobile bet sizing announces selected presets without changing amount const
   assert.match(session, /button\.setAttribute\("aria-pressed", String\(button === selectedPreset\)\)/);
   assert.match(session, /const bounded = Math\.min\(maximum, Math\.max\(minimum, parsed\)\)/);
   assert.match(style, /\.pl-bet-preset\[aria-pressed="true"\]/);
+});
+
+test("Phase 5 screenshot audit: compact mobile labels and direct range discovery", () => {
+  const nav = read("frontend/src/navigation.ts");
+  const shell = read("frontend/src/ui/AppShell.tsx");
+  const lessons = read("frontend/src/ui/LessonsPage.tsx");
+  const design = read("frontend/src/styles/design-system.css");
+  assert.match(nav, /window\.scrollTo\(0, 0\)/, "Top of newly opened view must be visible");
+  for (const item of [
+    'page: "tactics", label: "Exos"',
+    'page: "lessons", label: "Leçons"',
+    'page: "review", label: "Analyse"'
+  ]) assert.ok(shell.includes(item), "Missing compact navigation label: " + item);
+  assert.match(shell, /aria-label=\{ariaLabel\}/);
+  assert.match(lessons, /className="pl-learning-shortcut"/);
+  assert.match(lessons, /getElementById\("preflop-ranges-title"\)\?\.scrollIntoView/);
+  assert.match(design, /\.pl-mobile-link span/);
+  assert.match(design, /\.pl-learning-shortcut:focus-visible/);
 });

@@ -1,4 +1,5 @@
 import { PagePanel, SectionHeading } from "./PagePrimitives";
+import { PokerLabIcon } from "./PokerLabIcon";
 
 /**
  * Keep the validated lesson and range mount points: the typed domain modules
@@ -7,6 +8,14 @@ import { PagePanel, SectionHeading } from "./PagePrimitives";
 export function LessonsPage() {
   return <PagePanel title="Apprentissage"
     description="Progresse avec des leçons structurées, puis approfondis les ranges préflop.">
+    <div className="pl-learning-shortcuts">
+      <button type="button" className="pl-learning-shortcut" onClick={() =>
+        document.getElementById("preflop-ranges-title")?.scrollIntoView({ block: "start" })}>
+        <PokerLabIcon name="ranges" size={18} />
+        Accéder aux ranges
+        <PokerLabIcon name="arrow-right" size={16} />
+      </button>
+    </div>
     <div className="pl-page-stack">
       <section className="pl-feature-section" aria-labelledby="learning-path-title">
         <div className="pl-section-topline">

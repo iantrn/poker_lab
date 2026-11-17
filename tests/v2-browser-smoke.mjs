@@ -230,6 +230,14 @@ async function run() {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('nav.pl-mobile-nav a[data-page="lessons"]').click();
+    // The ranges section is several screens below the lessons catalog.
+    // A dedicated shortcut must make it available immediately on mobile.
+    await page.locator(".pl-learning-shortcut").click();
+    const rangesHeadingPosition = await page.locator("#preflop-ranges-title").evaluate(element =>
+      element.getBoundingClientRect().top);
+    assert.ok(rangesHeadingPosition >= -1 && rangesHeadingPosition <= 100,
+      "Ranges shortcut should scroll the section heading near the top");
+    await captureUi("ranges-mobile-intro");
     const rangeScroll = await page.locator(".pl-rv-matrix").evaluate(element => ({
       width: element.clientWidth,
       scroll: element.scrollWidth
@@ -237,9 +245,12 @@ async function run() {
     assert.ok(rangeScroll.scroll >= rangeScroll.width, "Range data must remain in its own scroll region");
     assert.ok((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1,
       "Range matrix must not overflow the mobile document");
+    await page.locator(".pl-rv-matrix").scrollIntoViewIfNeeded();
     await captureUi("ranges-mobile");
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
+    assert.ok((await page.evaluate(() => scrollY)) <= 1,
+      "Navigation must reset scrolling when returning to Home");
     await captureUi("home-mobile");
     // Verify actual phone gameplay: the single action node follows the table
     // and has usable 48px buttons instead of being compressed over hero cards.
@@ -298,6 +309,22 @@ async function run() {
     await verifyPhoneActions(390);
     await captureUi("gameplay-mobile-390");
     await verifyPhoneActions(320);
+    // Measure visible label boxes, not just document overflow: narrow labels
+    // may overlap one another without increasing the document width.
+    const navLabels = await page.locator(".pl-mobile-link span").evaluateAll(nodes =>
+      nodes.map(element => ({
+        left: element.getBoundingClientRect().left,
+        right: element.getBoundingClientRect().right,
+        textWidth: element.scrollWidth,
+        width: element.clientWidth
+      })));
+    assert.equal(navLabels.length, 5);
+    for (let i = 0; i < navLabels.length - 1; i++) {
+      assert.ok(navLabels[i].right <= navLabels[i + 1].left,
+        "Adjacent mobile nav labels must not collide at 320px");
+    }
+    assert.ok(navLabels.every(item => item.textWidth <= item.width + 1),
+      "Compact labels must not be clipped at 320px");
     await captureUi("gameplay-mobile-320");
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForFunction(() => Boolean(document.querySelector(

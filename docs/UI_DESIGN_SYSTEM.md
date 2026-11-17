@@ -92,3 +92,13 @@ Screenshots are a review aid, not proof of physical-device Safari performance or
 - Added Chromium/WebKit smoke assertions at 390px and 320px, plus active-session viewport change 390 -> 1024 -> 390, and screenshot captures at phone widths.
 
 - Bet sizing preset buttons expose `aria-pressed` and a gold selected border, which is cleared on manual/slider adjustments. Existing numeric normalization, legal minimum and actual bet submission remain unchanged.
+
+## Phase 5 — Screenshot review findings and corrections
+
+The first full Chromium and WebKit screenshot review (18 renders) confirmed the mobile action panel and stable card assets but uncovered three navigational issues:
+
+1. At **320px**, the long `Tactiques` and `Apprendre` bottom navigation labels nearly touched/overlapped. The compact visible labels are now `Exos`, `Leçons`, `Analyse` with full accessible labels for screen readers.
+2. The learning catalog pushes the preflop matrix far below the mobile fold. A visible **Accéder aux ranges** button scrolls directly to the existing heading without changing the hash router or the range data.
+3. A route switch did not guarantee scroll reset: the browser could leave the new screen partly scrolled. `navigateTo` now calls `scrollTo(0, 0)` after activating the page. In-page ranges scrolling remains independent of route navigation.
+
+The CI now captures **`ranges-mobile-intro`** and **`ranges-mobile`** showing the actual range explorer rather than only the beginning of the lesson catalog; regression assertions measure 320px label boxes and verify scroll restoration.
