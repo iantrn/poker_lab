@@ -113,6 +113,11 @@ async function run() {
     assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
 
     await page.locator('a[data-page="lessons"]').first().click();
+    assert.equal(await page.locator('#lessons > .bg-surface').count(),1,
+      "React lessons shell must mount exactly once");
+    assert.equal(await page.locator('#lessons [data-lessons-catalog]').count(),1);
+    assert.equal(await page.locator('#lessons [data-lesson-content]').count(),1);
+    assert.equal(await page.locator('#lessons [data-ranges-viewer]').count(),1);
     assert.equal(await page.locator("#lessons").isVisible(), true);
     await page.waitForFunction(() => document.querySelectorAll(".pl-range-cell").length === 169, null, { timeout: 30000 });
     const matrix = page.locator(".pl-range-matrix");
@@ -139,9 +144,16 @@ async function run() {
 
     await page.locator('a[data-page="review"]').first().click();
     assert.equal(await page.locator("#review").isVisible(), true);
+    assert.equal(await page.locator('#review [data-review-history]').count(),1);
+    assert.equal(await page.locator('#review [data-review-detail]').count(),1);
     await page.locator("[data-review-history] .pl-review-empty").waitFor({ timeout: 30000 });
 
     // Responsive behavior: mobile navigation is usable at phone width.
+    await page.locator('a[data-page="settings"]').first().click();
+    assert.equal(await page.locator("#settings").isVisible(),true);
+    assert.equal(await page.locator('#settings #settings-content').count(),1);
+    assert.equal(await page.locator('#settings h2').textContent(),"Paramètres");
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
