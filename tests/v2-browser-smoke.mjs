@@ -452,6 +452,32 @@ async function run() {
       return Boolean(response.ok);
     });
     assert.equal(cachedRanges, true, "Range bundle must be available offline");
+
+    // No network is available here: every React page and the typed engine must
+    // continue to work from the installed PWA, including after a fresh reload.
+    await page.locator('a[data-page="lessons"]').first().click();
+    await page.waitForFunction(() =>
+      document.querySelector('#lessons')?.hidden === false &&
+      document.querySelectorAll("#lessons .pl-range-cell").length === 169,
+      null, { timeout: 30000 });
+    await page.locator('a[data-page="tactics"]').first().click();
+    assert.equal(await page.locator("#tactics").isVisible(),true);
+    await page.locator('a[data-page="training"]').first().click();
+    assert.equal(await page.locator("#training").isVisible(),true);
+    const offlineSession=await page.evaluate(() => {
+      const api=window.PokerLabTraining;
+      const config=api.updateConfig({gameMode:"heads-up",playerCount:2});
+      if(!config.success)return config;
+      return api.createSession();
+    });
+    assert.equal(offlineSession.success,true,"Offline heads-up session must start");
+    await page.waitForFunction(()=>
+      document.querySelectorAll("#training-table .pl-seat").length===2,
+      null,{timeout:30000});
+    assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()),true);
+    await page.locator('a[data-page="home"]').first().click();
+    assert.equal(await page.locator("#home").isVisible(),true);
+
     assert.equal(await page.locator("#home").count(),1);
     // The typed postflop Worker, its WASM binary and dynamic imports must survive airplane mode.
     const offlineBackend = await page.evaluate(async () => {
