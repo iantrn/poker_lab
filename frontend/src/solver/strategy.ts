@@ -7,7 +7,7 @@ import type { CFRNode,CFRCallbacks,CFRDeal,CFRCoreApi } from "./cfr-core";
 import { buildDecisionTree, rootActionSignature,
   type AbstractTreeNode, type AbstractTreeInput, type AbstractRootOptions
 } from "./decision-tree.ts";
-import { sampleDeals, buildUniformRange,
+import { sampleDeals, createDealSampler, buildUniformRange,
   type ChanceDeal, type HandCombo
 } from "./deal-sampler.ts";
 
@@ -342,6 +342,12 @@ export function createStrategy(global:StrategyGlobal){
         const random = Number.isInteger(options.seed)
             ? createRandom(options.seed!)
             : Math.random;
+        // Prepare the joint hero/villain distribution once per solve. It is stable
+        // across CFR steps; re-filtering every combination per step was costly.
+        const trainingSampler = createDealSampler(
+            hero.holeCards,state.board,rangeInfo.combos,
+            rangeInfo.rangeUsed !== false,random,heroRangeInfo.combos
+        );
         const maps = global.PokerLabCFRCore.createMaps();
         let rootTree:AbstractTreeNode|null=null;
         let expectedRootSignature:string|null=null;
@@ -358,15 +364,7 @@ export function createStrategy(global:StrategyGlobal){
         // wall-time scheduling penalty independent of the actual CFR work.
         let nextCooperativeYield = performance.now() + 12;
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
-            const sampled = sampleDeals(
-                hero.holeCards,
-                state.board,
-                rangeInfo.combos,
-                1,
-                rangeInfo.rangeUsed !== false,
-                random,
-                heroRangeInfo.combos
-            );
+            const sampled = trainingSampler(1);
             const deal = sampled.deals[0]!;
             sampledRangeUsed = sampledRangeUsed && sampled.rangeUsed;
             sampledHeroHands++;
@@ -405,6 +403,10 @@ export function createStrategy(global:StrategyGlobal){
         if(!rootTree||rootTree.terminal)throw new Error("Arbre vide après apprentissage.");
         const typedRoot=rootTree as Extract<AbstractTreeNode,{terminal:false}>;
         const rootStrategy = getRootStrategy(typedRoot, maps, hero.holeCards, state.board,global);
+        const evaluationSampler = createDealSampler(
+            hero.holeCards,state.board,rangeInfo.combos,
+            rangeInfo.rangeUsed !== false,random
+        );
         const actionValueSums:number[] = new Array(typedRoot.actions.length).fill(0);
         const actionValueSquares:number[] = new Array(typedRoot.actions.length).fill(0);
         let heroEVSum = 0;
@@ -412,14 +414,7 @@ export function createStrategy(global:StrategyGlobal){
         let evaluatedDeals = 0;
 
         for (let sampleIndex = 0; sampleIndex < requestedEvaluationSamples; sampleIndex++) {
-            const sampled = sampleDeals(
-                hero.holeCards,
-                state.board,
-                rangeInfo.combos,
-                1,
-                rangeInfo.rangeUsed !== false,
-                random
-            );
+            const sampled = evaluationSampler(1);
             const deal = sampled.deals[0]!;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
                 global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
@@ -469,18 +464,14 @@ export function createStrategy(global:StrategyGlobal){
         const exploitabilityRandom = Number.isInteger(options.seed)
             ? createRandom((options.seed! ^ 0x9E3779B9) >>> 0)
             : Math.random;
+        const exploitabilitySampler = createDealSampler(
+            hero.holeCards,state.board,rangeInfo.combos,
+            rangeInfo.rangeUsed !== false,exploitabilityRandom,heroRangeInfo.combos
+        );
         const exploitabilityDeals:Array<{root:CFRNode;deal:ChanceDeal}>=[];
 
         for (let sampleIndex = 0; sampleIndex < requestedExploitabilitySamples; sampleIndex++) {
-            const sampled = sampleDeals(
-                hero.holeCards,
-                state.board,
-                rangeInfo.combos,
-                1,
-                rangeInfo.rangeUsed !== false,
-                exploitabilityRandom,
-                heroRangeInfo.combos
-            );
+            const sampled = exploitabilitySampler(1);
             const deal = sampled.deals[0]!;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
                 global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
