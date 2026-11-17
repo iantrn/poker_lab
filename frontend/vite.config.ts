@@ -60,7 +60,7 @@ export default defineConfig({
     staticResources(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: null, // Legacy bootstrap registers service-worker.js itself.
+      injectRegister: null, // V2 runtime registers the Workbox-generated service worker.
       filename: "service-worker.js",
       strategies: "generateSW",
       manifestFilename: "manifest.webmanifest",
