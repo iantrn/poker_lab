@@ -220,3 +220,26 @@ test("non-gating reusable CFR numeric key benchmark compares equal serialization
     matchingInformationSets:indexed.lastSize
   }));
 });
+
+
+test("mixed canonical and numeric serialization rolls back every orphan prefix",()=>{
+ const serialize=createReusableRustTreeSerializer();
+ const registry=createCfrInformationRegistry();
+ const raw={
+   informationKey:node=>node.key+"|a",
+   terminalUtility:node=>node.value
+ };
+ const indexed={
+   ...raw,
+   informationPrefix:node=>node.key+"|",
+   informationSuffix:()=>"a"
+ };
+ const first=serialize(tree,raw,registry); // owns the first two IDs
+ const second=serialize(tree,indexed,registry); // indexes existing entries
+ second.rollback(); // no entries reserved by this request
+ first.rollback(); // must also purge second request's cached slots
+ assert.equal(registry.byKey.size,0);
+ const result=serialize(tree,indexed,registry);
+ assert.deepEqual([...result.informationSets],[0,1,0,0,1,0,0]);
+ assert.equal(registry.byKey.size,2);
+});
