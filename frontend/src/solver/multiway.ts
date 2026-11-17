@@ -382,7 +382,7 @@ export async function solveMultiway(
     evaluationMethod:"EV Monte-Carlo indépendante avec stratégie moyenne CFR+ multiway.",
     nashConv:null,exploitability:null,
     exploitabilitySamples:0,exploitabilityEffectiveSampleSize:0,
-    heroDeviationGain:0,opponentDeviationGain:0,
+    heroDeviationGain:null,opponentDeviationGain:null,
     exploitabilityMethod:"Non disponible : NashConv HU et garantie d'équilibre non transposables au multiway.",
     postflopActionsUsed:0,actions,
     abstraction:"MULTIWAY "+state.players.filter(p=>!p.folded).length+
