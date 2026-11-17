@@ -9,7 +9,8 @@ const sample={id:"sample-hand",players:[{id:"hero",name:"Hero",startingStack:100
     {street:"preflop",playerId:"hero",type:"raise",amount:3},
     {street:"preflop",playerId:"bot",type:"fold"}
   ],result:"win",theoreticalAnalysis:{ev:.8}};
-const fakeDate = class extends Date {
+const NativeDate = Date;
+const fakeDate = class extends NativeDate {
   constructor(...args){super(args.length?args[0]:"2026-11-17T07:00:00Z");}
   static now(){return Date.parse("2026-11-17T07:00:00Z");}
 };
@@ -50,7 +51,7 @@ function scenario(typed){
   return JSON.parse(JSON.stringify({validation,saved,all,selected,analysis,theory,filtered,deleted,current,clear,
     events:env.events,store:[...env.data.entries()]}));
  }finally{
-  if(typed){for(const name of ["window","document","localStorage","CustomEvent"])delete globalThis[name];globalThis.Date=Date;}
+  if(typed){for(const name of ["window","document","localStorage","CustomEvent"])delete globalThis[name];globalThis.Date=NativeDate;}
  }
 }
 test("game review save, analysis, history and theoretical payload retain V1 semantics",()=>{
