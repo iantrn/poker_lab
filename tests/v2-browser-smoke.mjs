@@ -186,6 +186,94 @@ async function run() {
     });
     assert.ok(feltDimensions.width / feltDimensions.height > 2,
       "New desktop poker felt must be more rectangular than oval");
+
+    const verifyTableGeometry = async (mobile) => {
+      const geometry = await page.evaluate(() => {
+        const rect = element => {
+          const r = element.getBoundingClientRect();
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,
+            midX:r.left+r.width/2,midY:r.top+r.height/2,width:r.width,height:r.height};
+        };
+        const table = document.querySelector("#training-table .pl-table-container");
+        const felt = rect(table.querySelector(".pl-felt"));
+        const upper = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(rect)
+          .sort((a,b)=>a.midX-b.midX);
+        const lower = [...table.querySelectorAll(".pl-seat-lower .pl-player-info")].map(rect)
+          .sort((a,b)=>a.midX-b.midX);
+        const hand = rect(table.querySelector(".pl-hand-strength"));
+        const solverButton = document.querySelector("#training-solver-dock > .pl-solve-button");
+        const solver = rect(solverButton);
+        const backs = [...table.querySelectorAll(".pl-seat .pl-card--back")];
+        const empty = [...table.querySelectorAll(".pl-board .pl-card--empty")];
+        const handValue = table.querySelector(".pl-hand-strength-value");
+        return {
+          felt,upper,lower,hand,solver,
+          stage:rect(document.querySelector(".pl-live-table-stage")),
+          solverOpacity:Number(getComputedStyle(solverButton).opacity),
+          solverDisabled:solverButton.disabled,
+          cardWidths:backs.map(el=>rect(el).width),
+          cardBacks:backs.map(el=>getComputedStyle(el).backgroundImage),
+          emptyCount:empty.length,
+          emptyBorder:empty[0] ? getComputedStyle(empty[0]).borderTopColor : "",
+          handText:handValue?.textContent?.trim() ?? "",
+          detailCount:table.querySelectorAll(".pl-hand-strength-detail").length,
+          htmlWidth:document.documentElement.scrollWidth-innerWidth
+        };
+      });
+      assert.equal(geometry.upper.length, 3, "Six-max needs three upper seats");
+      assert.equal(geometry.lower.length, 3, "Six-max needs three lower seats");
+      for (const rail of [geometry.upper,geometry.lower]) {
+        assert.ok(rail[0].midX < rail[1].midX && rail[1].midX < rail[2].midX,
+          "Seats must stay ordered across the long edge");
+        assert.ok(Math.max(...rail.map(seat=>seat.midY))-
+          Math.min(...rail.map(seat=>seat.midY)) <= 2,
+          "All seats on a rail must share a horizontal baseline");
+      }
+      assert.ok(geometry.upper.every(seat=>seat.bottom<=geometry.felt.top+5),
+        "Upper capsules must remain outside the red felt");
+      assert.ok(geometry.lower.every(seat=>seat.top>=geometry.felt.bottom-5),
+        "Lower capsules must remain outside the red felt");
+      assert.ok(Math.abs(geometry.hand.midX-geometry.upper[1].midX)<=2,
+        "The hand pill must align exactly with the central Bot 3 seat");
+      assert.ok(geometry.solver.left>=geometry.hand.right+4,
+        "Solver must sit to the right of the centred hand pill");
+      assert.ok(Math.abs(geometry.solver.top-geometry.hand.top)<=3,
+        "Solver must share the hand pill's header row");
+      assert.ok(geometry.solver.right<=geometry.stage.right+1,
+        "Solver must stay within the table stage");
+      assert.equal(geometry.solverDisabled,true);
+      assert.ok(geometry.solverOpacity<.6, "Preflop Solver should be clearly subdued");
+      assert.equal(geometry.detailCount,0, "No suited/gapper descriptions in hand pill");
+      assert.ok(geometry.cardWidths.length>=8 &&
+        geometry.cardWidths.every(w=>w >= (mobile ? 33 : 45)),
+        "Hole cards should be larger at both viewport sizes");
+      assert.equal(new Set(geometry.cardBacks).size,1,
+        "Every unrevealed card must have the same blue back design");
+      assert.ok(/rgb\(23, 45, 80\)|#172d50/i.test(geometry.cardBacks[0]),
+        "Existing navy back design must be kept");
+      assert.equal(geometry.emptyCount,5);
+      assert.match(geometry.emptyBorder,/rgba\(/);
+      const alpha = Number(geometry.emptyBorder.match(/,\s*(0?\.\d+)\)$/)?.[1] ?? 0);
+      assert.ok(alpha>=.38 && alpha<.6,
+        "Unrevealed community-card borders should have subtly increased opacity");
+      assert.ok(geometry.htmlWidth<=1,"The table must not cause horizontal overflow");
+      return geometry;
+    };
+
+    const desktopGeometry = await verifyTableGeometry(false);
+    assert.ok(desktopGeometry.handText.length>0,"Hand strength label must be present");
+    const sampleLabels = await page.evaluate(() => {
+      const evaluator = window.PokerLabTable;
+      return {
+        pair9:evaluator.evaluatePreflop([{value:9,suit:"clubs"},{value:9,suit:"diamonds"}]),
+        tenHigh:evaluator.evaluatePreflop([{value:10,suit:"clubs"},{value:2,suit:"diamonds"}]),
+        aceHigh:evaluator.evaluatePreflop([{value:14,suit:"clubs"},{value:9,suit:"clubs"}])
+      };
+    });
+    assert.equal(sampleLabels.pair9.label,"Paire de 9");
+    assert.equal(sampleLabels.tenHigh.label,"Hauteur 10");
+    assert.equal(sampleLabels.aceHigh.label,"Hauteur As");
+    assert.equal(sampleLabels.aceHigh.detail,"");
     await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
     await captureGameElement("table-6max-with-controls-desktop", "#training-game");
     const desktopSeatAndSolver = await page.evaluate(() => {
@@ -201,6 +289,7 @@ async function run() {
     assert.ok(desktopSeatAndSolver.nameLeft >= desktopSeatAndSolver.avatarRight - 1,
       "Player text must not be covered by the avatar");
     await page.setViewportSize({ width: 390, height: 844 });
+    await verifyTableGeometry(true);
     await captureGameElement("table-6max-complete-mobile", "#training-game");
     const mobileNames = await page.locator("#training-table .pl-player-name").evaluateAll(items =>
       items.map(item => ({

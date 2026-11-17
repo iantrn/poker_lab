@@ -694,7 +694,7 @@
     height: 45px;
   }
   /* A 19% top rail clears both the centred hand pill and the felt edge. */
-  #app #training-game #training-table .pl-seat-upper {
+  #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
     top: 19% !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat-hero {

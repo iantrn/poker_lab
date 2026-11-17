@@ -199,3 +199,13 @@ names fit their available width.
   graphite, muted red, forest green and bronze gradients.
 - A taller gap above the felt on phone widths avoids collisions between
   the centred hand pill and the aligned upper seats.
+
+### Browser layout geometry
+
+The Chromium and WebKit smoke tests now assert actual element bounds
+(three aligned upper and three aligned lower seats outside the felt),
+exact horizontal centering of the “Votre main” pill above the upper-centre
+seat, adjacent Solver alignment and disabled opacity, all-blue backs,
+slightly increased private-card dimensions, and five softly visible empty
+community slots. Also tests numeric rank displays directly through the
+installed table API, without changing game state.

@@ -194,7 +194,7 @@ test("Approved table design retains native playing cards and solver outputs", ()
 test("Final table review: two horizontal seat rails, numeric ranks, centred hand and Solver", () => {
   const table = read("frontend/src/components/table.ts");
   const css = read("frontend/src/styles/poker-table.css");
-  assert.match(table, /6: \[\[50, 88\], \[15, 88\], \[20, 12\], \[50, 12\], \[80, 12\], \[85, 88\]\]/);
+  assert.match(table, /6: \[\[50, 88\], \[18, 88\], \[20, 12\], \[50, 12\], \[80, 12\], \[82, 88\]\]/);
   assert.match(table, /numericRanks\(label: string\)/);
   assert.match(table, /Hauteur \$\{getRank\(high\)\}/);
   assert.doesNotMatch(table, /pl-hand-strength-detail",/);
