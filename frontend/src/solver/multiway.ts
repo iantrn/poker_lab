@@ -30,6 +30,10 @@ export interface MultiwayDeal {
   readonly importanceWeight:number;
 }
 export interface MultiwayCfrKernel {
+  /** Optional new WASM API: validates immutable graph once per solve. */
+  prepare_tree?(actors:Int8Array,offsets:Uint32Array,
+    counts:Uint8Array,children:Uint32Array):number;
+  step_prepared?(ids:Uint32Array,payoffs:Float64Array,weight:number):number;
   step(actors:Int8Array,ids:Uint32Array,offsets:Uint32Array,
     counts:Uint8Array,children:Uint32Array,payoffs:Float64Array,weight:number):number;
   strategy_for_info_set(id:number):Float64Array|number[];
@@ -381,6 +385,12 @@ export async function solveMultiway(
   const training=await createSampler(state,environment,seed);
   const registry:Registry=new Map();
   const session=environment.newSession(state.players.length);
+  const prepared=typeof session.prepare_tree==="function" &&
+    typeof session.step_prepared==="function";
+  if(prepared){
+    session.prepare_tree!(topology.actors,topology.offsets,
+      topology.counts,topology.children);
+  }
   let rootInfo=-1;
   let trainingWeightSum=0,trainingWeightSquares=0;
   const progress=(phase:"training"|"evaluation",amount:number,iterations:number,
@@ -394,8 +404,12 @@ export async function solveMultiway(
     const scores=scoresFor(state,deal,environment);
     const packed=flatten(topology,game,deal,scores,environment.compareScores,registry);
     try{
-      session.step(packed.actors,packed.ids,packed.offsets,packed.counts,
-        packed.children,packed.payoffs,deal.importanceWeight);
+      if(prepared){
+        session.step_prepared!(packed.ids,packed.payoffs,deal.importanceWeight);
+      }else{
+        session.step(packed.actors,packed.ids,packed.offsets,packed.counts,
+          packed.children,packed.payoffs,deal.importanceWeight);
+      }
       rootInfo=packed.rootInfo;
       trainingWeightSum+=deal.importanceWeight;
       trainingWeightSquares+=deal.importanceWeight*deal.importanceWeight;
@@ -467,6 +481,7 @@ export async function solveMultiway(
     evaluationEffectiveSampleSize:evSamples.effectiveSamples,
     treeNodes:game.nodes,
     decisionNodes:game.decisionNodes,
+    preparedTopology:prepared,
     rangeLabel:training.labels.join(" · "),
     rangeConditioning:"Ranges adverses par siège, tirage successif sans collisions, corrigé par importance pour la distribution jointe conditionnelle.",
     rangeUsed:training.rangeUsed,
