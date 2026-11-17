@@ -335,6 +335,7 @@ export async function solveMultiway(
   const session=environment.newSession(state.players.length);
   const board=state.board.map(id).join(",");
   let rootInfo=-1;
+  let trainingWeightSum=0,trainingWeightSquares=0;
   const progress=(phase:"training"|"evaluation",amount:number,iterations:number,
     preview?:Array<{action:string;frequency:number}>)=>{
     if(typeof options.onProgress==="function")
@@ -349,6 +350,8 @@ export async function solveMultiway(
       session.step(packed.actors,packed.ids,packed.offsets,packed.counts,
         packed.children,packed.payoffs,deal.importanceWeight);
       rootInfo=packed.rootInfo;
+      trainingWeightSum+=deal.importanceWeight;
+      trainingWeightSquares+=deal.importanceWeight*deal.importanceWeight;
     }catch(error){packed.rollback();throw error;}
     const completed=iteration+1;
     if(completed%Math.max(8,Math.floor(requested/8))===0||completed===requested){
@@ -405,7 +408,9 @@ export async function solveMultiway(
     quality:"sampled_estimate" as const,provisional:false,
     street:state.street,iterations:session.iterations(),
     sampledHeroHands:requested,sampledOpponentHands:requested,
-    sampledActualHeroHand:requested,heroRangeEffectiveSampleSize:requested,
+    sampledActualHeroHand:requested,
+    heroRangeEffectiveSampleSize:trainingWeightSquares>0?
+      trainingWeightSum*trainingWeightSum/trainingWeightSquares:0,
     heroRangeLabel:"Main réelle du héros (range conditionnelle)",
     actualHandInHeroRange:true,
     evaluationSamples,
