@@ -279,3 +279,45 @@ test("numeric batch rollback restores canonical and numerical IDs after a reject
    }
  }
 });
+
+
+test("Rust partial root policy avoids full-strategy copies during progressive CFR+",()=>{
+ const previous=globalThis.window;
+ globalThis.window={};
+ let baseline;
+ try{baseline=installCfrCore();}
+ finally{if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
+ let fullExports=0,subsetExports=0;
+ const rust=createRustCfrStrategyCore(baseline,()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree:(...args)=>engine.prepare_tree(...args),
+     step_prepared:(...args)=>engine.step_prepared(...args),
+     step:(...args)=>engine.step(...args),
+     average_strategy(){fullExports++;return engine.average_strategy();},
+     strategy_for_info_set(id){subsetExports++;return engine.strategy_for_info_set(id);},
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const baselineMaps=baseline.createMaps(),optimizedMaps=rust.createMaps();
+ const root=makeTree([1,-1,-1,1]);
+ for(let iteration=1;iteration<=96;iteration++){
+   const weight=iteration%5===0?2.5:1;
+   baseline.runCfr(root,null,0,[1,1],baselineMaps,callbacks,iteration,weight);
+   baseline.runCfr(root,null,1,[1,1],baselineMaps,callbacks,iteration,weight);
+   rust.runCfr(root,null,0,[1,1],optimizedMaps,callbacks,iteration,weight);
+   rust.runCfr(root,null,1,[1,1],optimizedMaps,callbacks,iteration,weight);
+   if(iteration%12===0){
+     const expected=baseline.getStrategy(root,null,baselineMaps,callbacks);
+     const found=rust.getStrategy(root,null,optimizedMaps,callbacks);
+     for(let j=0;j<expected.length;j++)
+       assert.ok(Math.abs(expected[j]-found[j])<1e-11);
+   }
+ }
+ assert.equal(fullExports,0,"live policy must not export every Rust information set");
+ assert.equal(subsetExports,8);
+ assert.ok(Number.isFinite(rust.averageStrategy(root,null,optimizedMaps,callbacks)));
+ assert.equal(fullExports,1,"full strategy export deferred to EV evaluation");
+ assert.equal(rust.information_set_count,undefined);
+});
