@@ -4,6 +4,7 @@ import { SolverScheduler } from "../solver/scheduler";
 import { installNavigation } from "../navigation";
 import { installRangesData } from "../ranges/data";
 import { installRangesViewer } from "../ranges/viewer";
+import { installLessons } from "../training/lessons";
 import { installSolverPrecompute } from "../solver/precompute";
 import { installCfrCore } from "../solver/cfr-core";
 import { installPostflopSolverUI } from "../ui/postflop-solver";
@@ -56,6 +57,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
       if (file === "js/components/range-matrix.js") { installRangeAdapter(); continue; }
       if (file === "js/modules/ranges-viewer.js") { installRangesViewer(); continue; }
+      if (file === "js/modules/lessons.js") { installLessons(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
       if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
       if (file === "js/modules/postflop-solver-ui.js") { installPostflopSolverUI(); continue; }
