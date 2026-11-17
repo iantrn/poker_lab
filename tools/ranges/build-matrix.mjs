@@ -3,8 +3,10 @@
  * Génère les fichiers compacts utilisés par la matrice de ranges de l'application.
  *
  * Entrée  : JSON normalisés produits par import-directory.mjs (normalized/<position>/*.json)
- * Sortie  : <output-dir>/<position>/<spot>.json  -> { "AA": 100, "AKs": 62.5, ... } (pourcentages, 0 omis)
- *           <output-dir>/index.json              -> liste des spots (id, position, action, séquence, % de mains)
+ * Sortie  : <output-dir>/index.json              -> index des spots
+ *           <output-dir>/ranges.json             -> bundle complet des 2 606 matrices
+ * Les anciennes copies <position>/<spot>.json sont redondantes et ne
+ * sont plus générées. Les identifiants de spots restent inchangés.
  *
  * Usage :
  *   node tools/ranges/build-matrix.mjs --input-dir ./private-ranges/normalized --output-dir ./data/ranges/preflop/matrix
@@ -61,10 +63,10 @@ async function main() {
     const outputDir = args['output-dir'];
     const spots = [];
     const compactRanges = {};
+    await fs.mkdir(outputDir, { recursive: true });
     const folders = (await fs.readdir(inputDir, { withFileTypes: true })).filter(entry => entry.isDirectory());
     for (const folder of folders.sort((a, b) => a.name.localeCompare(b.name))) {
         const files = (await fs.readdir(path.join(inputDir, folder.name))).filter(file => file.endsWith('.json')).sort();
-        await fs.mkdir(path.join(outputDir, folder.name), { recursive: true });
         for (const file of files) {
             const node = JSON.parse(await fs.readFile(path.join(inputDir, folder.name, file), 'utf8'));
             const id = path.basename(file, '.json');
@@ -77,7 +79,6 @@ async function main() {
                 totalCombos += frequency * possible;
                 if (frequency > 0) matrix[hand] = round(frequency * 100);
             }
-            await fs.writeFile(path.join(outputDir, folder.name, `${id}.json`), JSON.stringify(matrix));
             compactRanges[`${folder.name}/${id}`] = matrix;
             const parsed = parseSpotName(node.spot?.originalFilename || id);
             spots.push({
