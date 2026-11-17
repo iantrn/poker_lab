@@ -8,6 +8,7 @@ import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
 import { installStrategy, createStrategy } from "../solver/strategy";
 import { createRustCfrStrategyCore, type RustCfrSession } from "../solver/rust-cfr-strategy-core";
+import type { SolverCard } from "../solver/input-contract";
 
 interface PostflopRequest {
   id: number;
@@ -19,12 +20,14 @@ interface PostflopRequest {
 interface WasmEvaluator {
   default(input?: string | URL): Promise<unknown>;
   evaluate_score(cards: Uint8Array): Uint8Array;
+  compare_showdown(cards: Uint8Array): number;
   CfrSession?: new () => RustCfrSession;
 }
 type PostflopScope = DedicatedWorkerGlobalScope & {
   window?: unknown;
   PokerLabMatrixBaseUrl?: string;
   PokerLabHandEvaluator?: PokerLabHandEvaluatorApi;
+  PokerLabShowdownCompare?: (hero:SolverCard[],villain:SolverCard[],board:SolverCard[])=>number;
 };
 const scope = self as PostflopScope;
 (scope as {window?:unknown}).window = scope;
@@ -78,6 +81,26 @@ async function init(): Promise<"wasm" | "legacy"> {
           };
         }
       } as PokerLabHandEvaluatorApi;
+      // A valid showdown always contains two hole pairs plus five community
+      // cards. Compare both seven-card hands with one allocation-free Rust
+      // call, rather than allocating two WASM score arrays for every CFR deal.
+      // Keep the exact TypeScript evaluator as a safety fallback.
+      const packedShowdown = new Uint8Array(9);
+      scope.PokerLabShowdownCompare = (hero,villain,board) => {
+        const fallback=()=>original.compareScores(
+          original.evaluate([...hero,...board]).score,
+          original.evaluate([...villain,...board]).score
+        );
+        if(hero.length!==2||villain.length!==2||board.length!==5)return fallback();
+        for(let i=0;i<9;i++){
+          const card = i<2 ? hero[i] : i<4 ? villain[i-2] : board[i-4];
+          if(!card || !Number.isInteger(card.value) || card.value<2 || card.value>14 ||
+             !Object.prototype.hasOwnProperty.call(suits,card.suit))return fallback();
+          packedShowdown[i]=card.value | (suits[card.suit]!<<4);
+        }
+        try{return wasm.compare_showdown(packedShowdown);}
+        catch{return fallback();}
+      };
       return "wasm";
     } catch (error) {
       console.warn("[PokerLab V2] Rust unavailable in typed postflop Worker; using JS evaluator.",error);
