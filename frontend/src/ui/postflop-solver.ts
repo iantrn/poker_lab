@@ -50,6 +50,10 @@ interface StrategyResult {
   heroDeviationGain: number; opponentDeviationGain: number;
   exploitabilityMethod: string; postflopActionsUsed: number;
   abstraction: string; convergence: string;
+  /** Absent/false for all Monte Carlo solvers; only an independent exact
+   * full-game proof could ever enable this flag. */
+  fullGameGtoCertified?: boolean;
+  certificationScope?: string;
 }
 type SolverWindow = Window & {
   PokerLabTraining?: SolverTraining;
@@ -106,6 +110,9 @@ export function installPostflopSolverUI(): void {
             strategy
                 ? "Fréquences estimées — CFR+ sur arbre abstrait"
                 : "Fréquences stratégiques indisponibles pour cette situation.");
+        const certification = element("p","pl-solve-detail-note",
+            "GTO intégral non certifié : les fréquences reposent sur un jeu abstrait et un échantillonnage de mains, pas sur une preuve d’équilibre du No-Limit Hold’em.");
+        certification.setAttribute("role","status");
 
         const frequencies = element("div", "pl-solve-frequencies");
         if (strategy && Array.isArray(strategy.actions) && strategy.actions.length) {
@@ -224,7 +231,7 @@ export function installPostflopSolverUI(): void {
             detailsButton.setAttribute("aria-expanded", String(expanded));
         });
 
-        container.append(heading, summary, frequencies, detailsButton, details);
+        container.append(heading, summary, certification, frequencies, detailsButton, details);
     }
 
     function renderProgress(panel:HTMLElement,snapshot:PrecomputeSnapshot):void {
