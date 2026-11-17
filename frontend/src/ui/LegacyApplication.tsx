@@ -3,17 +3,19 @@ import { createPortal } from "react-dom";
 import { HomePage } from "./HomePage";
 import { TacticsPage } from "./TacticsPage";
 import { ReviewPage } from "./ReviewPage";
+import { LessonsPage } from "./LessonsPage";
+import { SettingsPage } from "./SettingsPage";
 import shell from "./legacy-shell.html?raw";
 import { loadLegacy } from "../legacy/loader";
 
 export function LegacyApplication() {
   const [failure, setFailure] = useState<string | null>(null);
-  const [pageMounts, setPageMounts] = useState<Partial<Record<"home" | "tactics" | "review", HTMLElement>>>({});
+  const [pageMounts, setPageMounts] = useState<Partial<Record<"home" | "tactics" | "review" | "lessons" | "settings", HTMLElement>>>({});
   // Keep the six stable section elements owned by typed navigation; React only
   // replaces static interior content before V1-compatible modules attach.
   useLayoutEffect(() => {
-    const nodes: Partial<Record<"home" | "tactics" | "review", HTMLElement>> = {};
-    for (const id of ["home", "tactics", "review"] as const) {
+    const nodes: Partial<Record<"home" | "tactics" | "review" | "lessons" | "settings", HTMLElement>> = {};
+    for (const id of ["home", "tactics", "review", "lessons", "settings"] as const) {
       const node = document.querySelector<HTMLElement>(`#${id}[data-module="${id}"]`);
       if (!node) continue;
       node.replaceChildren();
@@ -24,7 +26,8 @@ export function LegacyApplication() {
   useEffect(() => {
     // Attach V1-compatible native handlers only when React-owned page
     // content is committed, or the handler registration can miss links.
-    if (!pageMounts.home || !pageMounts.tactics || !pageMounts.review) return;
+    if (!pageMounts.home || !pageMounts.tactics || !pageMounts.review ||
+        !pageMounts.lessons || !pageMounts.settings) return;
     let mounted = true;
     void loadLegacy().catch((error: unknown) => {
       if (mounted) setFailure(error instanceof Error ? error.message : String(error));
@@ -36,6 +39,8 @@ export function LegacyApplication() {
     {pageMounts.home && createPortal(<HomePage />, pageMounts.home)}
     {pageMounts.tactics && createPortal(<TacticsPage />, pageMounts.tactics)}
     {pageMounts.review && createPortal(<ReviewPage />, pageMounts.review)}
+    {pageMounts.lessons && createPortal(<LessonsPage />, pageMounts.lessons)}
+    {pageMounts.settings && createPortal(<SettingsPage />, pageMounts.settings)}
     {failure && <div role="alert" className="tw-fixed tw-bottom-4 tw-left-4 tw-z-[9999] tw-rounded-xl tw-bg-red-950 tw-p-4 tw-text-white">
       Initialisation impossible : {failure}
     </div>}
