@@ -836,29 +836,11 @@ function renderGame(state: GameState | null = null): void {
 
         actionsElement.replaceChildren();
         actionsElement.classList.add("pl-action-panel");
+        actionsElement.classList.toggle("pl-action-panel--complete", state.handComplete);
 
         if (state.handComplete) {
-
-            renderHandResult(state);
-
-            const playersWithChips = state.players.filter(
-                player => player.stack > 0
-            );
-
-            if (playersWithChips.length >= 2) {
-                actionsElement.appendChild(
-                    createActionButton("Main suivante", startNextHand)
-                );
-            } else {
-                actionsElement.appendChild(
-                    createElement(
-                        "p",
-                        "text-yellow-400 font-semibold",
-                        "La partie est terminée : il ne reste plus assez de joueurs avec des jetons."
-                    )
-                );
-            }
-
+            // All winner, side-pot and navigation information lives inside
+            // the native showdown dialog, never a duplicate actions panel.
             return;
         }
 
@@ -1222,68 +1204,6 @@ function renderGame(state: GameState | null = null): void {
        12. RÉSULTAT DE LA MAIN
        ===================================================== */
 
-    function renderHandResult(state: GameState): void {
-
-        if (!state.result) {
-            return;
-        }
-
-        const result = state.result as {type:string;winnerIds:string[];totalPot:number};
-
-        const resultContainer = createElement(
-            "div",
-            "bg-background border border-white/10 rounded-xl p-4 mb-4"
-        );
-
-        const title = createElement(
-            "h4",
-            "font-bold text-lg mb-2",
-            "Résultat de la main"
-        );
-
-        resultContainer.appendChild(title);
-
-        const winners = state.players.filter(
-            player => result.winnerIds.includes(player.id)
-        );
-
-        const winnerNames = winners.map(
-            player => player.name
-        );
-
-        const winnerText = createElement(
-            "p",
-            "text-green-400 font-semibold mb-2",
-            winnerNames.length > 0
-                ? `Gagnant${winnerNames.length > 1 ? "s" : ""} : ${winnerNames.join(", ")}`
-                : "Main terminée"
-        );
-
-        resultContainer.appendChild(winnerText);
-
-        const potText = createElement(
-            "p",
-            "text-textMuted text-sm",
-            `Pot remporté : ${formatChips(result.totalPot)} jetons`
-        );
-
-        resultContainer.appendChild(potText);
-
-        if (result.type === "showdown") {
-
-            const showdownText = createElement(
-                "p",
-                "text-textMuted text-sm mt-2",
-                "Les cartes ont été révélées à l'abattage."
-            );
-
-            resultContainer.appendChild(showdownText);
-
-        }
-
-        actionsElement!.appendChild(resultContainer);
-
-    }
 
 
     /* =====================================================
@@ -1347,6 +1267,7 @@ function renderGame(state: GameState | null = null): void {
 
         if (actionsElement) {
             actionsElement.replaceChildren();
+            actionsElement.classList.remove("pl-action-panel--complete");
         }
 
         hideMessage();
@@ -1492,6 +1413,26 @@ function renderGame(state: GameState | null = null): void {
 
         bindConfigurationInputs();
         bindActionButtons();
+        // The table component owns the dialog markup while this controller
+        // alone owns nextHand() / stopSession(). Delegate on the stable mount
+        // because each hand rerender recreates only its presentation DOM.
+        tableElement.addEventListener("click", event => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            const button = target.closest<HTMLButtonElement>(
+                '[data-training-action="next-hand"], [data-training-action="end-session"]'
+            );
+            if (!button || !tableElement?.contains(button)) return;
+            const state = gameEngine?.getState();
+            if (!state?.handComplete || !currentSession) return;
+            if (button.dataset.trainingAction === "next-hand") {
+                if (state.players.filter(player => player.stack > 0).length >= 2) {
+                    startNextHand();
+                }
+            } else if (button.dataset.trainingAction === "end-session") {
+                stopSession();
+            }
+        });
         // Reparent the same action panel on rotation/viewport resize without
         // restarting the hand or reattaching action/solver listeners.
         globals.addEventListener("resize", synchronizeActionPanelPlacement);

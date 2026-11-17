@@ -233,3 +233,25 @@ test("UI rail clearance and wagers stay central without moving cards or the engi
   assert.match(table, /if \(player\.streetBet > 0\)/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "The existing card design must remain untouched");
 });
+
+test("Showdown modal uses real engine distributions, native dialog and one next-hand action", () => {
+  const table = read("frontend/src/components/table.ts");
+  const training = read("frontend/src/training/session.ts");
+  const css = read("frontend/src/styles/poker-table.css");
+  assert.match(table, /createElement\("dialog", "pl-hand-result pl-result-dialog"\)/);
+  assert.match(table, /result\.showModal\(\)/);
+  assert.match(table, /pot\.oddChipRecipients\.includes\(id\)/);
+  assert.match(table, /pl-result-best-five/);
+  assert.match(table, /pl-result-next-hand/);
+  assert.match(table, /next\.dataset\.trainingAction = "next-hand"/);
+  assert.match(table, /leave\.dataset\.trainingAction = "end-session"/);
+  assert.match(training, /tableElement\.addEventListener\("click", event =>/);
+  assert.match(training, /startNextHand\(\)/);
+  assert.match(training, /stopSession\(\)/);
+  assert.doesNotMatch(training, /function renderHandResult\(/,
+    "Duplicate winner panels outside the modal must be removed");
+  assert.match(css, /dialog\.pl-hand-result::backdrop/);
+  assert.match(css, /pl-action-panel--complete/);
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/,
+    "Keep existing card art and card backs unchanged");
+});

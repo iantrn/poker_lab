@@ -13,8 +13,18 @@ interface TablePlayer {
   folded?: boolean; allIn?: boolean; isHuman?: boolean;
   position?: string | null; holeCards: PokerCard[];
 }
-interface TablePot { amount:number;winnerIds?:string[]; }
-interface TableResult { type:string;winnerIds?:string[];pots?:TablePot[]; }
+interface TablePot {
+  amount:number; winnerIds?:string[]; isTie?:boolean;
+  share?:number; oddChipRecipients?:string[]; category?:string;
+}
+interface TableEvaluation {
+  playerId:string; playerName?:string; category?:string;
+  bestFiveCards?:PokerCard[];
+}
+interface TableResult {
+  type:string; winnerIds?:string[]; totalPot?:number;handNumber?:number;
+  pots?:TablePot[]; evaluations?:TableEvaluation[];
+}
 interface TableState {
   players:TablePlayer[];board:PokerCard[];pot:number;
   handNumber?:number;dealerIndex?:number;currentPlayerId?:string|null;
@@ -682,81 +692,189 @@ function createTable() {
        9. RÉSULTAT DE LA MAIN
        ===================================================== */
 
-    function renderResult(result: TableResult | null | undefined, players: TablePlayer[] = []): HTMLDivElement | null {
+    /**
+     * A single accessible, engine-driven result dialog. Payouts are amounts
+     * distributed from the pot (not net profit after contributed blinds/bets).
+     * We render actual per-pot winners and the five evaluated winning cards,
+     * without recomputing or modifying the engine's outcome.
+     */
+    function renderResult(
+        result: TableResult | null | undefined,
+        players: TablePlayer[] = [],
+        handNumber = 1
+    ): HTMLDialogElement | null {
+        if (!result) return null;
 
-        if (!result) {
-            return null;
-        }
+        const dialog = createElement("dialog", "pl-hand-result pl-result-dialog");
+        dialog.setAttribute("aria-labelledby", "pl-result-title");
+        dialog.setAttribute("aria-describedby", "pl-result-explanation");
+        dialog.setAttribute("data-training-result", result.type);
+        dialog.addEventListener("cancel", event => event.preventDefault());
 
-        const container = createElement(
-            "div",
-            "pl-hand-result"
+        const pots = Array.isArray(result.pots) ? result.pots : [];
+        const winnerIds = [...new Set([
+            ...(Array.isArray(result.winnerIds) ? result.winnerIds : []),
+            ...pots.flatMap(pot => Array.isArray(pot.winnerIds) ? pot.winnerIds : [])
+        ])];
+        const evaluations = new Map(
+            (Array.isArray(result.evaluations) ? result.evaluations : [])
+                .map(item => [item.playerId, item])
         );
-
-        const title = createElement(
-            "strong",
-            "pl-hand-result-title",
-            result.type === "uncontested"
-                ? "Pot remporté"
-                : "Showdown"
-        );
-
-        const winnerIds: string[] = Array.isArray(result.winnerIds)
-            ? result.winnerIds
-            : [];
-
-        const winnerNames = winnerIds.map(id => {
+        const nameOf = (id: string): string => {
             const player = players.find(item => item.id === id);
-            return player ? player.name : id;
-        });
+            return player ? (player.isHuman ? "Vous" : player.name) : id;
+        };
+        const payoutFor = (id: string): number => {
+            if (!pots.length && winnerIds.length === 1) {
+                return Number.isFinite(result.totalPot) ? result.totalPot! : 0;
+            }
+            return pots.reduce((sum, pot) => {
+                const potWinners = Array.isArray(pot.winnerIds) ? pot.winnerIds : [];
+                if (!potWinners.includes(id)) return sum;
+                const share = typeof pot.share === "number" && Number.isFinite(pot.share)
+                    ? pot.share
+                    : pot.amount / potWinners.length;
+                return sum + share +
+                    (Array.isArray(pot.oddChipRecipients) &&
+                    pot.oddChipRecipients.includes(id) ? 0.5 : 0);
+            }, 0);
+        };
+        const potTotal = Number.isFinite(result.totalPot)
+            ? result.totalPot!
+            : pots.reduce((sum, pot) => sum + pot.amount, 0);
+        const isUncontested = result.type === "uncontested";
+        const isSplit = pots.some(pot => (pot.winnerIds?.length ?? 0) > 1);
+        const heroWon = winnerIds.some(id =>
+            players.some(player => player.id === id && player.isHuman)
+        );
+        const canContinue = players.filter(player => player.stack > 0).length >= 2;
 
-        const description = createElement(
-            "span",
-            "pl-hand-result-description",
-            winnerNames.length > 0
-                ? `Gagnant${winnerNames.length > 1 ? "s" : ""} : ${winnerNames.join(", ")}`
+        const header = createElement("header", "pl-result-header");
+        const eyebrow = createElement("div", "pl-result-eyebrow");
+        const ornament = createElement("span", "pl-result-ornament", "✦");
+        ornament.setAttribute("aria-hidden", "true");
+        eyebrow.append(
+            ornament,
+            createElement("span", "", `MAIN #${result.handNumber ?? handNumber} · ${isUncontested ? "POT NON CONTESTÉ" : "SHOWDOWN"}`)
+        );
+        const title = createElement(
+            "h2", "pl-hand-result-title", isSplit
+                ? "Pot partagé"
+                : winnerIds.length > 1 ? "Plusieurs gagnants"
+                : heroWon ? "Vous remportez le pot"
+                : winnerIds.length === 1 ? "Pot remporté"
                 : "Main terminée"
         );
+        title.id = "pl-result-title";
+        const winnerSummary = createElement(
+            "p", "pl-hand-result-description",
+            winnerIds.length
+                ? winnerIds.map(nameOf).join(" · ")
+                : "Aucun vainqueur identifié"
+        );
+        const explanation = createElement(
+            "p", "pl-result-explanation",
+            isUncontested
+                ? "Tous les adversaires ont abandonné la main. Aucun abattage nécessaire."
+                : "Les mains ont été comparées à l'abattage. Voici les jetons attribués et les combinaisons gagnantes."
+        );
+        explanation.id = "pl-result-explanation";
+        header.append(eyebrow, title, winnerSummary, explanation);
 
-        container.append(
-            title,
-            description
+        const total = createElement("div", "pl-result-total");
+        total.append(
+            createElement("span", "pl-result-total-label", "POT TOTAL DISTRIBUÉ"),
+            createElement("strong", "pl-result-total-value", `${formatAmount(potTotal)} BB`)
         );
 
-        // Afficher le détail des pots uniquement lorsqu'il existe un side pot.
-        if (Array.isArray(result.pots) && result.pots.length > 1) {
-            const potDetails = createElement(
-                "div",
-                "pl-hand-result-pots"
+        const winnings = createElement("section", "pl-result-winnings");
+        winnings.setAttribute("aria-label", "Détails de la victoire");
+        winnings.appendChild(createElement("h3", "pl-result-section-title", "Gains et mains gagnantes"));
+        if (!winnerIds.length) {
+            winnings.appendChild(
+                createElement("p", "pl-result-empty", "Aucune répartition disponible pour cette main.")
             );
+        }
+        winnerIds.forEach(id => {
+            const evaluation = evaluations.get(id);
+            const row = createElement("div", "pl-result-winner");
+            const player = players.find(item => item.id === id);
+            if (player?.isHuman) row.classList.add("pl-result-winner--hero");
 
-            result.pots.forEach((pot, index) => {
-                const potWinners = (pot.winnerIds || []).map(id => {
-                    const player = players.find(item => item.id === id);
-                    return player ? player.name : id;
-                });
+            const topLine = createElement("div", "pl-result-winner-top");
+            const identity = createElement("div", "pl-result-winner-identity");
+            const dot = createElement("span", "pl-result-winner-dot");
+            dot.setAttribute("aria-hidden", "true");
+            identity.append(dot, createElement("strong", "pl-result-winner-name", nameOf(id)));
+            topLine.append(identity,
+                createElement("strong", "pl-result-winner-gain", `+${formatAmount(payoutFor(id))} BB`));
+            row.appendChild(topLine);
 
-                const potLabel = index === 0
-                    ? "Pot principal"
-                    : `Pot secondaire ${index}`;
-                const winnersLabel = potWinners.length > 0
-                    ? ` — gagnant${potWinners.length > 1 ? "s" : ""} : ${potWinners.join(", ")}`
-                    : "";
+            const category = isUncontested
+                ? "Victoire sans showdown"
+                : evaluation?.category || pots.find(pot => pot.winnerIds?.includes(id))?.category
+                    || "Combinaison gagnante";
+            row.appendChild(createElement("p", "pl-result-winner-hand", category));
 
-                potDetails.appendChild(
-                    createElement(
-                        "span",
-                        "pl-hand-result-pot",
-                        `${potLabel} : ${formatAmount(pot.amount)} BB${winnersLabel}`
-                    )
+            if (!isUncontested && Array.isArray(evaluation?.bestFiveCards) &&
+                evaluation.bestFiveCards.length === 5) {
+                const hand = createElement("div", "pl-result-best-five");
+                hand.setAttribute("aria-label", `Cinq meilleures cartes de ${nameOf(id)}`);
+                evaluation.bestFiveCards.forEach(card => appendCard(hand, card, {compact:true}));
+                row.appendChild(hand);
+            }
+            winnings.appendChild(row);
+        });
+
+        const breakdown = createElement("section", "pl-result-pot-breakdown");
+        breakdown.setAttribute("aria-label", "Répartition des pots");
+        breakdown.appendChild(
+            createElement("h3", "pl-result-section-title", "Répartition du pot")
+        );
+        if (pots.length) {
+            pots.forEach((pot, index) => {
+                const potRow = createElement("div", "pl-result-pot-row");
+                const info = createElement("div", "pl-result-pot-info");
+                info.append(
+                    createElement("strong", "pl-result-pot-name",
+                        index === 0 ? "Pot principal" : `Pot secondaire ${index}`),
+                    createElement("span", "pl-result-pot-beneficiaries",
+                        (pot.winnerIds || []).map(nameOf).join(" · ") || "Non attribué")
                 );
+                const value = createElement("strong", "pl-result-pot-value",
+                    `${formatAmount(pot.amount)} BB`);
+                potRow.append(info, value);
+                breakdown.appendChild(potRow);
             });
-
-            container.appendChild(potDetails);
+        } else {
+            breakdown.appendChild(
+                createElement("p", "pl-result-pot-beneficiaries",
+                    "Le pot a été attribué sans répartition secondaire.")
+            );
         }
 
-        return container;
+        const footer = createElement("footer", "pl-result-footer");
+        if (canContinue) {
+            const next = createElement("button", "pl-result-next-hand");
+            next.type = "button";
+            next.dataset.trainingAction = "next-hand";
+            next.append(
+                createElement("span", "", "Main suivante"),
+                createElement("span", "pl-result-next-arrow", "→")
+            );
+            next.setAttribute("aria-label", "Passer à la main suivante");
+            footer.appendChild(next);
+        } else {
+            footer.appendChild(createElement("p", "pl-result-game-over",
+                "Partie terminée : moins de deux joueurs disposent encore de jetons."));
+        }
+        const leave = createElement("button", "pl-result-stop-session", "Quitter la partie");
+        leave.type = "button";
+        leave.dataset.trainingAction = "end-session";
+        footer.appendChild(leave);
 
+        dialog.append(header, total, winnings, breakdown, footer);
+        return dialog;
     }
 
 
@@ -909,7 +1027,7 @@ function createTable() {
         // Résultat éventuel.
 
         const result = gameState.handComplete
-            ? renderResult(gameState.result, players)
+            ? renderResult(gameState.result, players, gameState.handNumber ?? 1)
             : null;
 
         const actionMount = createElement("div", "pl-hero-actions-mount");
@@ -940,6 +1058,13 @@ function createTable() {
         }
 
         container.replaceChildren(table);
+
+        // A native modal brings proper backdrop, keyboard focus and access
+        // to the next-hand button. It is not a screenshot or a duplicated
+        // result block below the table.
+        if (result && !result.open) {
+            result.showModal();
+        }
 
         lastRenderedHandNumber = handNumberValue;
         lastRenderedBoardCount = boardCount;
