@@ -7,7 +7,7 @@
 
 import type { PokerCard, PokerHandEvaluation } from "../core/evaluator";
 import type { BotProfilesApi } from "../bots/profiles";
-import { createSolverInput, resolveSolverInput } from "./input-contract";
+import { createSolverInput, resolveSolverInput } from "./input-contract.ts";
 import type { SolverStateInput, SolverHistoryEvent } from "./input-contract";
 
 interface PostflopPlayer {
