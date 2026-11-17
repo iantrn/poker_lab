@@ -30,6 +30,10 @@ export class SolverScheduler {
     if (inMemory) return [...inMemory];
     try {
       const cached = await pokerLabDb.solverCache.get(key);
+      // Even a successful IndexedDB hit must not resurrect a superseded request.
+      if (this.generation !== generation) {
+        throw new DOMException("Calcul obsolète", "AbortError");
+      }
       if (cached && cached.schemaVersion === CACHE_SCHEMA_VERSION && Array.isArray(cached.result)) {
         const result = cached.result.filter((value): value is number => typeof value === "number");
         if (result.length === cached.result.length) {

@@ -39,6 +39,8 @@ jobs:
         run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: WASM versus JavaScript parity tests
         run: node --test tests/v2-wasm-parity.test.mjs
+      - name: Comparative JavaScript versus optimized WASM benchmark
+        run: node --test tests/v2-wasm-benchmark.test.mjs
       - name: Install frontend dependencies
         run: npm install --prefix frontend --no-audit --no-fund
       - name: TypeScript strict + Vite production build
