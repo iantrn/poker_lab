@@ -434,7 +434,7 @@ function createPuzzles() {
 
         const candidates = currentPuzzle
             ? available.filter(
-                puzzle => puzzle.id !== currentPuzzle.id
+                puzzle => puzzle.id !== currentPuzzle!.id
             )
             : available;
 
@@ -573,7 +573,7 @@ function createPuzzles() {
         if (filteredPuzzles.length > 0) {
 
             const allAnswered = filteredPuzzles.every(
-                puzzle => puzzle.id === currentPuzzle.id
+                puzzle => puzzle.id === currentPuzzle!.id
             );
 
             if (allAnswered) {
