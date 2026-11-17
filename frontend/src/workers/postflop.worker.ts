@@ -213,6 +213,8 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
           }
         };
         if(strategic?.capability.solver==="multiway-cfr-plus"){
+          if(message.experimentalRustCfr===false)
+            throw new Error("Mode TypeScript imposé : le moteur stratégique multiway nécessite Rust/WASM.");
           result=await solveMultiway(strategic,multiwayEnvironment(message),strategyOptions);
           scope.postMessage({id:message.id,progress:1,phase:"strategy_completed"});
           scope.postMessage({id:message.id,ok:true,result});
