@@ -153,8 +153,8 @@ function createLessons() {
 
             progress = {
                 completedLessons: [
-                    ...new Set(
-                        parsed.completedLessons.map(normalizeId)
+                    ...new Set<string>(
+                        (parsed.completedLessons as unknown[]).map(normalizeId)
                     )
                 ],
                 lastLessonId: parsed.lastLessonId
