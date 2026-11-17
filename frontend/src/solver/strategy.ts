@@ -3,7 +3,7 @@
  * This is an *abstracted* poker game, not a certified full-game GTO solver.
  */
 import type { SolverCard } from "./input-contract";
-import type { CFRNode,CFRCallbacks,CFRDeal,CFRCoreApi } from "./cfr-core";
+import type { CFRNode,CFRCallbacks,CFRDeal,CFRCoreApi,CFRBatchSample } from "./cfr-core";
 import { buildDecisionTree, rootActionSignature,
   type AbstractTreeNode, type AbstractTreeInput, type AbstractRootOptions
 } from "./decision-tree.ts";
@@ -400,6 +400,15 @@ export function createStrategy(global:StrategyGlobal){
         // A zero-delay timer per deal otherwise introduces an O(iterations)
         // wall-time scheduling penalty independent of the actual CFR work.
         let nextCooperativeYield = performance.now() + 12;
+        // Only the Rust adapter exposes runCfrBatch. Limit each unit of work to
+        // eight samples and flush before yielding to preserve responsiveness.
+        const trainingBatch:CFRBatchSample[]=[];
+        let trainingBatchStart=1;
+        const flushTrainingBatch=():void=>{
+            if(!trainingBatch.length)return;
+            global.PokerLabCFRCore.runCfrBatch!(trainingBatch,maps,trainingBatchStart);
+            trainingBatch.length=0;
+        };
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = trainingSampler(1);
             const deal = sampled.deals[0]!;
@@ -423,15 +432,31 @@ export function createStrategy(global:StrategyGlobal){
             rootTree = built.tree;
             averageNodeCount += built.nodeCount;
 
-            // Une seule accumulation de stratégie moyenne par itération CFR+.
-            runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
-            runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
+            // Each sample still receives exactly two ordered CFR+ traversals.
+            // Sampling is independent of learned regrets, so batching cannot
+            // change RNG consumption or the order of regret updates.
+            if(global.PokerLabCFRCore.runCfrBatch){
+                if(trainingBatch.length===0)trainingBatchStart=iteration+1;
+                const importance=Number(deal.heroImportanceWeight);
+                trainingBatch.push({
+                    root:toCFR(built.tree),
+                    deal,
+                    callbacks:cfrCallbacks(deal.hero,state.board,global),
+                    chanceWeight:importance>0?importance:1
+                });
+                if(trainingBatch.length===8)flushTrainingBatch();
+            }else{
+                runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
+                runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
+            }
 
             if (performance.now() >= nextCooperativeYield) {
+                flushTrainingBatch();
                 await new Promise<void>(resolve => setTimeout(resolve, 0));
                 nextCooperativeYield = performance.now() + 12;
             }
         }
+        flushTrainingBatch();
 
         const requestedEvaluationSamples = Number.isInteger(options.evaluationSamples)
             ? Math.max(16, Math.min(512, options.evaluationSamples!))
