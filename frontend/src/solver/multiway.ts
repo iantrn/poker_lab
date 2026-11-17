@@ -59,6 +59,12 @@ interface FlatTree {
   rollback():void;
 }
 const suits=["clubs","diamonds","hearts","spades"] as const;
+function boundedInt(value:unknown,fallback:number,minimum:number,maximum:number):number{
+  if(value===undefined||value===null)return fallback;
+  const number=Number(value);
+  return Number.isSafeInteger(number)
+    ?Math.max(minimum,Math.min(maximum,number)):fallback;
+}
 function id(card:Card):string{return card.value+"_"+card.suit;}
 function validCard(card:Card|undefined):boolean{
   return Boolean(card&&Number.isInteger(card.value)&&card.value>=2&&card.value<=14&&
@@ -285,9 +291,9 @@ export async function solveMultiway(
     throw new Error("La configuration n'est pas éligible au solveur multiway.");
   const game=buildMultiwayTree(state);
   const hero=state.players.find(player=>player.isHuman)!;
-  const requested=Math.max(16,Math.min(384,Number(options.iterations)||32))*
-    Math.max(1,Math.min(4,Number(options.samples)||2));
-  const seed=Number.isInteger(options.seed)?options.seed!>>>0:0x2357127;
+  const requested=boundedInt(options.iterations,32,16,384)*
+    boundedInt(options.samples,2,1,4);
+  const seed=Number.isSafeInteger(options.seed)?options.seed!>>>0:0x2357127;
   const training=await createSampler(state,environment,seed);
   const registry:Registry=new Map();
   const session=environment.newSession(state.players.length);
@@ -330,7 +336,7 @@ export async function solveMultiway(
   }
   if(offset!==flattened.length)
     throw new Error("Table multiway Rust incohérente avec les information sets.");
-  const evaluationSamples=Math.max(16,Math.min(128,options.evaluationSamples??32));
+  const evaluationSamples=boundedInt(options.evaluationSamples,32,16,128);
   const evaluation=await createSampler(state,environment,seed^0x9e3779b9);
   const actionSamples=game.root.actions.map(()=>[] as number[]);
   const evSamples:number[]=[];
@@ -393,9 +399,10 @@ export async function analyzeMultiwayEquity(
 ){
   if(state.capability.solver!=="multiway-cfr-plus")
     throw new Error("Équité multiway requiert 3+ joueurs actifs.");
-  const seed=Number.isInteger(options.seed)?options.seed!>>>0:0x4387721;
+  const seed=Number.isSafeInteger(options.seed)?options.seed!>>>0:0x4387721;
+  if(state.pot<=0)throw new RangeError("L'équité multiway exige un pot positif.");
   const sample=await createSampler(state,environment,seed);
-  const iterations=Math.max(300,Math.min(3_000,options.iterations??1_200));
+  const iterations=boundedInt(options.iterations,1_200,300,3_000);
   const hero=state.players.find(p=>p.isHuman)!;
   let wins=0,losses=0,ties=0,equitySum=0;
   const baseTerminal:MultiwayTerminal={
