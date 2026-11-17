@@ -78,7 +78,10 @@ test("three-way unequal-stack all-in produces identical V1/V2 side pots and cons
     assert.deepEqual(state.result.pots.map(pot=>pot.amount),[6,4]);
     const final=engine.players.reduce((sum,player)=>sum+player.stack,0);
     assert.equal(final,initial,"no chips can be created or lost during payout");
-    return {steps,state,history:plain(engine.getHandHistory()),initial,final};
+    // Physical wall-clock timestamps cannot match across sequential runs.
+    // Preserve exact event order, types, streets and payloads.
+    const history=plain(engine.getHandHistory()).map(({timestamp,...event})=>event);
+    return {steps,state,history,initial,final};
   }
   assert.deepEqual(play(migrated),play(Legacy));
 });
