@@ -19,10 +19,10 @@ const roots = new WeakMap<HTMLElement, Root>();
 // flushSync guarantees that the old ranges-viewer can synchronously paint .pl-range-cell.
 export function installRangeAdapter(): void {
   const target = window as Window & { PokerLabRangeMatrix?: LegacyMatrixApi };
-  if (!target.PokerLabRangeMatrix) return;
+  // No V1 script is required: all four public entrypoints are provided here.
   const original = target.PokerLabRangeMatrix;
   target.PokerLabRangeMatrix = {
-    ...original,
+    ...(original ?? {}),
     getAllHands: allHands,
     getHandName: handAt,
     normalizeRange,

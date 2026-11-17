@@ -53,11 +53,11 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/bots/bot-engine.js") { installBotEngine(); continue; }
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
       if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
+      if (file === "js/components/range-matrix.js") { installRangeAdapter(); continue; }
       if (file === "js/modules/ranges-viewer.js") { installRangesViewer(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
       if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
       await loadClassicScript(file);
-      if (file === "js/components/range-matrix.js") installRangeAdapter();
     }
     installStorageMirror();
     (window as Window & { PokerLabV2?: { solver: SolverScheduler } }).PokerLabV2 = {
