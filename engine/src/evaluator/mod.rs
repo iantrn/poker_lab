@@ -255,6 +255,32 @@ pub(crate) fn rank_seven_unchecked(cards: &[u8; 7]) -> u64 {
     key
 }
 
+/// Compare a complete heads-up showdown using nine packed cards:
+/// [hero0, hero1, villain0, villain1, board0 .. board4].
+///
+/// Validate all nine cards exactly once, then rank the two seven-card
+/// hands on the stack. One WASM call replaces two Vec-returning score calls
+/// and one JS comparison during Monte-Carlo and sampled CFR training.
+pub fn compare_showdown_nine(cards: &[u8]) -> Result<i8, &'static str> {
+    if cards.len() != 9 { return Err("Expected nine packed cards for heads-up showdown"); }
+    let mut seen: u64 = 0;
+    for &card in cards {
+        let rank = card & 0x0f;
+        let suit = card >> 4;
+        if !(2..=14).contains(&rank) || suit > 3 { return Err("Invalid showdown card"); }
+        let bit = 1u64 << (u64::from(suit) * 13 + u64::from(rank - 2));
+        if seen & bit != 0 { return Err("Duplicate showdown card"); }
+        seen |= bit;
+    }
+    let hero = [cards[0], cards[1], cards[4], cards[5], cards[6], cards[7], cards[8]];
+    let villain = [cards[2], cards[3], cards[4], cards[5], cards[6], cards[7], cards[8]];
+    Ok(match rank_seven_unchecked(&hero).cmp(&rank_seven_unchecked(&villain)) {
+        Ordering::Less => -1,
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+    })
+}
+
 pub fn compare(left: &[u8], right: &[u8]) -> Ordering {
     let max_length = left.len().max(right.len());
     (0..max_length).map(|i| left.get(i).copied().unwrap_or(0).cmp(&right.get(i).copied().unwrap_or(0)))
@@ -327,4 +353,34 @@ mod tests {
         assert_eq!(score(&[c(14,0),c(14,1),c(14,2),c(13,3),c(12,0)]).unwrap(),vec![3,14,13,12]);
         assert_eq!(score(&[c(14,0),c(14,1),c(13,0),c(12,0),c(11,1)]).unwrap(),vec![1,14,13,12,11]);
     }
+    #[test]
+    fn packed_showdown_matches_separate_public_scores_for_twelve_thousand_deals() {
+        let deck: Vec<u8> = (0u8..4)
+            .flat_map(|s| (2u8..=14).map(move |r| c(r, s))).collect();
+        let mut state = 0xa159_5724_1de6_0e17u64;
+        for _ in 0..12_000 {
+            let mut cards = deck.clone();
+            for index in 0..9 {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                let choice = index + (state as usize % (cards.len() - index));
+                cards.swap(index, choice);
+            }
+            let nine = &cards[..9];
+            let hero = [nine[0],nine[1],nine[4],nine[5],nine[6],nine[7],nine[8]];
+            let villain = [nine[2],nine[3],nine[4],nine[5],nine[6],nine[7],nine[8]];
+            let expected = match compare(&score(&hero).unwrap(),&score(&villain).unwrap()) {
+                Ordering::Less => -1, Ordering::Equal => 0, Ordering::Greater => 1
+            };
+            assert_eq!(compare_showdown_nine(nine).unwrap(),expected);
+        }
+    }
+    #[test]
+    fn packed_showdown_rejects_invalid_or_overlapping_cards() {
+        assert!(compare_showdown_nine(&[2,3]).is_err());
+        assert!(compare_showdown_nine(&[2,3,4,5,6,7,8,9,2]).is_err());
+        assert!(compare_showdown_nine(&[2,3,4,5,6,7,8,9,0xff]).is_err());
+    }
+
 }
