@@ -1,3 +1,5 @@
+import {createStrategicGameState,type StrategicGameState} from "./strategic-state.ts";
+
 /** Strict TypeScript port of the original solver precomputation orchestrator.
  * State eligibility, event names, LRU behavior, and Worker protocol remain unchanged.
  */
@@ -49,6 +51,8 @@ export interface PrecomputeApi {
   clearCache(): void;
   getCacheSize(): number;
   getActiveKey(): string | null;
+  /** Public immutable game snapshot; 2–6 seats supported even without a solver. */
+  getStrategicState(): StrategicGameState | null;
 }
 interface WorkerResult {
   id: number;
@@ -340,7 +344,16 @@ export function installSolverPrecompute(): PrecomputeApi {
     onStateChange, getOrStart, subscribe, cancel,
     clearCache() { cache.clear(); },
     getCacheSize: () => cache.size,
-    getActiveKey: () => active ? active.key : null
+    getActiveKey: () => active ? active.key : null,
+    getStrategicState(){
+      const state=global.PokerLabTraining?.getGameState();
+      if(!state)return null;
+      return createStrategicGameState(
+        state as Parameters<typeof createStrategicGameState>[0],
+        {stateVersion:Math.max(1,stateVersion),
+          history:global.PokerLabTraining?.getHandHistory()??[]}
+      );
+    }
   };
   global.PokerLabSolverPrecompute = api;
   return api;
