@@ -22,7 +22,7 @@ function run(typed) {
   if(typed) {
     Object.assign(globalThis,{localStorage:env.localStorage,document:env.document,window:env.window});
     app=installApp();
-    delete globalThis.localStorage;delete globalThis.document;delete globalThis.window;
+    // Retain browser mock globals until the scenario has completed.
   } else {
     runInNewContext(readFileSync("js/app.js","utf8"),{
       localStorage:env.localStorage,document:env.document,window:env.window,
@@ -49,5 +49,6 @@ function run(typed) {
   };
 }
 test("TypeScript app config, storage, settings and default navigation match V1",()=>{
-  assert.deepEqual(run(true),run(false));
+  try { assert.deepEqual(run(true),run(false)); }
+  finally { delete globalThis.localStorage; delete globalThis.document; delete globalThis.window; }
 });
