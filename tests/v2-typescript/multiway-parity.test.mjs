@@ -182,3 +182,68 @@ test("multiway money-equity excludes side pots the hero cannot win",async()=>{
  assert.ok(Math.abs(result.equity-1/3)<1e-12);
  assert.match(result.note,/pots secondaires/);
 });
+
+
+test("multiway position rotation solves for a non-button hero without changing seat identities",async()=>{
+ const input=makeInput(4);
+ const opts=input.players[0].actionOptions;
+ input.players[0].isHuman=false;
+ input.players[0].isBot=true;
+ input.players[0].holeCards=null;
+ input.players[0].actionOptions=null;
+ input.players[2].isHuman=true;
+ input.players[2].isBot=false;
+ input.players[2].holeCards=hands[0];
+ input.players[2].actionOptions=opts;
+ input.currentPlayerId="p2";
+ input.pendingPlayers=[2,3,0,1];
+ const strategic=createStrategicGameState(input);
+ assert.equal(strategic.capability.solver,"multiway-cfr-plus");
+ assert.equal(buildMultiwayTree(strategic).root.actor,2);
+ const distinctHands={
+   p0:hands[1],p1:hands[2],p3:hands[3]
+ };
+ const custom={
+   ...env(),
+   loadRange:async id=>({
+     rangeUsed:true,label:"seat-"+id,
+     combos:[{cards:distinctHands[id],weight:1}]
+   })
+ };
+ const result=await solveMultiway(strategic,custom,{
+   iterations:16,samples:1,evaluationSamples:16,seed:200
+ });
+ assert.equal(result.quality,"sampled_estimate");
+ assert.equal(result.iterations,16);
+ assert.ok(Math.abs(result.actions.reduce((sum,entry)=>
+   sum+entry.frequency,0)-1)<1e-12);
+});
+test("blocked or invalid private ranges fail over to the explicitly labeled uniform pool",async()=>{
+ const strategic=createStrategicGameState(makeInput(3));
+ const custom={
+   ...env(),
+   loadRange:async id=>id==="p1"
+     ?{rangeUsed:true,label:"invalid-range",combos:[
+       {cards:[board[0],card(15,"spades")],weight:9},
+       {cards:[hands[0][0],hands[0][1]],weight:1}
+      ]}
+     :{rangeUsed:true,label:"valid-other",combos:[
+       {cards:hands[2],weight:1}
+      ]}
+ };
+ const result=await solveMultiway(strategic,custom,{
+   iterations:16,samples:1,evaluationSamples:16,seed:120
+ });
+ assert.equal(result.quality,"sampled_estimate");
+ assert.equal(result.rangeUsed,false);
+ assert.match(result.rangeLabel,/invalid-range/);
+ assert.ok(Number.isFinite(result.heroEV));
+});
+test("four-seat all-in contribution tiers preserve net chips exactly",()=>{
+ const utility=multiwayTerminalPayoffs({
+   terminal:true,folded:[false,false,false,false],
+   contributions:[5,10,20,20]
+ },[[10],[9],[8],[7]],(a,b)=>a[0]-b[0]);
+ assert.deepEqual(utility,[15,5,0,-20]);
+ assert.equal(utility.reduce((sum,x)=>sum+x,0),0);
+});
