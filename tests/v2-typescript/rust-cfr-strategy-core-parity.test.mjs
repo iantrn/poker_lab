@@ -113,16 +113,17 @@ test("stable public tree is prepared once while changing private infosets and te
  assert.equal(prepareCalls,1);
  assert.equal(preparedSteps,240);
  assert.equal(legacySteps,0);
- for(const key of ["hero|a","hero|b","hero|c",
-   "villain|a","villain|b","villain|c"]){
-   const a=actual.strategy.get(key);
-   // Call getStrategy to flush Rust averages before comparing the maps.
-   rust.getStrategy(root,null,actual,cb);
-   const b=expected.strategy.get(key);
-   assert.ok(a || actual.strategy.get(key));
-   const got=actual.strategy.get(key);
-   assert.equal(got.length,b.length);
-   for(let j=0;j<got.length;j++)
-     assert.ok(Math.abs(got[j]-b[j])<1e-11,"strategy mismatch at "+key+"/"+j);
+ // The TypeScript map stores unnormalized strategy sums, whereas Rust
+ // exports normalized averages. Compare the public probability API instead.
+ for(const key of ["a","b","c"]){
+   hand=key;
+   for(const node of [root,root.actions[0].child]){
+     const expectedProb=baseline.getStrategy(node,null,expected,cb);
+     const actualProb=rust.getStrategy(node,null,actual,cb);
+     assert.equal(actualProb.length,expectedProb.length);
+     for(let j=0;j<actualProb.length;j++)
+       assert.ok(Math.abs(actualProb[j]-expectedProb[j])<1e-11,
+         "strategy mismatch for "+key+" at "+node.key+"/"+j);
+   }
  }
 });
