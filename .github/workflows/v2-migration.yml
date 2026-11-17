@@ -94,12 +94,15 @@ jobs:
           test ! -d dist/data/ranges/preflop/matrix/bb
           test -s dist/assets/icons/icon-192.png
       - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
+        env:
+          POKERLAB_CAPTURE_UI: "1"
         run: node tests/v2-browser-smoke.mjs
       - name: Install Playwright WebKit and Linux browser dependencies
         run: node frontend/node_modules/playwright-core/cli.js install --with-deps webkit
       - name: WebKit browser smoke test (React, WASM, PWA offline and CFR+)
         env:
           PLAYWRIGHT_BROWSER: webkit
+          POKERLAB_CAPTURE_UI: "1"
         run: node tests/v2-browser-smoke.mjs
       - name: IndexedDB V1 migration backfill and deletion (Chromium)
         run: node tests/v2-browser-storage.mjs
@@ -109,3 +112,10 @@ jobs:
           name: pokerlab-v2-preview
           path: dist/
           if-no-files-found: error
+      - name: Upload UI screenshots for visual approval
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokerlab-ui-review
+          path: dist/ui-preview/
+          if-no-files-found: warn

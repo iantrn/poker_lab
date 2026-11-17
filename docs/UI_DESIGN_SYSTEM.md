@@ -74,3 +74,10 @@ Semantic colors for folding, calling, raising, all-in and range frequencies rema
 - Range frequency fills preserve the existing green convention and current percentage labels.
 - SOLVE strategy frequencies gain a decorative green bar under each action. The original percentage is displayed unchanged; the visual width alone is clamped to a valid 0–100% display interval.
 - Mathematical outputs, estimates, confidence intervals and the explicit no-full-game-GTO-certification disclaimer are preserved verbatim.
+
+## CI visual review captures
+
+The V2 validation job optionally saves viewport screenshots to `dist/ui-preview/` when `POKERLAB_CAPTURE_UI=1`. 
+Images cover home, training configuration, the ranges explorer and Game Review on Chromium/WebKit, on desktop and mobile viewports.
+The dedicated `pokerlab-ui-review` GitHub Actions artifact makes visual inspection possible **without modifying production PWA icons or adding screenshot files to source**.
+Screenshots are a review aid, not proof of physical-device Safari performance or complete WCAG compliance.

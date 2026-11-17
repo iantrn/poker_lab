@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, webkit } from "../frontend/node_modules/playwright-core/index.mjs";
@@ -34,6 +34,16 @@ async function run() {
   try {
     const context = await browser.newContext({ serviceWorkers: "allow", viewport: { width: 1365, height: 768 } });
     const page = await context.newPage();
+    const captureUi = async (name) => {
+      if (process.env.POKERLAB_CAPTURE_UI !== "1") return;
+      const directory = path.join(root, "ui-preview");
+      mkdirSync(directory, { recursive: true });
+      const engine = isWebKit ? "webkit" : "chromium";
+      await page.screenshot({
+        path: path.join(directory, engine + "-" + name + ".png"),
+        animations: "disabled"
+      });
+    };
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     page.on("framenavigated", frame => {
@@ -76,6 +86,7 @@ async function run() {
     }));
     console.log("Browser UI ready:", JSON.stringify(uiSnapshot));
     assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
+    await captureUi("home-desktop");
 
     // V2-owned React contract: assert stable ids, page anchors, and hooks
     // without relying on the archived V1 HTML as a runtime test fixture.
@@ -125,6 +136,7 @@ async function run() {
       elements => elements.map(element => element.getBoundingClientRect().height));
     assert.ok(setupSizes.length === 4 && setupSizes.every(height => height >= 44),
       "Training configuration controls must be touch accessible");
+    await captureUi("training-configuration-desktop");
 
 
     // A complete V2 game session must render six seats and preserve the V1 action mount.
@@ -173,6 +185,7 @@ async function run() {
     assert.equal(await page.locator(".pl-rv-detail").getAttribute("aria-live"), "polite");
     const rangesLayout = await page.locator(".pl-rv").evaluate(element => getComputedStyle(element).display);
     assert.equal(rangesLayout, "grid", "Large screens should show range selection beside the matrix");
+    await captureUi("ranges-desktop");
 
     // Exercise the migrated Lessons, Puzzles, and Game Review modules in Chromium.
     await page.locator(".pl-lesson-open").first().waitFor({ timeout: 30000 });
@@ -195,6 +208,7 @@ async function run() {
     assert.equal(await page.locator('#review [data-review-detail]').count(),1);
     assert.equal(await page.locator('#review .pl-review-column').count(), 2);
     assert.equal(await page.locator('#review .pl-page-panel').count(), 1);
+    await captureUi("review-desktop");
     await page.locator("[data-review-history] .pl-review-empty").waitFor({ timeout: 30000 });
 
     // Responsive behavior: mobile navigation is usable at phone width.
@@ -215,7 +229,7 @@ async function run() {
         destination + " page must not overflow viewport at 768px");
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('a[data-page="lessons"]').first().click();
+    await page.locator('nav.pl-mobile-nav a[data-page="lessons"]').click();
     const rangeScroll = await page.locator(".pl-rv-matrix").evaluate(element => ({
       width: element.clientWidth,
       scroll: element.scrollWidth
@@ -223,11 +237,14 @@ async function run() {
     assert.ok(rangeScroll.scroll >= rangeScroll.width, "Range data must remain in its own scroll region");
     assert.ok((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1,
       "Range matrix must not overflow the mobile document");
+    await captureUi("ranges-mobile");
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
+    await captureUi("home-mobile");
     await page.locator('nav.pl-mobile-nav a[data-page="review"]').click();
     assert.equal(await page.locator("#review").isVisible(), true);
     assert.equal(await page.locator('nav.pl-mobile-nav a[data-page="review"]').getAttribute("aria-current"), "page");
+    await captureUi("review-mobile");
     await page.locator('nav.pl-mobile-nav a[data-page="home"]').click();
     await page.setViewportSize({ width: 1365, height: 768 });
 
