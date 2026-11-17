@@ -760,7 +760,24 @@ function createTraining(globals: TrainingGlobals): TrainingApi {
     }
 
 
-    /**
+        /**
+     * Keeps the single controller-owned action element in an accessible spot.
+     * Mobile buttons and bet presets need more vertical room than the table
+     * overlay allows; desktop retains the existing in-table composition.
+     * This function moves DOM only and never modifies game or bet state.
+     */
+    function synchronizeActionPanelPlacement(): void {
+        if (!tableElement || !actionsElement) return;
+        // Keep the single controller-owned action bar below the table on all
+        // widths. Solver dock and actions are never recreated when rendering.
+        const stage = tableElement.closest<HTMLElement>(".pl-live-table-stage");
+        const anchor = stage ?? tableElement;
+        if (actionsElement.previousElementSibling !== anchor) {
+            anchor.insertAdjacentElement("afterend", actionsElement);
+        }
+    }
+
+/**
  * Affiche la table de jeu.
  */
 function renderGame(state: GameState | null = null): void {
@@ -774,11 +791,8 @@ function renderGame(state: GameState | null = null): void {
 
     globals.PokerLabTable!.render(tableElement, gameState);
 
-    // Mount the action panel inside the table container, below the hero cards.
-    const actionMount = tableElement.querySelector<HTMLElement>(".pl-hero-actions-mount");
-    if (actionMount && actionsElement && actionsElement.parentElement !== actionMount) {
-        actionMount.appendChild(actionsElement);
-    }
+    // Dedicated action bar remains directly below the table at every width.
+    synchronizeActionPanelPlacement();
 
     renderGameActions(gameState);
 
@@ -987,18 +1001,24 @@ function renderGame(state: GameState | null = null): void {
             return Number(Math.min(maximum, Math.max(minimum, rounded)).toFixed(1));
         };
 
-        const syncAmount = (value: unknown): void => {
+        const presets = createElement("div", "pl-bet-presets");
+        presets.setAttribute("aria-label", "Tailles de mise prédéfinies");
+        presets.style.gridColumn = "1 / -1";
+
+        // Selected sizing is only a presentation state; no change to
+        // numeric validation or bet submission. Manual/slider input clears it.
+        const syncAmount = (value: unknown, selectedPreset: HTMLButtonElement | null = null): void => {
             const normalized = normalizeAmount(value);
             if (normalized === null) return;
 
             amountInput.value = String(normalized);
             slider.value = String(normalized);
             amountValue.textContent = `${formatChips(normalized)} BB`;
+            presets.querySelectorAll<HTMLButtonElement>("button").forEach(button => {
+                button.setAttribute("aria-pressed", String(button === selectedPreset));
+            });
         };
 
-        const presets = createElement("div", "pl-bet-presets");
-        presets.setAttribute("aria-label", "Tailles de mise prédéfinies");
-        presets.style.gridColumn = "1 / -1";
         const presetDefinitions: Array<{label:string;value:number}> = [];
 
         if (isPreflopOpenRaise) {
@@ -1052,6 +1072,7 @@ function renderGame(state: GameState | null = null): void {
             );
 
             button.type = "button";
+            button.setAttribute("aria-pressed", "false");
 
             // Une taille prédéfinie inférieure au minimum légal ne doit pas
             // être sélectionnable (notamment les petits sizings postflop).
@@ -1064,7 +1085,7 @@ function renderGame(state: GameState | null = null): void {
                 button.title = `${actionType === "bet" ? "Mise" : "Relance"} minimale : ${formatChips(minimum)}`;
             } else {
                 button.addEventListener("click", () => {
-                    syncAmount(preset.value);
+                    syncAmount(preset.value, button);
                 });
             }
 
@@ -1471,6 +1492,9 @@ function renderGame(state: GameState | null = null): void {
 
         bindConfigurationInputs();
         bindActionButtons();
+        // Reparent the same action panel on rotation/viewport resize without
+        // restarting the hand or reattaching action/solver listeners.
+        globals.addEventListener("resize", synchronizeActionPanelPlacement);
 
         initialized = true;
 

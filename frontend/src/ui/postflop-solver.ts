@@ -121,7 +121,14 @@ export function installPostflopSolverUI(): void {
                 const action = element("span", "pl-solve-frequency-action", item.action);
                 const value = element("strong", "pl-solve-frequency-value",
                     (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
-                row.append(action, value);
+                // The bar is purely visual: show the exact original frequency
+                // numerically and clamp only the painted width to [0,100].
+                const track = element("div", "pl-solve-frequency-track");
+                track.setAttribute("aria-hidden", "true");
+                const fill = element("span", "pl-solve-frequency-fill");
+                fill.style.width = String(Math.min(100, Math.max(0, item.frequency * 100))) + "%";
+                track.appendChild(fill);
+                row.append(action, value, track);
                 frequencies.appendChild(row);
             });
         } else {
@@ -303,7 +310,8 @@ export function installPostflopSolverUI(): void {
             busy = false;
             if (button.isConnected) {
                 button.disabled = false;
-                button.textContent = "Analyser";
+                button.textContent = "Solver";
+                button.disabled = !eligible(global.PokerLabTraining!.getGameState());
             }
             // When a bot action changes the public state while a dialog is
             // open, don't ask the user to close/reopen it. The previous Worker
@@ -326,24 +334,33 @@ export function installPostflopSolverUI(): void {
     function sync(): void {
         const actions = document.getElementById("training-actions");
         if (!actions || !global.PokerLabTraining || !global.PokerLabPostflopSolver) return;
+        // Keep the real modal in the permanent dock, not in the action bar.
+        // Re-rendering action controls must never destroy an open analysis.
+        const host = document.getElementById("training-solver-dock") ?? actions;
         const state = global.PokerLabTraining!.getGameState();
         const currentKey = stateKey(state);
         if (global.PokerLabSolverPrecompute) global.PokerLabSolverPrecompute.onStateChange();
         if (busy && activeStateKey && currentKey !== activeStateKey) activeStateKey = null;
 
-        const oldButton = actions.querySelector<HTMLButtonElement>("[data-postflop-solve]");
-        const oldDialog = actions.querySelector<HTMLDialogElement>("[data-postflop-dialog]");
-        const oldPanel = actions.querySelector<HTMLElement>("[data-postflop-result]");
+        const oldButton = host.querySelector<HTMLButtonElement>("[data-postflop-solve]");
+        const oldDialog = host.querySelector<HTMLDialogElement>("[data-postflop-dialog]");
+        const oldPanel = host.querySelector<HTMLElement>("[data-postflop-result]");
 
-        if (!eligible(state)) {
-            pendingRerun=false;
+        const canAnalyse = eligible(state);
+        if (!canAnalyse) {
+            pendingRerun = false;
             if (oldDialog?.open) oldDialog.close();
-            if (oldButton) oldButton.remove();
-            if (oldDialog) oldDialog.remove();
-            return;
+            if (oldButton) {
+                oldButton.disabled = true;
+                oldButton.title = "Disponible après le flop, quand c'est votre tour";
+                oldButton.dataset.solveStateKey = currentKey;
+                return;
+            }
         }
 
         if (oldButton) {
+            oldButton.disabled = busy;
+            oldButton.title = "Analyser cette situation postflop";
             if (oldButton.dataset.solveStateKey !== currentKey) {
                 oldButton.dataset.solveStateKey = currentKey;
                 if (oldPanel) {
@@ -361,13 +378,15 @@ export function installPostflopSolverUI(): void {
             return;
         }
 
-        const button = element("button",
-            "pl-solve-button bg-primary hover:bg-primaryHover text-white font-bold rounded-lg px-5 py-3 transition",
-            "Analyser");
+        const button = element("button", "pl-solve-button", "Solver");
+        button.disabled = !canAnalyse;
+        button.title = canAnalyse
+            ? "Analyser cette situation postflop"
+            : "Disponible après le flop, quand c'est votre tour";
         button.type = "button";
         button.dataset.postflopSolve = "true";
         button.dataset.solveStateKey = currentKey;
-        button.setAttribute("aria-label", "Analyser cette situation postflop");
+        button.setAttribute("aria-label", "Solver — analyse postflop");
 
         const dialog = element("dialog", "pl-solve-dialog");
         dialog.dataset.postflopDialog = "true";
@@ -398,7 +417,7 @@ export function installPostflopSolverUI(): void {
             if (event.target === dialog) dialog.close();
         });
 
-        actions.append(button, dialog);
+        host.append(button, dialog);
     }
 
     function init(): void {

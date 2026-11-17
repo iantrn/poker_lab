@@ -102,13 +102,15 @@ function createTable() {
 
     function getPlayerSlot(index: number, count: number): readonly [number,number] {
 
+        // Presentation-only seats: two horizontal rails, never the corners.
+        // Six-max: top 20/50/80 and bottom 15/50/85. Bottom centre is hero.
         const layouts: Record<number, Array<readonly [number, number]>> = {
 
-            2: [[50, 62], [50, 24]],
-            3: [[50, 62], [26, 24], [74, 24]],
-            4: [[50, 62], [21, 40], [50, 24], [79, 40]],
-            5: [[50, 62], [20, 54], [32, 24], [68, 24], [80, 54]],
-            6: [[50, 62], [16, 57], [16, 15], [50, 10], [84, 15], [84, 57]]
+            2: [[50, 88], [50, 12]],
+            3: [[50, 88], [20, 12], [80, 12]],
+            4: [[50, 88], [20, 88], [50, 12], [80, 12]],
+            5: [[50, 88], [20, 88], [20, 12], [50, 12], [80, 12]],
+            6: [[50, 88], [18, 88], [20, 12], [50, 12], [80, 12], [82, 88]]
 
         };
 
@@ -213,63 +215,19 @@ function createTable() {
 
         const isPair = high === low;
 
-        const isSuited =
-            first.suit === second.suit;
-
-        const gap = high - low;
-
         if (isPair) {
-
-            return {
-                label: `Paire de ${getRank(high)}s`,
-                detail: "Paire servie",
-                category: 1
-            };
-
+            const pairRank = getRank(high);
+            const label = high === 14
+                ? "Paire d'As"
+                : high >= 11 ? `Paire de ${pairRank}s` : `Paire de ${pairRank}`;
+            return { label, detail: "", category: 1 };
         }
 
-        const connectors: Record<number,string> = {
-
-            1: "Connecteurs",
-
-            2: "One-gapper",
-
-            3: "Two-gapper"
-
-        };
-
-        const highName = getRank(high);
-        const lowName = getRank(low);
-
-        let detail = `${highName}-${lowName}`;
-
-        if (isSuited) {
-            detail += " assortis";
-        } else {
-            detail += " dépareillés";
-        }
-
-        if (gap === 1) {
-            detail += " · Connecteurs";
-        } else if (gap === 2) {
-            detail += " · One-gapper";
-        } else if (gap === 3) {
-            detail += " · Two-gapper";
-        }
-
-        let label;
-
-        if (high >= 11 && low >= 10) {
-            label = "Deux figures";
-        } else if (high === 14 && low >= 10) {
-            label = "As accompagné";
-        } else {
-            label = `Hauteur ${highName}`;
-        }
-
+        // A concise strength label only. The cards themselves supply the
+        // precise combination; suitedness and gappers are deliberately hidden.
         return {
-            label,
-            detail,
+            label: `Hauteur ${getRank(high)}`,
+            detail: "",
             category: 0
         };
 
@@ -279,6 +237,16 @@ function createTable() {
     /* =====================================================
        3. ÉVALUATION POSTFLOP
        ===================================================== */
+
+    /** Display ranks 2–10 as digits, including legacy French evaluator text. */
+    function numericRanks(label: string): string {
+        const names: Record<string,string> = {
+            deux: "2", trois: "3", quatre: "4", cinq: "5",
+            six: "6", sept: "7", huit: "8", neuf: "9", dix: "10"
+        };
+        return label.replace(/\b(deux|trois|quatre|cinq|six|sept|huit|neuf|dix)\b/gi,
+            rank => names[rank.toLowerCase()] ?? rank);
+    }
 
     function evaluateHeroHand(cards: unknown, board: unknown): HandView {
 
@@ -310,13 +278,13 @@ function createTable() {
 
             return {
 
-                label:
+                label: numericRanks(
                     evaluation.description ||
                     evaluation.categoryLabel ||
-                    HAND_LABELS[evaluation.category] || "",
+                    HAND_LABELS[evaluation.category] || ""
+                ),
 
-                detail:
-                    HAND_LABELS[evaluation.category] || "",
+                detail: "",
 
                 category: evaluation.category,
 
@@ -477,6 +445,28 @@ function createTable() {
        7. SIÈGES DES JOUEURS
        ===================================================== */
 
+    /** Original monochrome human avatar; completely separate from cards. */
+    function renderPlayerAvatar(): HTMLSpanElement {
+        const avatar = createElement("span", "pl-player-avatar");
+        avatar.setAttribute("aria-hidden", "true");
+        const ns = "http://www.w3.org/2000/svg";
+        const graphic = document.createElementNS(ns, "svg");
+        graphic.setAttribute("viewBox", "0 0 48 48");
+        graphic.setAttribute("fill", "none");
+        graphic.setAttribute("focusable", "false");
+        const head = document.createElementNS(ns, "circle");
+        head.setAttribute("cx", "24");
+        head.setAttribute("cy", "17");
+        head.setAttribute("r", "8");
+        head.setAttribute("fill", "currentColor");
+        const torso = document.createElementNS(ns, "path");
+        torso.setAttribute("d", "M8 39c.8-9.3 6.5-14 16-14s15.2 4.7 16 14c-9.2 4.2-22.8 4.2-32 0Z");
+        torso.setAttribute("fill", "currentColor");
+        graphic.append(head, torso);
+        avatar.appendChild(graphic);
+        return avatar;
+    }
+
     function renderSeats(players: TablePlayer[], dealerIndex: number, currentPlayerId: unknown, handComplete = false, revealCards = false): HTMLDivElement {
 
         const container = createElement(
@@ -522,6 +512,7 @@ function createTable() {
             if (isHuman) {
                 seat.classList.add("pl-seat-hero");
             }
+            seat.classList.add(y < 50 ? "pl-seat-upper" : "pl-seat-lower");
 
             if (isActive) {
                 seat.classList.add("is-active");
@@ -588,10 +579,9 @@ function createTable() {
                 position
             );
 
-            info.append(
-                playerDetails,
-                stack
-            );
+            const caption = createElement("div", "pl-player-caption");
+            caption.append(playerDetails, stack);
+            info.append(renderPlayerAvatar(), caption);
 
             // Cartes.
 
@@ -669,17 +659,9 @@ function createTable() {
             evaluation.label
         );
 
-        const detail = createElement(
-            "span",
-            "pl-hand-strength-detail",
-            evaluation.detail
-        );
-
-        container.append(
-            label,
-            value,
-            detail
-        );
+        // The approved header shows only the hand category/strength.
+        // No gap, suitedness, or redundant card-range description.
+        container.append(label, value);
 
         if (
             Number.isInteger(evaluation.category) &&

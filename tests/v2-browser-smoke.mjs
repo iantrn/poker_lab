@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, webkit } from "../frontend/node_modules/playwright-core/index.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const mime = { ".html":"text/html", ".js":"application/javascript", ".json":"application/json", ".webmanifest":"application/manifest+json", ".css":"text/css", ".png":"image/png", ".wasm":"application/wasm" };
+const mime = { ".html":"text/html", ".js":"application/javascript", ".json":"application/json", ".webmanifest":"application/manifest+json", ".css":"text/css", ".png":"image/png", ".svg":"image/svg+xml", ".wasm":"application/wasm" };
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (!url.pathname.startsWith("/poker_lab/")) { res.writeHead(404); res.end(); return; }
@@ -34,6 +34,27 @@ async function run() {
   try {
     const context = await browser.newContext({ serviceWorkers: "allow", viewport: { width: 1365, height: 768 } });
     const page = await context.newPage();
+    const captureUi = async (name) => {
+      if (process.env.POKERLAB_CAPTURE_UI !== "1") return;
+      const directory = path.join(root, "ui-preview");
+      mkdirSync(directory, { recursive: true });
+      const engine = isWebKit ? "webkit" : "chromium";
+      await page.screenshot({
+        path: path.join(directory, engine + "-" + name + ".png"),
+        animations: "disabled"
+      });
+    };
+    const captureGameElement = async (name, selector) => {
+      if (process.env.POKERLAB_CAPTURE_UI !== "1") return;
+      const directory = path.join(root, "ui-preview");
+      mkdirSync(directory, { recursive: true });
+      const engine = isWebKit ? "webkit" : "chromium";
+      await page.locator(selector).screenshot({
+        path: path.join(directory, engine + "-" + name + ".png"),
+        animations: "disabled",
+        timeout: 20000
+      });
+    };
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     page.on("framenavigated", frame => {
@@ -76,6 +97,20 @@ async function run() {
     }));
     console.log("Browser UI ready:", JSON.stringify(uiSnapshot));
     assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
+    // The static SVG mark must be rendered, not a broken <img>. In production
+    // GitHub Pages serves SVG with its image MIME type; mirror that in smoke.
+    await page.waitForFunction(() => {
+      const mark = document.querySelector("img.pl-brand-mark");
+      return mark?.complete === true && mark.naturalWidth > 0;
+    }, null, { timeout: 10000 });
+    const logoMime = await page.evaluate(async () => {
+      const mark = document.querySelector("img.pl-brand-mark");
+      const response = await fetch(mark.src);
+      return { status: response.status, mime: response.headers.get("content-type") };
+    });
+    assert.equal(logoMime.status, 200);
+    assert.match(logoMime.mime ?? "", /image\/svg\+xml/i);
+    await captureUi("home-desktop");
 
     // V2-owned React contract: assert stable ids, page anchors, and hooks
     // without relying on the archived V1 HTML as a runtime test fixture.
@@ -119,6 +154,13 @@ async function run() {
     assert.equal(await page.locator("#training-player-count").inputValue(),"2");
     await page.locator("#training-mode").selectOption("6max");
     assert.equal(await page.locator("#training-player-count").inputValue(),"6");
+    assert.equal(await page.locator('#training .pl-page-panel').count(), 1);
+    assert.equal(await page.locator('#training .pl-training-notes .pl-training-note').count(), 2);
+    const setupSizes = await page.locator('#training-configuration .pl-field-control').evaluateAll(
+      elements => elements.map(element => element.getBoundingClientRect().height));
+    assert.ok(setupSizes.length === 4 && setupSizes.every(height => height >= 44),
+      "Training configuration controls must be touch accessible");
+    await captureUi("training-configuration-desktop");
 
 
     // A complete V2 game session must render six seats and preserve the V1 action mount.
@@ -126,11 +168,199 @@ async function run() {
     assert.equal(gameStarted.success, true, JSON.stringify(gameStarted.errors ?? []));
     await page.waitForFunction(() =>
       document.querySelectorAll("#training-table .pl-seat").length === 6 &&
-      Boolean(document.querySelector("#training-table .pl-hero-actions-mount #training-actions")),
+      Boolean(document.querySelector("#training-game > #training-actions.pl-action-panel")),
       null, { timeout: 30000 });
     const gameState = await page.evaluate(() => window.PokerLabTraining.getGameState());
     assert.equal(gameState.players.length, 6);
     assert.equal(gameState.street, "preflop");
+    assert.equal(await page.locator("#training-table .pl-player-avatar").count(), 6);
+    assert.equal(await page.locator("#training-table .pl-player-avatar svg").count(), 6);
+    assert.equal(await page.locator("#training-table .pl-seat-hero").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-dialog").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").isDisabled(), true);
+    assert.equal(await page.locator("#training-actions [data-postflop-solve]").count(), 0);
+    const feltDimensions = await page.locator("#training-table .pl-felt").evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    assert.ok(feltDimensions.width / feltDimensions.height > 2,
+      "New desktop poker felt must be more rectangular than oval");
+
+    const verifyTableGeometry = async (mobile) => {
+      const geometry = await page.evaluate(() => {
+        const rect = element => {
+          const r = element.getBoundingClientRect();
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,
+            midX:r.left+r.width/2,midY:r.top+r.height/2,width:r.width,height:r.height};
+        };
+        const table = document.querySelector("#training-table .pl-table-container");
+        const felt = rect(table.querySelector(".pl-felt"));
+        const upper = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(rect)
+          .sort((a,b)=>a.midX-b.midX);
+        const lower = [...table.querySelectorAll(".pl-seat-lower .pl-player-info")].map(rect)
+          .sort((a,b)=>a.midX-b.midX);
+        const hand = rect(table.querySelector(".pl-hand-strength"));
+        const solverButton = document.querySelector("#training-solver-dock > .pl-solve-button");
+        const solver = rect(solverButton);
+        const backs = [...table.querySelectorAll(".pl-seat .pl-card--back")];
+        const empty = [...table.querySelectorAll(".pl-board .pl-card--empty")];
+        const handValue = table.querySelector(".pl-hand-strength-value");
+        return {
+          felt,upper,lower,hand,solver,
+          stage:rect(document.querySelector(".pl-live-table-stage")),
+          solverOpacity:Number(getComputedStyle(solverButton).opacity),
+          solverDisabled:solverButton.disabled,
+          cardWidths:backs.map(el=>rect(el).width),
+          cardBacks:backs.map(el=>getComputedStyle(el).backgroundImage),
+          emptyCount:empty.length,
+          emptyBorder:empty[0] ? getComputedStyle(empty[0]).borderTopColor : "",
+          handText:handValue?.textContent?.trim() ?? "",
+          detailCount:table.querySelectorAll(".pl-hand-strength-detail").length,
+          htmlWidth:document.documentElement.scrollWidth-innerWidth
+        };
+      });
+      assert.equal(geometry.upper.length, 3, "Six-max needs three upper seats");
+      assert.equal(geometry.lower.length, 3, "Six-max needs three lower seats");
+      for (const rail of [geometry.upper,geometry.lower]) {
+        assert.ok(rail[0].midX < rail[1].midX && rail[1].midX < rail[2].midX,
+          "Seats must stay ordered across the long edge");
+        assert.ok(Math.max(...rail.map(seat=>seat.midY))-
+          Math.min(...rail.map(seat=>seat.midY)) <= 2,
+          "All seats on a rail must share a horizontal baseline");
+      }
+      assert.ok(geometry.upper.every(seat=>seat.bottom<=geometry.felt.top+5),
+        "Upper capsules must remain outside the red felt");
+      assert.ok(geometry.lower.every(seat=>seat.top>=geometry.felt.bottom-5),
+        "Lower capsules must remain outside the red felt");
+      assert.ok(Math.abs(geometry.hand.midX-geometry.upper[1].midX)<=2,
+        "The hand pill must align exactly with the central Bot 3 seat");
+      assert.ok(geometry.solver.left>=geometry.hand.right+4,
+        "Solver must sit to the right of the centred hand pill");
+      assert.ok(Math.abs(geometry.solver.top-geometry.hand.top)<=3,
+        "Solver must share the hand pill's header row");
+      assert.ok(geometry.solver.right<=geometry.stage.right+1,
+        "Solver must stay within the table stage");
+      assert.equal(geometry.solverDisabled,true);
+      assert.ok(geometry.solverOpacity<.6, "Preflop Solver should be clearly subdued");
+      assert.equal(geometry.detailCount,0, "No suited/gapper descriptions in hand pill");
+      assert.ok(geometry.cardWidths.length>=8 &&
+        geometry.cardWidths.every(w=>w >= (mobile ? 33 : 45)),
+        "Hole cards should be larger at both viewport sizes");
+      assert.equal(new Set(geometry.cardBacks).size,1,
+        "Every unrevealed card must have the same blue back design");
+      assert.ok(/rgb\(23, 45, 80\)|#172d50/i.test(geometry.cardBacks[0]),
+        "Existing navy back design must be kept");
+      assert.equal(geometry.emptyCount,5);
+      assert.match(geometry.emptyBorder,/rgba\(/);
+      const alpha = Number(geometry.emptyBorder.match(/,\s*(0?\.\d+)\)$/)?.[1] ?? 0);
+      assert.ok(alpha>=.38 && alpha<.6,
+        "Unrevealed community-card borders should have subtly increased opacity");
+      assert.ok(geometry.htmlWidth<=1,"The table must not cause horizontal overflow");
+      return geometry;
+    };
+
+    const desktopGeometry = await verifyTableGeometry(false);
+    assert.ok(desktopGeometry.handText.length>0,"Hand strength label must be present");
+    const sampleLabels = await page.evaluate(() => {
+      const evaluator = window.PokerLabTable;
+      return {
+        pair9:evaluator.evaluatePreflop([{value:9,suit:"clubs"},{value:9,suit:"diamonds"}]),
+        tenHigh:evaluator.evaluatePreflop([{value:10,suit:"clubs"},{value:2,suit:"diamonds"}]),
+        aceHigh:evaluator.evaluatePreflop([{value:14,suit:"clubs"},{value:9,suit:"clubs"}])
+      };
+    });
+    assert.equal(sampleLabels.pair9.label,"Paire de 9");
+    assert.equal(sampleLabels.tenHigh.label,"Hauteur 10");
+    assert.equal(sampleLabels.aceHigh.label,"Hauteur As");
+    assert.equal(sampleLabels.aceHigh.detail,"");
+    await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
+    await captureGameElement("table-6max-with-controls-desktop", "#training-game");
+    const desktopSeatAndSolver = await page.evaluate(() => {
+      const stage = document.querySelector(".pl-live-table-stage").getBoundingClientRect();
+      const solver = document.querySelector("#training-solver-dock > .pl-solve-button").getBoundingClientRect();
+      const seat = document.querySelector(".pl-seat:not(.is-folded)");
+      const avatar = seat.querySelector(".pl-player-avatar").getBoundingClientRect();
+      const name = seat.querySelector(".pl-player-name").getBoundingClientRect();
+      return { stageRight: stage.right, solverRight: solver.right, avatarRight: avatar.right, nameLeft: name.left };
+    });
+    assert.ok(desktopSeatAndSolver.solverRight <= desktopSeatAndSolver.stageRight + 1,
+      "Solver must stay fully inside the right edge of the table");
+    assert.ok(desktopSeatAndSolver.nameLeft >= desktopSeatAndSolver.avatarRight - 1,
+      "Player text must not be covered by the avatar");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await verifyTableGeometry(true);
+    await captureGameElement("table-6max-complete-mobile", "#training-game");
+    const mobileNames = await page.locator("#training-table .pl-player-name").evaluateAll(items =>
+      items.map(item => ({
+        text: item.textContent,
+        visibleWidth: item.clientWidth,
+        actualWidth: item.scrollWidth
+      })));
+    assert.equal(mobileNames.length, 6);
+    assert.ok(mobileNames.every(item => item.actualWidth <= item.visibleWidth + 1),
+      "Bot names must not be clipped by the position badge on 390px 6-max");
+    assert.equal(await page.locator("#training-table .pl-seat .pl-player-avatar svg").count(), 6);
+    // Folded seat styling should never tint the original blue card backs.
+    const foldedAppearance = await page.evaluate(() =>
+      [...document.querySelectorAll("#training-table .pl-seat.is-folded")].map(seat => ({
+        seatOpacity: Number(getComputedStyle(seat).opacity),
+        infoOpacity: Number(getComputedStyle(seat.querySelector(".pl-player-info")).opacity),
+        cardsOpacity: Number(getComputedStyle(seat.querySelector(".pl-player-cards")).opacity)
+      })));
+    assert.ok(foldedAppearance.every(s => s.seatOpacity===1 && s.infoOpacity<1 &&
+      s.cardsOpacity===1), "Only folded identities, not their card backs, should be muted");
+    await page.setViewportSize({ width: 320, height: 844 });
+    const narrowSeats = await page.evaluate(() => {
+      const bounds = el => {
+        const r=el.getBoundingClientRect();
+        return { left:r.left, right:r.right };
+      };
+      const rows = ["upper","lower"].map(rail =>
+        [...document.querySelectorAll("#training-table .pl-seat-" + rail)]
+          .map(seat => ({
+            capsule:bounds(seat.querySelector(".pl-player-info")),
+            avatar:bounds(seat.querySelector(".pl-player-avatar"))
+          }))
+          .sort((a,b)=>a.capsule.left-b.capsule.left));
+      return {rows,overflow:document.documentElement.scrollWidth-innerWidth};
+    });
+    for (const row of narrowSeats.rows) {
+      assert.equal(row.length,3);
+      for (let index=0;index<row.length-1;index++) {
+        assert.ok(row[index].capsule.right <= row[index+1].capsule.left + 2,
+          "Player capsules must not overlap at 320px");
+        assert.ok(row[index].capsule.right <= row[index+1].avatar.left + 3,
+          "Player icons must not cover another player's text at 320px");
+      }
+    }
+    assert.ok(narrowSeats.overflow<=1);
+    const narrowHeader = await page.evaluate(() => {
+      const hand = document.querySelector("#training-table .pl-hand-strength");
+      const value = hand?.querySelector(".pl-hand-strength-value");
+      const label = hand?.querySelector(".pl-hand-strength-label");
+      const middleSeat = document.querySelector("#training-table .pl-seat-4");
+      const badge = middleSeat?.querySelector(".pl-player-badges");
+      const r = el => el?.getBoundingClientRect();
+      return {
+        valueTop:r(value)?.top ?? 0,labelTop:r(label)?.top ?? 0,
+        handBottom:r(hand)?.bottom ?? 0,badgeTop:r(badge)?.top ?? 9999
+      };
+    });
+    assert.ok(Math.abs(narrowHeader.valueTop-narrowHeader.labelTop)<=3,
+      "Hand strength must remain on one line at 320px");
+    assert.ok(narrowHeader.badgeTop>=narrowHeader.handBottom-2,
+      "Centre top-seat badges must not cover the hand pill at 320px");
+    const heroBadges = await page.evaluate(() => {
+      const hero = document.querySelector("#training-table .pl-seat-hero");
+      const pill = hero.querySelector(".pl-player-info").getBoundingClientRect();
+      const badges = hero.querySelector(".pl-player-badges").getBoundingClientRect();
+      return {pillTop:pill.top,badgesBottom:badges.bottom};
+    });
+    assert.ok(heroBadges.badgesBottom<=heroBadges.pillTop+3,
+      "Dealer and turn badges must float above, not obscure, the hero name");
+    await captureGameElement("table-6max-complete-mobile-320", "#training-game");
+    await page.setViewportSize({ width: 1365, height: 768 });
     await page.locator('button[data-training-action="stop"]').click();
     assert.equal(await page.evaluate(() => window.PokerLabTraining.isSessionActive()),false);
     assert.equal(await page.locator("#training-configuration").isVisible(),true);
@@ -164,6 +394,10 @@ async function run() {
     await first.click();
     assert.equal(await first.getAttribute("aria-pressed"), "true");
     assert.equal((await page.locator(".pl-rv-detail").innerText()).includes("AA"), true);
+    assert.equal(await page.locator(".pl-rv-detail").getAttribute("aria-live"), "polite");
+    const rangesLayout = await page.locator(".pl-rv").evaluate(element => getComputedStyle(element).display);
+    assert.equal(rangesLayout, "grid", "Large screens should show range selection beside the matrix");
+    await captureUi("ranges-desktop");
 
     // Exercise the migrated Lessons, Puzzles, and Game Review modules in Chromium.
     await page.locator(".pl-lesson-open").first().waitFor({ timeout: 30000 });
@@ -184,6 +418,9 @@ async function run() {
     assert.equal(await page.locator("#review").isVisible(), true);
     assert.equal(await page.locator('#review [data-review-history]').count(),1);
     assert.equal(await page.locator('#review [data-review-detail]').count(),1);
+    assert.equal(await page.locator('#review .pl-review-column').count(), 2);
+    assert.equal(await page.locator('#review .pl-page-panel').count(), 1);
+    await captureUi("review-desktop");
     await page.locator("[data-review-history] .pl-review-empty").waitFor({ timeout: 30000 });
 
     // Responsive behavior: mobile navigation is usable at phone width.
@@ -192,9 +429,133 @@ async function run() {
     assert.equal(await page.locator('#settings #settings-content').count(),1);
     assert.equal(await page.locator('#settings h2').textContent(),"Paramètres");
 
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.locator('a[data-page="home"]').first().click();
+    const tabletOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    assert.ok(tabletOverflow <= 1, "The tablet header must not cause horizontal overflow");
+    for (const destination of ["training", "tactics", "lessons", "review", "settings"]) {
+      await page.locator('a[data-page="' + destination + '"]').first().click();
+      const horizontalOverflow = await page.evaluate(() =>
+        document.documentElement.scrollWidth - window.innerWidth);
+      assert.ok(horizontalOverflow <= 1,
+        destination + " page must not overflow viewport at 768px");
+    }
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('nav.pl-mobile-nav a[data-page="lessons"]').click();
+    // The ranges section is several screens below the lessons catalog.
+    // A dedicated shortcut must make it available immediately on mobile.
+    await page.locator(".pl-learning-shortcut").click();
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "preflop-ranges-section",
+      "The range shortcut should transfer keyboard focus into the range region");
+    const rangesHeadingPosition = await page.locator("#preflop-ranges-title").evaluate(element =>
+      element.getBoundingClientRect().top);
+    assert.ok(rangesHeadingPosition >= -1 && rangesHeadingPosition <= 100,
+      "Ranges shortcut should scroll the section heading near the top");
+    await captureUi("ranges-mobile-intro");
+    const rangeScroll = await page.locator(".pl-rv-matrix").evaluate(element => ({
+      width: element.clientWidth,
+      scroll: element.scrollWidth
+    }));
+    assert.ok(rangeScroll.scroll >= rangeScroll.width, "Range data must remain in its own scroll region");
+    assert.ok((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1,
+      "Range matrix must not overflow the mobile document");
+    await page.locator(".pl-rv-matrix").scrollIntoViewIfNeeded();
+    await captureUi("ranges-mobile");
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
+    assert.ok((await page.evaluate(() => scrollY)) <= 1,
+      "Navigation must reset scrolling when returning to Home");
+    await captureUi("home-mobile");
+    // Verify actual phone gameplay: the single action node follows the table
+    // and has usable 48px buttons instead of being compressed over hero cards.
+    await page.locator('nav.pl-mobile-nav a[data-page="training"]').click();
+    const mobileGame = await page.evaluate(() => {
+      const config = window.PokerLabTraining.updateConfig({ gameMode: "heads-up", playerCount: 2 });
+      if (!config.success) return { success: false, errors: config.errors };
+      return window.PokerLabTraining.createSession();
+    });
+    assert.equal(mobileGame.success, true, JSON.stringify(mobileGame.errors ?? []));
+    await page.waitForFunction(() => Boolean(document.querySelector(
+      '#training-game > #training-actions.pl-action-panel')), null, { timeout: 30000 });
+    await page.waitForFunction(() => Boolean(document.querySelector(
+      '#training-actions .pl-action-buttons button')), null, { timeout: 30000 });
+    const firstLegalPreset = page.locator('#training-actions .pl-bet-preset:not(:disabled)').first();
+    if (await firstLegalPreset.count()) {
+      await firstLegalPreset.click();
+      assert.equal(await firstLegalPreset.getAttribute("aria-pressed"), "true",
+        "Selected legal sizing should be indicated without submitting the bet");
+      assert.ok(Number(await page.locator("#training-actions .pl-bet-number").inputValue()) > 0,
+        "Preset must synchronize the original numeric amount");
+    }
+    const verifyPhoneActions = async (width) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForFunction(() =>
+        document.getElementById("training-actions")?.parentElement?.id === "training-game");
+      const measured = await page.evaluate(() => {
+        const table = document.querySelector(".pl-table-container");
+        const actions = document.getElementById("training-actions");
+        const controls = [...actions.querySelectorAll(".pl-action-buttons button")];
+        const presets = [...actions.querySelectorAll(".pl-bet-preset")];
+        const input = actions.querySelector(".pl-bet-number");
+        const slider = actions.querySelector(".pl-bet-slider");
+        return {
+          nodes: document.querySelectorAll("#training-actions").length,
+          panelTop: actions.getBoundingClientRect().top,
+          tableBottom: table.getBoundingClientRect().bottom,
+          minActionHeight: controls.length ? Math.min(...controls.map(el => el.getBoundingClientRect().height)) : null,
+          minPresetHeight: presets.length ? Math.min(...presets.map(el => el.getBoundingClientRect().height)) : null,
+          inputHeight: input?.getBoundingClientRect().height ?? null,
+          sliderHeight: slider?.getBoundingClientRect().height ?? null,
+          overflow: document.documentElement.scrollWidth - innerWidth
+        };
+      });
+      assert.equal(measured.nodes, 1, "Must retain exactly one action node");
+      assert.ok(measured.panelTop >= measured.tableBottom - 1,
+        "Mobile controls must not overlap the actual poker table");
+      assert.ok(measured.minActionHeight === null || measured.minActionHeight >= 48,
+        "Mobile decision actions must have >=48px touch targets");
+      assert.ok(measured.minPresetHeight === null || measured.minPresetHeight >= 44,
+        "Mobile sizing presets must have >=44px touch targets");
+      assert.ok(measured.inputHeight === null || measured.inputHeight >= 44);
+      assert.ok(measured.sliderHeight === null || measured.sliderHeight >= 44);
+      assert.ok(measured.overflow <= 1, "No horizontal overflow in active mobile gameplay");
+    };
+    await verifyPhoneActions(390);
+    await captureUi("gameplay-mobile-390");
+    assert.equal(await page.locator("#training-table .pl-player-avatar").count(), 2);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
+    await captureGameElement("table-headsup-complete-mobile", "#training-game");
+    await verifyPhoneActions(320);
+    // Measure visible label boxes, not just document overflow: narrow labels
+    // may overlap one another without increasing the document width.
+    const navLabels = await page.locator(".pl-mobile-link span").evaluateAll(nodes =>
+      nodes.map(element => ({
+        left: element.getBoundingClientRect().left,
+        right: element.getBoundingClientRect().right,
+        textWidth: element.scrollWidth,
+        width: element.clientWidth
+      })));
+    assert.equal(navLabels.length, 5);
+    for (let i = 0; i < navLabels.length - 1; i++) {
+      assert.ok(navLabels[i].right <= navLabels[i + 1].left,
+        "Adjacent mobile nav labels must not collide at 320px");
+    }
+    assert.ok(navLabels.every(item => item.textWidth <= item.width + 1),
+      "Compact labels must not be clipped at 320px");
+    await captureUi("gameplay-mobile-320");
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.waitForFunction(() => Boolean(document.querySelector(
+      "#training-game > #training-actions.pl-action-panel")));
+    assert.equal(await page.locator("#training-actions").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await verifyPhoneActions(390);
+    assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
+    await page.locator('nav.pl-mobile-nav a[data-page="review"]').click();
+    assert.equal(await page.locator("#review").isVisible(), true);
+    assert.equal(await page.locator('nav.pl-mobile-nav a[data-page="review"]').getAttribute("aria-current"), "page");
+    await captureUi("review-mobile");
+    await page.locator('nav.pl-mobile-nav a[data-page="home"]').click();
     await page.setViewportSize({ width: 1365, height: 768 });
 
     const score = await page.evaluate(async () => {
