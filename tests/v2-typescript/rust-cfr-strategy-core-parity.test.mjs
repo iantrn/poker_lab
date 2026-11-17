@@ -220,3 +220,62 @@ test("Rust bridge batches safely on an old WASM session without the new batch me
    assert.ok(Math.abs(actual[0]-expected[0])<1e-11);
  }
 });
+
+
+test("numeric batch rollback restores canonical and numerical IDs after a rejected WASM call",()=>{
+ const oldWindow=globalThis.window;
+ globalThis.window={};
+ let base;
+ try{base=installCfrCore();}
+ finally{if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;}
+ const reference=base.createMaps();
+ let reject=true;
+ const bridge=createRustCfrStrategyCore(base,()=>{
+   const rust=new wasm.CfrSession();
+   return {
+     prepare_tree:(...args)=>rust.prepare_tree(...args),
+     step_prepared_batch(...args){
+       if(reject){reject=false;throw new Error("synthetic atomic rejection");}
+       return rust.step_prepared_batch(...args);
+     },
+     step_prepared:(...args)=>rust.step_prepared(...args),
+     step:(...args)=>rust.step(...args),
+     iterations:()=>rust.iterations(),
+     information_set_count:()=>rust.information_set_count(),
+     average_strategy:()=>rust.average_strategy()
+   };
+ });
+ const maps=bridge.createMaps();
+ const root=makeTree([1,-1,-1,1]);
+ const callbacks={
+   informationKey:(node,deal)=>node.key+"|"+deal.hand+"|"+deal.board,
+   informationPrefix:(node,deal)=>node.key+"|"+deal.hand+"|",
+   informationSuffix:(node,deal)=>deal.board,
+   utility:(node,deal)=>node.value*deal.sign
+ };
+ const entries=[];
+ for(let i=0;i<8;i++){
+   const deal={hand:["a","b","a","c"][i%4],
+     board:["flop","turn"][i%2],sign:i%2===0?1:-1};
+   const sample={root,deal,callbacks,chanceWeight:i%3===0?3:0.5};
+   entries.push(sample);
+   base.runCfr(root,deal,0,[1,1],reference,callbacks,i+1,sample.chanceWeight);
+   base.runCfr(root,deal,1,[1,1],reference,callbacks,i+1,sample.chanceWeight);
+ }
+ assert.throws(()=>bridge.runCfrBatch(entries,maps,1),/synthetic atomic rejection/);
+ assert.equal(reject,false);
+ assert.doesNotThrow(()=>bridge.runCfrBatch(entries,maps,1));
+ for(const hand of ["a","b","c"]){
+   for(const board of ["flop","turn"]){
+     const deal={hand,board,sign:1};
+     for(const node of [root,root.actions[0].child]){
+       const lhs=base.getStrategy(node,deal,reference,callbacks);
+       const rhs=bridge.getStrategy(node,deal,maps,callbacks);
+       assert.equal(lhs.length,rhs.length);
+       for(let a=0;a<lhs.length;a++)
+         assert.ok(Math.abs(lhs[a]-rhs[a])<1e-11,
+           "recovered strategy mismatch at "+hand+"/"+board+"/"+node.key+"/"+a);
+     }
+   }
+ }
+});
