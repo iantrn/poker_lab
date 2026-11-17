@@ -82,6 +82,22 @@ function utility(node:AbstractTreeNode,deal:ChanceDeal,hero:SolverCard[],board:S
   const payout=result>0?node.pot:result===0?node.pot/2:0;
   return payout-(node.terminal?node.heroInvested:0);
 }
+// The betting topology is independent of future card values. Cache each
+// sampled deal's public-board prefix identity for its information sets.
+const dealPublicBoardKeys=new WeakMap<ChanceDeal,Map<number,string>>();
+function sampledBoardId(deal:ChanceDeal,length:number):string {
+  let prefixes=dealPublicBoardKeys.get(deal);
+  if(!prefixes){
+    prefixes=new Map<number,string>();
+    dealPublicBoardKeys.set(deal,prefixes);
+  }
+  let key=prefixes.get(length);
+  if(key===undefined){
+    key=boardId(deal.finalBoard.slice(0,length));
+    prefixes.set(length,key);
+  }
+  return key;
+}
 function informationKey(node:AbstractTreeNode,deal:ChanceDeal|null,hero:SolverCard[],board:SolverCard[]):string {
   const privateHand=node.terminal?"":node.actor===0
     ? handId(deal?.hero||hero):handId(deal!.villain);
@@ -95,7 +111,7 @@ function informationKey(node:AbstractTreeNode,deal:ChanceDeal|null,hero:SolverCa
     roundChips(node.lastFullRaise),
     node.raises||0,node.checks||0
   ].join(":");
-  return node.actor+"|"+privateHand+"|"+boardId(node.board||board)+
+  return node.actor+"|"+privateHand+"|"+(deal ? sampledBoardId(deal,node.board.length) : boardId(node.board||board))+
       "|"+publicState+"|"+node.history;
 }
 function cfrCallbacks(hero:SolverCard[],board:SolverCard[],global:StrategyGlobal):CFRCallbacks {
@@ -316,28 +332,20 @@ export function createStrategy(global:StrategyGlobal){
             players: [hero, opponent],
             postflopFirstActorId
         };
-        // Decision topology is public and depends on the runout, not the
-        // sampled private hands. Rebuilds were especially expensive on river,
-        // where every sample uses the identical empty runout.
-        // Bound memory on flop/turn: there can be thousands of distinct runouts.
-        const publicTreeCache = new Map<string, ReturnType<typeof buildDecisionTree>>();
-        const MAX_PUBLIC_TREES = 32;
+        // Legal actions, pot and stack transitions are independent of future
+        // card values. Only the information-set key needs each sampled deal's
+        // public board (see sampledBoardId). Reuse the first tree throughout
+        // CFR training, EV evaluation and NashConv; it is never mutated.
+        // Rust's serializer can consequently reuse one packed tree topology.
+        let publicTreeTemplate:ReturnType<typeof buildDecisionTree>|null=null;
         const buildForRunout = (runout: SolverCard[]): ReturnType<typeof buildDecisionTree> => {
-            const key = runout.map(cardId).join("|"); // turn/river ordering matters
-            const hit = publicTreeCache.get(key);
-            if (hit) {
-                publicTreeCache.delete(key);
-                publicTreeCache.set(key, hit);
-                return hit;
+            if(!publicTreeTemplate){
+                publicTreeTemplate=buildDecisionTree(
+                    normalizedState, hero.actionOptions || {},
+                    priorHistory, runout, rootChecks, rootRaises
+                );
             }
-            const built = buildDecisionTree(
-                normalizedState, hero.actionOptions || {},
-                priorHistory, runout, rootChecks, rootRaises
-            );
-            publicTreeCache.set(key, built);
-            if (publicTreeCache.size > MAX_PUBLIC_TREES)
-                publicTreeCache.delete(publicTreeCache.keys().next().value!);
-            return built;
+            return publicTreeTemplate;
         };
         const random = Number.isInteger(options.seed)
             ? createRandom(options.seed!)
