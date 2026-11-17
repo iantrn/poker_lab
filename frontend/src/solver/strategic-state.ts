@@ -82,7 +82,7 @@ export interface StrategicGameState {
   readonly sidePots:readonly StrategicPot[];
   readonly legalActions:readonly StrategicAction[];
   readonly history:readonly StrategicHistoryEvent[];
-  readonly capability:Readonly<{quality:StrategicQuality;reason:string;solver:"heads-up-cfr-plus"|"none"}>;
+  readonly capability:Readonly<{quality:StrategicQuality;reason:string;solver:"heads-up-cfr-plus"|"multiway-cfr-plus"|"none"}>;
   readonly handComplete:boolean;
 }
 
@@ -254,16 +254,21 @@ export function createStrategicGameState(
   }));
   const sidePots=buildStrategicPots(players);
   const hero=players.find(p=>p.isHuman&&p.knownPrivateCards?.length===2);
-  const supported=!state.handComplete&&["flop","turn","river"].includes(street)&&
-    active.length===2&&hero?.id===currentActor&&
-    actor!==undefined&&!actor.allIn&&actor.stack>0&&legal.length>0&&
+  const canSolve=!state.handComplete&&["flop","turn","river"].includes(street)&&
+    hero?.id===currentActor&&actor!==undefined&&!actor.allIn&&
+    actor.stack>0&&legal.length>0&&
     sidePots.every(p=>p.eligiblePlayers.length>0);
+  const supportedHu=canSolve&&active.length===2;
+  const supportedMultiway=canSolve&&active.length>=3&&active.length<=6;
   const capability=Object.freeze({
-    quality:supported?"sampled_estimate" as const:"unavailable" as const,
-    reason:supported?
+    quality:supportedHu||supportedMultiway?"sampled_estimate" as const:"unavailable" as const,
+    reason:supportedHu?
       "Heads-up postflop CFR+ échantillonné : équilibre du No-Limit complet non certifié.":
-      "Sous-jeu non pris en charge : le moteur numérique exige un heads-up postflop au tour du héros.",
-    solver:supported?"heads-up-cfr-plus" as const:"none" as const
+      supportedMultiway?
+      "Multiway 3–6 joueurs : CFR+ sur abstraction d'une street, mises futures checkées, pas de garantie Nash.":
+      "Sous-jeu non pris en charge : un héros actif avec 2–6 joueurs postflop est requis.",
+    solver:supportedHu?"heads-up-cfr-plus" as const:
+      supportedMultiway?"multiway-cfr-plus" as const:"none" as const
   });
   const handId=gameId+":"+String(state.handNumber??0);
   const fingerprint=JSON.stringify({gameId,snapshot});
