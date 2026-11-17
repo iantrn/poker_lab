@@ -167,10 +167,12 @@ test("live controller exposes privacy-preserving strategic snapshots across tabl
  assert.ok(!JSON.stringify(first).includes('"value":10,"suit":"spades"'));
  h.api.onStateChange();
  const versioned=h.api.getStrategicState();
- assert.ok(versioned.stateVersion>first.stateVersion);
+ assert.equal(versioned.stateVersion,first.stateVersion);
  assert.equal(versioned.fingerprint,first.fingerprint);
  h.setState({...current,handNumber:2,board:[...board,card(11,"spades")],street:"turn"});
+ h.api.onStateChange();
  const changed=h.api.getStrategicState();
+ assert.ok(changed.stateVersion>versioned.stateVersion);
  assert.equal(changed.street,"turn");
  assert.notEqual(changed.fingerprint,first.fingerprint);
  assert.equal(changed.handId,"pokerlab-local:2");
