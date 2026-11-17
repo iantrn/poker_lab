@@ -74,9 +74,11 @@ function rootAllows(
   if(!available.length)return false;
   if(action.type!=="bet"&&action.type!=="raise")return true;
   return available.some(entry=>{
-    const target=action.target;
-    // For bets the target is a street total from zero; for raises the root
-    // actionOptions express the absolute raise-to target.
+    // Opening bet bounds represent *additional chips*; raiseTo bounds
+    // represent absolute street contributions.
+    const target=action.type==="bet"?
+      action.target-publicState.players.find(p=>p.id===publicState.currentActor)!.streetBet:
+      action.target;
     return target>=(entry.minTo??0)-1e-9 &&
       target<=(entry.maxTo??Number.POSITIVE_INFINITY)+1e-9;
   });
@@ -108,12 +110,16 @@ function options(s:MutableStreet,actor:number,
     add("check","Checker");
     if(s.raises<MAX_RAISES){
       const minBet=Math.min(s.stacks[actor]!,publicState.bigBlind);
-      const size=round(Math.min(s.stacks[actor]!,
+      const rootLimit=root?
+        publicState.legalActions.find(action=>action.action==="bet")?.maxTo:
+        undefined;
+      const available=Math.min(s.stacks[actor]!,rootLimit??s.stacks[actor]!);
+      const size=round(Math.min(available,
         Math.max(minBet,pot*0.5)));
       if(size>0){
         add("bet","Miser 50 % pot",s.bets[actor]!+size);
         if(s.stacks.length<=3){
-          const full=round(Math.min(s.stacks[actor]!,Math.max(minBet,pot)));
+          const full=round(Math.min(available,Math.max(minBet,pot)));
           if(full>size)add("bet","Miser pot",s.bets[actor]!+full);
         }
       }
