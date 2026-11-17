@@ -329,6 +329,11 @@ function createStrategy(global:StrategyGlobal){
         let heroImportanceWeightSum = 0;
         let heroImportanceWeightSquares = 0;
 
+        // Give the event loop a chance to process cancellation and progress
+        // messages at bounded intervals, not after every individual CFR sample.
+        // A zero-delay timer per deal otherwise introduces an O(iterations)
+        // wall-time scheduling penalty independent of the actual CFR work.
+        let nextCooperativeYield = performance.now() + 12;
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = sampleDeals(
                 hero.holeCards,
@@ -372,8 +377,10 @@ function createStrategy(global:StrategyGlobal){
             runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
             runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
 
-            // L'échantillonnage est renouvelé à chaque itération ; le navigateur reste réactif.
-            await new Promise(resolve => setTimeout(resolve, 0));
+            if (performance.now() >= nextCooperativeYield) {
+                await new Promise<void>(resolve => setTimeout(resolve, 0));
+                nextCooperativeYield = performance.now() + 12;
+            }
         }
 
         const requestedEvaluationSamples = Number.isInteger(options.evaluationSamples)
