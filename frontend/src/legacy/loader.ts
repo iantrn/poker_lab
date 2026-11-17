@@ -10,6 +10,7 @@ import { installGameReview } from "../training/game-review";
 import { installTraining } from "../training/session";
 import { installSolverPrecompute } from "../solver/precompute";
 import { installSolverInputContract } from "../solver/input-contract";
+import { installDecisionTree } from "../solver/decision-tree";
 import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
 import { installPostflopSolverUI } from "../ui/postflop-solver";
@@ -74,6 +75,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/modules/postflop-solver-ui.js") { installPostflopSolverUI(); continue; }
       await loadClassicScript(file);
       if (file === "js/modules/postflop-solver.js") installSolverInputContract();
+      if (file === "js/modules/postflop-strategy.js") installDecisionTree();
     }
     installStorageMirror();
     (window as Window & { PokerLabV2?: { solver: SolverScheduler } }).PokerLabV2 = {
