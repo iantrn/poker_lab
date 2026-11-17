@@ -65,6 +65,12 @@ jobs:
           test -s dist/assets/icons/icon-192.png
       - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
         run: node tests/v2-browser-smoke.mjs
+      - name: Install Playwright WebKit and Linux browser dependencies
+        run: node frontend/node_modules/playwright-core/cli.js install --with-deps webkit
+      - name: WebKit browser smoke test (React, WASM, PWA offline and CFR+)
+        env:
+          PLAYWRIGHT_BROWSER: webkit
+        run: node tests/v2-browser-smoke.mjs
       - name: IndexedDB V1 migration backfill and deletion (Chromium)
         run: node tests/v2-browser-storage.mjs
       - name: Upload V2 preview bundle (no production deployment)
