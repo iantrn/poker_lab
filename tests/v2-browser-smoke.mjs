@@ -684,8 +684,63 @@ async function run() {
         });
       }finally{worker.terminate();}
     });
-    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust"},
-      "Offline typed postflop Worker must bootstrap Rust/WASM");
+    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust",multiway:"rust-sampled"},
+      "Offline typed postflop Worker must bootstrap Rust/WASM and multiway CFR+");
+    const offlineMultiway=await page.evaluate(async()=>{
+      const worker=window.PokerLabV2.createTypedPostflopWorker();
+      const hand={schemaVersion:1,history:[],state:{
+        handNumber:333,street:"river",
+        board:[
+          {value:2,suit:"clubs"},{value:7,suit:"diamonds"},
+          {value:9,suit:"hearts"},{value:11,suit:"spades"},
+          {value:13,suit:"diamonds"}
+        ],
+        pot:15,currentBet:0,lastFullRaise:1,minimumRaiseTo:1,
+        blinds:{smallBlind:0.5,bigBlind:1},dealerIndex:0,
+        currentPlayerId:"hero",pendingPlayers:[0,1,2],handComplete:false,
+        players:[
+          {id:"hero",name:"Hero",isHuman:true,isBot:false,folded:false,
+            holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
+            stack:20,streetBet:0,totalContribution:5,amountToCall:0,
+            position:"BTN",actionOptions:{
+              canCheck:true,canBet:true,minimumBet:1,maximumBet:20
+            }},
+          {id:"bot1",name:"Bot 1",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:20,streetBet:0,totalContribution:5,
+            amountToCall:0,position:"SB"},
+          {id:"bot2",name:"Bot 2",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:20,streetBet:0,totalContribution:5,
+            amountToCall:0,position:"BB"}
+        ]
+      }};
+      try{
+        return await new Promise((resolve,reject)=>{
+          const timeout=setTimeout(()=>reject(new Error("Offline multiway CFR+ timeout")),30000);
+          worker.addEventListener("message",event=>{
+            if(event.data?.id!==3010||event.data.progress!==undefined)return;
+            clearTimeout(timeout);
+            if(event.data.ok)resolve({
+              quality:event.data.result.quality,
+              actions:event.data.result.actions,
+              iterations:event.data.result.iterations,
+              nashConv:event.data.result.nashConv
+            });
+            else reject(new Error(event.data.error||"Offline multiway CFR+ unavailable"));
+          });
+          worker.addEventListener("error",event=>reject(new Error(event.message)));
+          worker.postMessage({id:3010,task:"strategy",input:hand,
+            options:{iterations:16,samples:1,evaluationSamples:16,seed:333}});
+        });
+      }finally{worker.terminate();}
+    });
+    assert.equal(offlineMultiway.quality,"sampled_estimate");
+    assert.equal(offlineMultiway.nashConv,null);
+    assert.equal(offlineMultiway.iterations,16);
+    assert.ok(offlineMultiway.actions.length>=2);
+    assert.ok(Math.abs(offlineMultiway.actions.reduce((sum,item)=>
+      sum+item.frequency,0)-1)<1e-9,
+      "Actual multiway CFR+ must remain functional with all networking disabled");
+
     assert.equal(pageErrors.length,0,`Runtime errors: ${pageErrors.join("; ")}`);
     console.log("Browser smoke: UI, matrix, WASM Worker, PWA & offline passed");
   } finally {
