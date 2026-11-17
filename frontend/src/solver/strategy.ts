@@ -299,7 +299,7 @@ export function createStrategy(global:StrategyGlobal){
         return { hero:hero as StrategyPlayer & {holeCards:SolverCard[]}, opponent };
     }
 
-    async function solvePostflop(input:unknown,history:HistoryEvent[]=[],options:{iterations?:number;samples?:number;seed?:number;evaluationSamples?:number;exploitabilitySamples?:number}={}) {
+    async function solvePostflop(input:unknown,history:HistoryEvent[]=[],options:{iterations?:number;samples?:number;seed?:number;evaluationSamples?:number;exploitabilitySamples?:number;experimentalCompiledPayoffs?:boolean}={}) {
         const resolved = global.PokerLabPostflopSolver &&
             typeof global.PokerLabPostflopSolver.resolveInput === "function"
             ? global.PokerLabPostflopSolver.resolveInput(input, history)
@@ -443,7 +443,7 @@ export function createStrategy(global:StrategyGlobal){
                     deal,
                     callbacks:cfrCallbacks(deal.hero,state.board,global),
                     chanceWeight:importance>0?importance:1,
-                    compilePokerPayoffs:true
+                    compilePokerPayoffs:options.experimentalCompiledPayoffs===true?true:undefined
                 });
                 if(trainingBatch.length===8)flushTrainingBatch();
             }else{
