@@ -187,6 +187,25 @@ async function run() {
     for (const probability of wasmPaths.cfr)
       assert.ok(Math.abs(probability - 0.5) < 0.04, "CFR+ equilibrium must be mixed");
 
+    // The actual postflop solver worker must use WASM, not merely a separate test worker.
+    const postflopBackend = await page.evaluate(async () => {
+      const worker = new Worker("./pokerlab-solver-worker-v2.js");
+      try {
+        return await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("Postflop worker did not initialize")), 30000);
+          worker.addEventListener("message", event => {
+            if (event.data.id !== 123) return;
+            clearTimeout(timeout);
+            if (event.data.ok) resolve(event.data.result.backend);
+            else reject(new Error(event.data.error || "Postflop worker failed"));
+          });
+          worker.addEventListener("error", event => reject(new Error(event.message)));
+          worker.postMessage({id:123,task:"backend"});
+        });
+      } finally { worker.terminate(); }
+    });
+    assert.equal(postflopBackend, "wasm", "The real postflop solver worker must activate Rust/WASM evaluation");
+
     const registration = await page.evaluate(async () => {
       const worker = await navigator.serviceWorker.ready;
       return Boolean(worker.active);

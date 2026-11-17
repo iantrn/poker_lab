@@ -74,7 +74,7 @@ export function installSolverPrecompute(): PrecomputeApi {
   const global = window as LegacyWindow;
   if (global.PokerLabSolverPrecompute) return global.PokerLabSolverPrecompute;
   const MAX_CACHE_ENTRIES = 6;
-  const WORKER_URL = "./pokerlab-solver-worker.js";
+  const WORKER_URL = "./pokerlab-solver-worker-v2.js";
   const cache = new Map<string, PrecomputeResult>();
   const listeners = new Set<(snapshot: PrecomputeSnapshot) => void>();
   let worker: Worker | null = null;

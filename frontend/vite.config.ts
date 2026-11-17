@@ -9,7 +9,7 @@ import type { ServerResponse, IncomingMessage } from "node:http";
 const frontend = dirname(fileURLToPath(import.meta.url));
 const repository = resolve(frontend, "..");
 const sourceDirs = ["assets", "css", "data", "js"] as const;
-const topFiles = ["pokerlab-solver-worker.js"] as const;
+const topFiles = ["pokerlab-solver-worker.js", "pokerlab-solver-worker-v2.js"] as const;
 const base = process.env.POKERLAB_BASE || "/poker_lab/";
 const mime: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
