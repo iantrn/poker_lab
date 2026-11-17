@@ -127,3 +127,96 @@ test("stable public tree is prepared once while changing private infosets and te
    }
  }
 });
+
+
+test("Rust bridge groups eight weighted chance deals per WASM transfer without strategy drift",()=>{
+ const oldWindow=globalThis.window;
+ globalThis.window={};
+ let baseline;
+ try{baseline=installCfrCore();}
+ finally{if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;}
+ const counters={prepare:0,batch:0,single:0};
+ const optimized=createRustCfrStrategyCore(baseline,()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree(...args){counters.prepare++;return engine.prepare_tree(...args);},
+     step_prepared_batch(...args){counters.batch++;return engine.step_prepared_batch(...args);},
+     step_prepared(...args){counters.single++;return engine.step_prepared(...args);},
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const baselineMaps=baseline.createMaps();
+ const batchedMaps=optimized.createMaps();
+ const root=makeTree([1,-1,-1,1]);
+ const makeCallbacks={
+   informationKey:(node,deal)=>node.key+"|"+deal.hand,
+   utility:(node,deal)=>node.value*deal.sign
+ };
+ for(let start=0;start<80;start+=8){
+   const batch=[];
+   for(let i=start;i<start+8;i++){
+     const deal={hand:["a","b","c"][i%3],sign:i%2===0?1:-1};
+     const weight=i%4===0?2.5:0.75;
+     batch.push({root,deal,callbacks:makeCallbacks,chanceWeight:weight});
+     baseline.runCfr(root,deal,0,[1,1],baselineMaps,makeCallbacks,i+1,weight);
+     baseline.runCfr(root,deal,1,[1,1],baselineMaps,makeCallbacks,i+1,weight);
+   }
+   optimized.runCfrBatch(batch,batchedMaps,start+1);
+ }
+ assert.deepEqual(counters,{prepare:1,batch:10,single:0});
+ for(const hand of ["a","b","c"]){
+   for(const node of [root,root.actions[0].child]){
+     const deal={hand,sign:1};
+     const expected=baseline.getStrategy(node,deal,baselineMaps,makeCallbacks);
+     const actual=optimized.getStrategy(node,deal,batchedMaps,makeCallbacks);
+     assert.equal(actual.length,expected.length);
+     for(let i=0;i<actual.length;i++)
+       assert.ok(Math.abs(actual[i]-expected[i])<1e-11,
+         "batched CFR+ mismatch at "+hand+"/"+node.key+"/"+i);
+   }
+ }
+});
+test("Rust bridge batches safely on an old WASM session without the new batch method",()=>{
+ const oldWindow=globalThis.window;
+ globalThis.window={};
+ let baseline;
+ try{baseline=installCfrCore();}
+ finally{if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;}
+ let singleSteps=0;
+ const optimized=createRustCfrStrategyCore(baseline,()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree:(...args)=>engine.prepare_tree(...args),
+     step_prepared(...args){singleSteps++;return engine.step_prepared(...args);},
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const maps=optimized.createMaps(),reference=baseline.createMaps();
+ const root=makeTree([1,-1,-1,1]);
+ const entries=[];
+ for(let i=0;i<8;i++){
+   const deal={hand:"a",sign:i%2===0?1:-1};
+   entries.push({root,deal,
+     callbacks:{
+       informationKey:(node,deal)=>node.key+"|"+deal.hand,
+       utility:(node,deal)=>node.value*deal.sign
+     },
+     chanceWeight:i%3===0?2:1});
+   baseline.runCfr(root,deal,0,[1,1],reference,entries[i].callbacks,i+1,entries[i].chanceWeight);
+   baseline.runCfr(root,deal,1,[1,1],reference,entries[i].callbacks,i+1,entries[i].chanceWeight);
+ }
+ optimized.runCfrBatch(entries,maps,1);
+ assert.equal(singleSteps,8);
+ const cb=entries[0].callbacks,deal=entries[0].deal;
+ for(const node of [root,root.actions[0].child]){
+   const expected=baseline.getStrategy(node,deal,reference,cb);
+   const actual=optimized.getStrategy(node,deal,maps,cb);
+   assert.ok(Math.abs(actual[0]-expected[0])<1e-11);
+ }
+});
