@@ -383,7 +383,7 @@ mod tests {
         let good=[0.,0.,0.,1.,-1.,-1.,1.];
         session.step_prepared_internal(handle,&ids,&good,1.).unwrap();
         let before=session.average_strategy();
-        assert!(session.step_prepared_internal(handle,&[0,2,2,0,0,0,0],
+        assert!(session.step_prepared_internal(handle,&[0,3,3,0,0,0,0],
             &good,1.).is_err()); // gap in new info-set IDs
         assert!(session.step_prepared_internal(handle,&ids,
             &[0.,0.,0.,f64::NAN,-1.,-1.,1.],1.).is_err());
