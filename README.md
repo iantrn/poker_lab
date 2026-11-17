@@ -51,6 +51,16 @@ Le solveur CFR+ Rust peut préparer et valider une topologie publique une seule 
 
 Le **Worker postflop V2** utilise automatiquement la session **Rust CFR+** si WASM est disponible. Il revient au moteur TypeScript en cas d'erreur ; les Workers V1 sont conservés comme repli supplémentaire. Les composants React ne réévaluent pas la logique poker : les modules TypeScript continuent de gérer les événements fonctionnels.
 
+## Vérification GTO : portée exacte des certificats
+
+La seule définition exploitable d'un **certificat d'équilibre** est un jeu entièrement défini, un profil de stratégies complet, puis une borne explicite du gain de chaque déviation unilatérale : `d_i = BR_i(σ_-i) − u_i(σ)`. Le profil est un **ε-Nash** seulement si `max_i(d_i) ≤ ε`. Un faible *NashConv* estimé sur quelques deals, une qualité de jeu élevée ou un grand nombre d'itérations CFR+ **ne sont pas une preuve**.
+
+**Nouveau vérificateur indépendant :** `frontend/src/solver/finite-nash-certificate.ts` fournit `certifyFiniteNash(game, epsilon)` pour un **jeu extensif fini entièrement énuméré, avec 2 à 6 joueurs et mémoire parfaite**. Probabilités de chance, stratégies et utilités sont toutes des fractions rationnelles exactes (BigInt) : pas de seuil flottant ni d'incertitude Monte-Carlo dans la preuve. Le vérificateur valide l'arbre, les profils normalisés, les utilités zéro-somme et la mémoire parfaite ; il calcule pour **chaque acteur** une vraie meilleure réponse en imposant une décision identique dans tous les états de son information set (pas de connaissance abusive des cartes cachées). Les valeurs du profil, les valeurs de meilleure réponse, tous les gains individuels, le NashConv et la certification ε-Nash sont renvoyés sous forme de fractions exactes.
+
+Le champ de portée est **obligatoirement** `scope:"explicit_finite_game_only"`, et `fullNoLimitHoldemCertified:false`, **même si le vérificateur démontre exactement un équilibre du jeu fourni**. Un utilisateur peut fournir un jeu jouet exhaustif ou une petite abstraction entièrement spécifiée : ce certificat ne concerne **que ce jeu**, et ne s'étend ni au No-Limit complet ni à des tirages de chances partiels. Les tests couvrent des équilibres 2–6 joueurs, le refus d'une stratégie exploitable, l'impossibilité de tricher en connaissant une carte future et les erreurs de mémoire parfaite. Le solveur CFR+ existant reste marqué `fullGameGtoCertified:false`, et l'interface affiche sans ambiguïté « GTO intégral non certifié ».
+
+**Conditions NON satisfaites pour une certification GTO de PokerLab complet :** stratégies définies pour toutes les mains privées et tous les historiques, tailles de mises légales non abstraites, transitions et cartes futures exhaustives, démonstration quantitative du gain de **toute** déviation adversaire (pas seulement sur un échantillon), et vérification indépendante des règles, de la distribution de chance et de l'erreur numérique. En multiway 3–6, CFR+ n'a pas de garantie générale de convergence vers un Nash. Un certificat exact pour un sous-jeu abstrait n'implique donc **jamais** un certificat pour le Texas Hold'em complet. La mémoire/CPU nécessaires à une telle preuve exhaustive ne sont pas supposées disponibles sur iPhone.
+
 ### Organisation
 
 ```text
