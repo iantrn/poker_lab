@@ -362,15 +362,20 @@ async function run() {
       });
       try {
         const equity=await run("equity");
+        const typedBegin=performance.now();
         const strategy=await run("strategy",{
           iterations:10,samples:8,seed:20261117,
           evaluationSamples:16,exploitabilitySamples:8
         });
+        const typedDurationMs=performance.now()-typedBegin;
+        const rustBegin=performance.now();
         const rustStrategy=await run("strategy",{
           iterations:10,samples:8,seed:20261117,
           evaluationSamples:16,exploitabilitySamples:8
         },true);
+        const rustDurationMs=performance.now()-rustBegin;
         return {
+          timing:{typedDurationMs,rustDurationMs},
           equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
             losses:equity.losses,value:equity.equity},
           strategy:{iterations:strategy.iterations,actions:strategy.actions,
@@ -393,6 +398,11 @@ async function run() {
     assert.ok(Number.isFinite(typedPostflop.strategy.heroEV));
     assert.ok(Number.isFinite(typedPostflop.strategy.nashConv));
     assert.equal(typedPostflop.strategy.evaluationSamples,16);
+    console.log("CFR+ full river solve (80 seeded samples): TypeScript "+
+      typedPostflop.timing.typedDurationMs.toFixed(1)+"ms, Rust session "+
+      typedPostflop.timing.rustDurationMs.toFixed(1)+"ms, relative "+
+      (typedPostflop.timing.typedDurationMs / typedPostflop.timing.rustDurationMs).toFixed(2)+
+      "x (runner-dependent, non-gating)");
     assert.equal(typedPostflop.rustStrategy.iterations,typedPostflop.strategy.iterations);
     assert.equal(typedPostflop.rustStrategy.actions.length,typedPostflop.strategy.actions.length);
     for(let i=0;i<typedPostflop.strategy.actions.length;i++){
