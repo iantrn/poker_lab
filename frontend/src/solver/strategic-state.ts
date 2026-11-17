@@ -254,6 +254,7 @@ export function createStrategicGameState(
   const hero=players.find(p=>p.isHuman&&p.knownPrivateCards?.length===2);
   const supported=!state.handComplete&&["flop","turn","river"].includes(street)&&
     active.length===2&&hero?.id===currentActor&&
+    actor!==undefined&&!actor.allIn&&actor.stack>0&&legal.length>0&&
     sidePots.every(p=>p.eligiblePlayers.length>0);
   const capability=Object.freeze({
     quality:supported?"sampled_estimate" as const:"unavailable" as const,
