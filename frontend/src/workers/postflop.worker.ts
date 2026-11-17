@@ -147,6 +147,12 @@ function multiwayState(message:PostflopRequest):StrategicGameState {
   const input=message.input as SolverStateInput|SolverInputSnapshot;
   return createStrategicGameState(input,{stateVersion:Math.max(1,message.id)});
 }
+function isMultiwayRequest(message:PostflopRequest):boolean {
+  const resolved=resolveSolverInput(message.input);
+  const state=resolved.state as Partial<SolverStateInput>|null;
+  return Array.isArray(state?.players)&&
+    state.players.filter(player=>player&&!player.folded).length>=3;
+}
 scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
   const message=event.data;
   if(!Number.isSafeInteger(message?.id))return;
@@ -168,18 +174,25 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         PokerLabPostflopStrategy: ReturnType<typeof installStrategy>;
       };
       if(message.task==="equity") {
-        const strategic=multiwayState(message);
-        if(strategic.capability.solver==="multiway-cfr-plus")
+        if(isMultiwayRequest(message)){
+          const strategic=multiwayState(message);
+          if(strategic.capability.solver!=="multiway-cfr-plus")
+            throw new Error(strategic.capability.reason);
           result=await analyzeMultiwayEquity(strategic,multiwayEnvironment(message),message.options);
-        else
-          result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
+        }else{
+          // Preserve the established heads-up input contract and its error
+          // behavior; strict multiway pot accounting is intentionally scoped
+          // to the new 3–6 player engine.
+          result=await globals.PokerLabPostflopSolver.analyse(
+            message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
             [],message.options);
+        }
       } else if(message.task==="strategy") {
         // Defensive preflight shared by every backend. Reject unsupported or
         // inconsistent public states before exposing any pseudo-GTO frequencies.
         // This adapter never accesses unrevealed opponent cards.
-        const strategic=multiwayState(message);
-        if(strategic.capability.quality==="unavailable")
+        const strategic=isMultiwayRequest(message)?multiwayState(message):null;
+        if(strategic&&strategic.capability.quality==="unavailable")
           throw new Error(strategic.capability.reason);
         const strategyOptions={
           ...message.options,
@@ -195,7 +208,7 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
             });
           }
         };
-        if(strategic.capability.solver==="multiway-cfr-plus"){
+        if(strategic?.capability.solver==="multiway-cfr-plus"){
           result=await solveMultiway(strategic,multiwayEnvironment(message),strategyOptions);
           scope.postMessage({id:message.id,progress:1,phase:"strategy_completed"});
           scope.postMessage({id:message.id,ok:true,result});
