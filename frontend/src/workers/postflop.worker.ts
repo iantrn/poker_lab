@@ -6,17 +6,20 @@ import { installEvaluator, type PokerLabHandEvaluatorApi } from "../core/evaluat
 import { installBotProfiles } from "../bots/profiles";
 import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
-import { installStrategy } from "../solver/strategy";
+import { installStrategy, createStrategy } from "../solver/strategy";
+import { createRustCfrStrategyCore, type RustCfrSession } from "../solver/rust-cfr-strategy-core";
 
 interface PostflopRequest {
   id: number;
   task: "backend" | "equity" | "strategy";
   input?: unknown;
+  experimentalRustCfr?: boolean;
   options?: { iterations?: number; samples?: number; seed?: number; evaluationSamples?: number; exploitabilitySamples?: number };
 }
 interface WasmEvaluator {
   default(input?: string | URL): Promise<unknown>;
   evaluate_score(cards: Uint8Array): Uint8Array;
+  CfrSession?: new () => RustCfrSession;
 }
 type PostflopScope = DedicatedWorkerGlobalScope & {
   window?: unknown;
@@ -28,6 +31,7 @@ const scope = self as PostflopScope;
 const appBase = new URL(import.meta.env.BASE_URL, scope.location.origin);
 scope.PokerLabMatrixBaseUrl = new URL("data/ranges/preflop/matrix/", appBase).href;
 
+let rustSessionFactory: (() => RustCfrSession) | null = null;
 let initialization: Promise<"wasm" | "legacy"> | null = null;
 async function init(): Promise<"wasm" | "legacy"> {
   if (initialization) return initialization;
@@ -44,6 +48,7 @@ async function init(): Promise<"wasm" | "legacy"> {
       const wasmUrl = new URL("wasm/pokerlab_engine_bg.wasm", appBase);
       const wasm = await import(/* @vite-ignore */ moduleUrl) as WasmEvaluator;
       await wasm.default(wasmUrl);
+      if (typeof wasm.CfrSession === "function") rustSessionFactory = () => new wasm.CfrSession!();
       const original = scope.PokerLabHandEvaluator!;
       const suits: Record<string,number> = { clubs:0, diamonds:1, hearts:2, spades:3 };
       scope.PokerLabHandEvaluator = {
@@ -101,7 +106,19 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
           [],message.options);
       } else if(message.task==="strategy") {
-        result=await globals.PokerLabPostflopStrategy.solvePostflop(message.input,[],message.options);
+        if (message.experimentalRustCfr) {
+          if (!rustSessionFactory) throw new Error("Session CFR+ Rust non disponible.");
+          const root = scope as unknown as Parameters<typeof createStrategy>[0];
+          const isolated = Object.assign(Object.create(root) as object, {
+            PokerLabCFRCore: createRustCfrStrategyCore(
+              (scope as unknown as {PokerLabCFRCore:ReturnType<typeof installCfrCore>}).PokerLabCFRCore,
+              rustSessionFactory
+            )
+          }) as Parameters<typeof createStrategy>[0];
+          result=await createStrategy(isolated).solvePostflop(message.input,[],message.options);
+        } else {
+          result=await globals.PokerLabPostflopStrategy.solvePostflop(message.input,[],message.options);
+        }
       } else throw new Error("Tâche de solveur inconnue.");
       scope.postMessage({id:message.id,progress:1,phase:message.task+"_completed"});
       scope.postMessage({id:message.id,ok:true,result});

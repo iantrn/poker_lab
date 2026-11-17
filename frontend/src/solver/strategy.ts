@@ -118,7 +118,7 @@ function getRootStrategy(tree:AbstractTreeNode,maps:ReturnType<CFRCoreApi["creat
   global:StrategyGlobal):Float64Array|[] {
   return global.PokerLabCFRCore.getStrategy(toCFR(tree),null,maps,cfrCallbacks(hero,board,global));
 }
-function createStrategy(global:StrategyGlobal){
+export function createStrategy(global:StrategyGlobal){
     function validate(input:unknown):{hero:StrategyPlayer & {holeCards:SolverCard[]};opponent:StrategyPlayer} {
         const state=input as StrategyState|null;
         const expectedBoardLength:Record<string,number> = { flop: 3, turn: 4, river: 5 };
