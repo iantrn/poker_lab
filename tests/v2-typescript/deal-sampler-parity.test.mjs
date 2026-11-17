@@ -82,3 +82,20 @@ test("prepared chance sampler exactly matches repeated independent V1 calls and 
   }
  }
 });
+
+test("prepared chance sampler cache eviction preserves exact V1 draws across many hero hands",()=>{
+ const distinct=[{cards:actualHero,weight:1},...buildUniformRange(board)
+   .filter(combo=>combo.cards.every(c=>!actualHero.some(h=>h.value===c.value&&h.suit===c.suit)))
+   .slice(0,45)];
+ const villains=buildUniformRange(board);
+ const before=rng(9007),after=rng(9007);
+ const sampler=createDealSampler(actualHero,board,villains,true,after,distinct);
+ const visited=new Set();
+ for(let i=0;i<240;i++){
+  const expected=old.sampleDeals(actualHero,board,villains,1,true,before,distinct);
+  const actual=sampler(1);
+  assert.deepEqual(plain(actual),plain(expected),"V1 divergence after cache reuse/eviction draw "+i);
+  visited.add(actual.deals[0].hero.map(c=>c.value+"_"+c.suit).join(","));
+ }
+ assert.ok(visited.size>32,"the fixture must exercise the bounded cache eviction");
+});
