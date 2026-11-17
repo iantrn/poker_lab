@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   archive:
-    if: github.event.head_commit.message != 'chore(archive): remove one-shot archive workflow'
+    if: "github.event.head_commit.message != 'chore(archive): remove one-shot archive workflow'"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout archival work branch with all commit history
