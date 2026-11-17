@@ -154,3 +154,15 @@ responsive table design, not as a flat background image.
 The approved mockup is a **visual reference**, not a hard-coded example of
 a possible deal. Gameplay labels, pot, player chips and action availability
 continue to reflect the live engine state.
+
+### Screenshot review polish
+
+The first live screenshots exposed two visual collisions that pure source tests
+did not catch. The headlined `6-MAX` capsule sat behind the centered hand
+evaluation on desktop, and names started partially under the circular avatars.
+The centered format badge is now hidden on desktop (retained in phone header);
+player caption padding accounts for the full avatar width. The Solver is
+anchored to the actual maximum 1200px stage, not the wider page container.
+CI now asserts avatar-to-name separation and that the button remains inside
+the table stage, plus records full desktop **table with actions** and a
+six-max mobile screenshot.

@@ -187,6 +187,23 @@ async function run() {
     assert.ok(feltDimensions.width / feltDimensions.height > 2,
       "New desktop poker felt must be more rectangular than oval");
     await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
+    await captureGameElement("table-6max-with-controls-desktop", "#training-game");
+    const desktopSeatAndSolver = await page.evaluate(() => {
+      const stage = document.querySelector(".pl-live-table-stage").getBoundingClientRect();
+      const solver = document.querySelector("#training-solver-dock > .pl-solve-button").getBoundingClientRect();
+      const seat = document.querySelector(".pl-seat:not(.is-folded)");
+      const avatar = seat.querySelector(".pl-player-avatar").getBoundingClientRect();
+      const name = seat.querySelector(".pl-player-name").getBoundingClientRect();
+      return { stageRight: stage.right, solverRight: solver.right, avatarRight: avatar.right, nameLeft: name.left };
+    });
+    assert.ok(desktopSeatAndSolver.solverRight <= desktopSeatAndSolver.stageRight + 1,
+      "Solver must stay fully inside the right edge of the table");
+    assert.ok(desktopSeatAndSolver.nameLeft >= desktopSeatAndSolver.avatarRight - 1,
+      "Player text must not be covered by the avatar");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureGameElement("table-6max-complete-mobile", "#training-game");
+    assert.equal(await page.locator("#training-table .pl-seat .pl-player-avatar svg").count(), 6);
+    await page.setViewportSize({ width: 1365, height: 768 });
     await page.locator('button[data-training-action="stop"]').click();
     assert.equal(await page.evaluate(() => window.PokerLabTraining.isSessionActive()),false);
     assert.equal(await page.locator("#training-configuration").isVisible(),true);

@@ -19,7 +19,10 @@
 #app #training-game .pl-live-table-stage {
   position: relative;
   isolation: isolate;
+  width: 100%;
+  max-width: 1200px;
   min-width: 0;
+  margin-inline: auto;
 }
 #app #training-game #training-table {
   width: 100%;
@@ -89,6 +92,8 @@
 }
 #app #training-game #training-table .pl-table-format {
   color: var(--pl-color-text);
+  /* The centered hand-strength pill owns the title position on desktop. */
+  display: none !important;
 }
 #app #training-game #training-table .pl-table-center {
   gap: 12px;
@@ -156,7 +161,8 @@
   min-width: 0;
   height: 56px;
   gap: 0;
-  padding: 5px 9px 5px 38px;
+  /* Start text after the full diameter of the overlapping avatar. */
+  padding: 5px 9px 5px 55px;
   box-sizing: border-box;
   border: 1px solid rgba(209,217,224,.35);
   border-radius: 40px;
@@ -312,6 +318,7 @@
   font-weight: 700;
   letter-spacing: .015em;
   box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  white-space: nowrap;
 }
 #app #training-game .pl-table-solver-dock > .pl-solve-button:hover:not(:disabled) {
   border-color: #f1c986;
@@ -648,6 +655,9 @@
     min-height: 25px;
     font-size: .61rem;
   }
+  #app #training-game #training-table .pl-table-format {
+    display: inline-flex !important;
+  }
   #app #training-game #training-table .pl-table-container .pl-seat {
     width: clamp(90px,27vw,132px) !important;
     height: 45px;
@@ -657,7 +667,7 @@
   }
   #app #training-game #training-table .pl-player-info {
     height: 45px;
-    padding: 3px 5px 3px 28px;
+    padding: 3px 5px 3px 39px;
   }
   #app #training-game #training-table .pl-player-avatar {
     width: 46px;
@@ -723,7 +733,7 @@
 @media (max-width: 380px) {
   #app #training-game #training-table .pl-table-container .pl-seat { width: 90px !important; }
   #app #training-game #training-table .pl-table-container .pl-seat-hero { width: 125px !important; }
-  #app #training-game #training-table .pl-player-info { padding-left: 25px; }
+  #app #training-game #training-table .pl-player-info { padding-left: 36px; }
   #app #training-game #training-table .pl-player-avatar {
     width: 42px;
     height: 42px;
