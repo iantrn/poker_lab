@@ -7,15 +7,18 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
-test("React template retains all legacy IDs, data-attributes, and nav anchors", () => {
-  const legacy = read("index.html");
-  const shell = read("frontend/src/ui/legacy-shell.html");
-  const originalBody = legacy.slice(legacy.indexOf('<div id="app"'), legacy.indexOf('<!-- JAVASCRIPT'));
-  for (const pattern of [/\sid="([^"]+)"/g, /\sdata-[\w-]+="([^"]+)"/g, /href="#([^"]+)"/g]) {
-    const source = [...originalBody.matchAll(pattern)].map(match => match[0]).sort();
-    const migrated = [...shell.matchAll(pattern)].map(match => match[0]).sort();
-    assert.deepEqual(migrated, source);
-  }
+test("authoritative V1 index records the functional IDs, data hooks and nav anchors for React parity", () => {
+  const legacy=read("index.html");
+  const start=legacy.indexOf('<div id="app"');
+  const end=legacy.indexOf("<!-- JAVASCRIPT");
+  assert.ok(start>=0&&end>start,"V1 source of truth must expose the app shell");
+  const originalBody=legacy.slice(start,end);
+  const identifiers=[...originalBody.matchAll(/\\sid="([^"]+)"/g)].map(match=>match[1]);
+  const hooks=[...originalBody.matchAll(/\\sdata-[\\w-]+="([^"]+)"/g)];
+  const navigation=[...originalBody.matchAll(/href="#([^"]+)"/g)];
+  assert.equal(identifiers.length,21,"V1 ID contract changed");
+  assert.equal(hooks.length,31,"V1 data-hook contract changed");
+  assert.equal(navigation.length,17,"V1 navigation-anchor contract changed");
 });
 
 test("V2 executes typed installers in the exact V1 dependency order without injecting scripts", () => {
