@@ -195,6 +195,10 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
+    await page.locator('nav.pl-mobile-nav a[data-page="review"]').click();
+    assert.equal(await page.locator("#review").isVisible(), true);
+    assert.equal(await page.locator('nav.pl-mobile-nav a[data-page="review"]').getAttribute("aria-current"), "page");
+    await page.locator('nav.pl-mobile-nav a[data-page="home"]').click();
     await page.setViewportSize({ width: 1365, height: 768 });
 
     const score = await page.evaluate(async () => {

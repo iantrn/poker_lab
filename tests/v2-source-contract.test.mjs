@@ -45,3 +45,25 @@ test("V2 source data is complete and available independent of the archived V1", 
     "data/puzzles/puzzles.json"
   ]) assert.ok(statSync(path.join(root, file)).size > 100, file);
 });
+
+test("UI phase 1 uses scoped palette aliases and protects card rendering", () => {
+  const main = read("frontend/src/main.tsx");
+  const shell = read("frontend/src/ui/AppShell.tsx");
+  const home = read("frontend/src/ui/HomePage.tsx");
+  const icons = read("frontend/src/ui/PokerLabIcon.tsx");
+  const design = read("frontend/src/styles/design-system.css");
+  const mark = read("assets/icons/pokerlab-mark.svg");
+  assert.match(main, /styles\/design-system\.css/);
+  assert.match(design, /--pl-color-accent:\s*var\(--accent-red\)/);
+  assert.match(design, /--pl-color-selection:\s*var\(--accent-gold\)/);
+  assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/, "New UI layer must never style poker cards");
+  assert.match(icons, /strokeWidth="1\.75"/);
+  assert.match(icons, /stroke="currentColor"/);
+  for (const section of ["home", "training", "tactics", "lessons", "review", "settings"])
+    assert.ok(shell.includes('data-module="' + section + '"'), "Missing module hook: " + section);
+  assert.match(shell, /pl-mobile-nav/);
+  assert.match(shell, /page: "review", label: "Review"/);
+  assert.match(home, /pl-home-card-title/);
+  assert.match(mark, /viewBox="0 0 64 64"/);
+  assert.doesNotMatch(shell, /[🎯📚⚙]/u);
+});

@@ -1,0 +1,301 @@
+/*
+ * Poker Lab Design System — Phase 1
+ * Scoped to the app shell and non-card UI. Existing game/table/card tokens,
+ * action semantics and proprietary card rendering remain untouched.
+ */
+#app {
+  /* Alias the effective legacy palette; never create an independent theme. */
+  --pl-color-background: var(--bg-dark);
+  --pl-color-surface: var(--bg-surface);
+  --pl-color-surface-raised: var(--bg-surface-light);
+  --pl-color-text: var(--text-primary);
+  --pl-color-text-secondary: var(--text-secondary);
+  --pl-color-muted: var(--text-muted);
+  --pl-color-accent: var(--accent-red);
+  --pl-color-accent-hover: var(--accent-red-hover);
+  --pl-color-selection: var(--accent-gold);
+  --pl-color-border: var(--border-subtle);
+  --pl-color-border-strong: var(--border-medium);
+
+  --pl-space-1: 4px;
+  --pl-space-2: 8px;
+  --pl-space-3: 12px;
+  --pl-space-4: 16px;
+  --pl-space-6: 24px;
+  --pl-space-8: 32px;
+
+  --pl-radius-control: var(--radius-small);
+  --pl-radius-panel: var(--radius-medium);
+  --pl-radius-feature: var(--radius-large);
+  --pl-duration-fast: 140ms;
+  color: var(--pl-color-text);
+}
+
+#app .pl-shell-header {
+  background: var(--pl-color-surface);
+  border-color: var(--pl-color-border);
+}
+#app .pl-shell-header-inner {
+  min-height: 68px;
+  gap: var(--pl-space-4);
+}
+#app .pl-brand {
+  flex: 0 0 auto;
+  min-width: 0;
+  border-radius: var(--pl-radius-control);
+}
+#app .pl-brand-mark {
+  width: 40px;
+  height: 40px;
+  display: block;
+  flex: none;
+  border-radius: var(--pl-radius-panel);
+}
+#app .pl-brand-wordmark {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#app .pl-brand-name {
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: .035em;
+}
+#app .pl-brand-caption {
+  font-size: .7rem;
+  line-height: 1.2;
+  color: var(--pl-color-muted);
+}
+#app .pl-desktop-nav {
+  gap: var(--pl-space-1);
+}
+#app .pl-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pl-space-2);
+  min-height: 40px;
+  padding: 0 11px;
+  border-radius: var(--pl-radius-control);
+  color: var(--pl-color-text-secondary);
+  font-size: .82rem;
+  font-weight: 550;
+  white-space: nowrap;
+  transition: background-color var(--pl-duration-fast), color var(--pl-duration-fast);
+}
+#app .pl-nav-link:hover,
+#app .pl-settings-link:hover {
+  color: var(--pl-color-text);
+  background: var(--pl-color-surface-raised);
+}
+#app .pl-nav-link.is-active {
+  background: var(--pl-color-surface-raised);
+  color: var(--pl-color-text);
+}
+#app .pl-nav-link.is-active::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pl-color-accent);
+}
+#app .pl-settings-link {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pl-color-border);
+  border-radius: var(--pl-radius-panel);
+  color: var(--pl-color-text-secondary);
+  transition: color var(--pl-duration-fast), background-color var(--pl-duration-fast);
+}
+#app .pl-settings-link.is-active {
+  color: var(--pl-color-text);
+  border-color: var(--pl-color-accent);
+}
+#app .pl-shell-footer {
+  background: var(--pl-color-surface);
+  border-color: var(--pl-color-border);
+}
+
+#app .pl-home-intro {
+  max-width: 720px;
+}
+#app .pl-home-eyebrow {
+  margin: 0 0 var(--pl-space-2);
+  color: var(--pl-color-accent-hover);
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+#app .pl-home-title {
+  margin: 0 0 var(--pl-space-3);
+  font-size: clamp(1.65rem, 3vw, 2.2rem);
+  line-height: 1.15;
+  letter-spacing: -.025em;
+  font-weight: 750;
+}
+#app .pl-home-description {
+  max-width: 620px;
+  margin: 0;
+  color: var(--pl-color-text-secondary);
+  font-size: .94rem;
+  line-height: 1.6;
+}
+#app .pl-home-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--pl-space-4);
+  min-height: 176px;
+  padding: var(--pl-space-6);
+  border: 1px solid var(--pl-color-border);
+  border-radius: var(--pl-radius-feature);
+  background: var(--pl-color-surface);
+  color: var(--pl-color-text);
+  transition: border-color var(--pl-duration-fast), background-color var(--pl-duration-fast);
+}
+#app .pl-home-card:hover {
+  border-color: var(--pl-color-border-strong);
+  background: var(--pl-color-surface-raised);
+}
+#app .pl-home-card-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--pl-color-accent-hover);
+  border: 1px solid var(--pl-color-border);
+  border-radius: var(--pl-radius-panel);
+}
+#app .pl-home-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pl-space-2);
+}
+#app .pl-home-card-title {
+  margin: 0;
+  font-size: 1.03rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+#app .pl-home-card-description {
+  margin: 0;
+  color: var(--pl-color-text-secondary);
+  font-size: .86rem;
+  line-height: 1.5;
+}
+#app .pl-home-card-arrow {
+  margin-top: auto;
+  color: var(--pl-color-muted);
+  align-self: flex-end;
+  transition: color var(--pl-duration-fast);
+}
+#app .pl-home-card:hover .pl-home-card-arrow {
+  color: var(--pl-color-text);
+}
+
+/* Normalize existing learning/review controls without changing their logic. */
+#app .pl-button {
+  background: var(--pl-color-accent);
+  border-color: var(--pl-color-accent);
+  border-radius: var(--pl-radius-control);
+  color: var(--pl-color-text);
+}
+#app .pl-button:hover:not(:disabled) {
+  background: var(--pl-color-accent-hover);
+  border-color: var(--pl-color-accent-hover);
+}
+#app .pl-form-control {
+  background: var(--pl-color-background);
+  color: var(--pl-color-text);
+  border-color: var(--pl-color-border-strong);
+  border-radius: var(--pl-radius-control);
+}
+#app .pl-lesson-tip {
+  border-left-color: var(--pl-color-selection);
+  background: color-mix(in srgb, var(--pl-color-selection) 8%, transparent);
+  color: var(--pl-color-text-secondary);
+}
+#app .pl-progress-fill {
+  background: var(--pl-color-accent);
+}
+#app :is(.pl-nav-link, .pl-settings-link, .pl-mobile-link, .pl-home-card, .pl-button, .pl-form-control, .pl-puzzle-option, .pl-lesson-open):focus-visible {
+  outline: 2px solid var(--pl-color-selection);
+  outline-offset: 3px;
+}
+
+#app .pl-mobile-nav {
+  background: var(--pl-color-surface);
+  border-top: 1px solid var(--pl-color-border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+#app .pl-mobile-nav-grid {
+  padding: 5px 8px 4px;
+  gap: 2px;
+}
+#app .pl-mobile-link {
+  position: relative;
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: var(--pl-radius-control);
+  color: var(--pl-color-muted);
+  font-size: .68rem;
+  line-height: 1.1;
+  font-weight: 550;
+  transition: background-color var(--pl-duration-fast), color var(--pl-duration-fast);
+}
+#app .pl-mobile-link:hover {
+  background: var(--pl-color-surface-raised);
+  color: var(--pl-color-text);
+}
+#app .pl-mobile-link.is-active {
+  color: var(--pl-color-text);
+}
+#app .pl-mobile-link.is-active::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 32%;
+  width: 36%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pl-color-accent);
+}
+
+@media (max-width: 767px) {
+  #app .pl-shell-header-inner {
+    min-height: 60px;
+  }
+  #app .pl-brand-mark { width: 36px; height: 36px; }
+  #app .pl-brand-caption { font-size: .65rem; }
+  #app .pl-shell-main {
+    padding-top: 22px;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+  #app .pl-home-card {
+    min-height: 152px;
+    padding: var(--pl-space-4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app :is(.pl-nav-link, .pl-settings-link, .pl-mobile-link, .pl-home-card, .pl-home-card-arrow, .pl-button) {
+    transition: none;
+  }
+}
