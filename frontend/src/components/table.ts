@@ -313,7 +313,7 @@ function createTable() {
                 label:
                     evaluation.description ||
                     evaluation.categoryLabel ||
-                    HAND_LABELS[evaluation.category],
+                    HAND_LABELS[evaluation.category] || "",
 
                 detail:
                     HAND_LABELS[evaluation.category] || "",
