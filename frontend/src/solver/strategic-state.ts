@@ -69,6 +69,8 @@ export interface StrategicGameState {
   readonly activePlayerIds:readonly string[];
   readonly foldedPlayerIds:readonly string[];
   readonly currentActor:string|null;
+  /** Seats still owed an action by the poker engine, in engine order. */
+  readonly pendingSeats:readonly number[];
   readonly dealerSeat:number;
   readonly smallBlind:number;
   readonly bigBlind:number;
@@ -269,7 +271,10 @@ export function createStrategicGameState(
     schemaVersion:1 as const,variant:"NLHE" as const,
     gameId,handId,stateVersion:version,fingerprint,street,
     board,players:Object.freeze(players),activePlayerIds:active,
-    foldedPlayerIds:folded,currentActor,dealerSeat:state.dealerIndex??0,
+    foldedPlayerIds:folded,currentActor,
+    pendingSeats:Object.freeze(state.pendingPlayers.filter(seat=>
+      Number.isSafeInteger(seat)&&seat>=0&&seat<players.length)),
+    dealerSeat:state.dealerIndex??0,
     smallBlind:chips(state.blinds.smallBlind,"SB"),
     bigBlind:chips(state.blinds.bigBlind,"BB"),ante:0 as const,pot,
     currentBet,lastFullRaise:chips(state.lastFullRaise,"lastFullRaise"),
