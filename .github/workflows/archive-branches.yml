@@ -1,0 +1,112 @@
+name: One-shot immutable archive of remote branch heads
+
+on:
+  push:
+    branches: [chore/archive-branch-refs]
+    paths:
+      - '.github/workflows/archive-branches.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: archive-branch-refs-once
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: github.event.head_commit.message != 'chore(archive): remove one-shot archive workflow'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout archival work branch with all commit history
+        uses: actions/checkout@v4
+        with:
+          ref: chore/archive-branch-refs
+          fetch-depth: 0
+      - name: Archive only validated non-merged branch heads, then self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # Fail before creating ANY archive tag if an audited branch moved.
+          while read -r branch expected; do
+            [[ -n "$branch" && "$expected" =~ ^[a-f0-9]{40}$ ]]
+            actual="$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "Branch changed since audit: $branch expected $expected, got $actual" >&2
+              exit 1
+            fi
+            git cat-file -e "$expected^{commit}"
+          done <<'ARCHIVE_HEADS'
+          audit/deep-betting-and-sidepots eece695bae8c5ac2317a6181601bdb757e03ffa2
+          feat/offline-preflop-ranges 1bb56716a9ef79ab21bd912f30a670941c0619cf
+          feat/pokerlab-completion dfcfc1473607e0d1fdfb4906358d6ca978fd8577
+          feat/pokerlab-modal-fix 2fde2c3e863093bd76b0d97e82b7ce55c047c265
+          feat/training-bet-sizing-controls b70dd79e7e68edd17f956c573339ee2cd60b6154
+          feat/v2-ts-rust-migration 29a50ae585cfc4cc3e52ecd3395e889bbe1b02fa
+          feature/postflop-four-raise-tree d13a4818eb7fbab6cce9142a73eb072c0eb55dfe
+          feature/postflop-solver-mvp a48f968709b9540d5cb910c6f90a195c85d82dea
+          feature/range-vs-range-cfr a1e81a8909ec5e2f31bd4fc91d129355a32b4871
+          feature/range-vs-range-cfr-v2 fc6c40c0289d5b73ccf741d9f89397478c31e4e9
+          feature/range-vs-range-cfr-v3 5c64b0ffec63fcfa47e4a1dea4a2fcd4212def87
+          fix/interface-card-privacy-readme 5b2683f6eab8d34a1687db3d6853f026091d4c4e
+          fix/range-vs-range-cfr-invariants 89b1217a90ceaba7b6ca60e43b04578c990f9b8f
+          fix/range-vs-range-cfr-invariants-v2 234962471a0eabc7f09152db6c4ac28ba8bd0337
+          fix/showdown-modal-position 8be0fe9056440b976bcb61ae4b7ac3f093ea4171
+          fix/solver-foundation-audit 382cfb39e825c00a800b6e0466c179c057333906
+          fix/solver-state-invariants 96e57f1d64430fd0efca85c2db5d1c1f72270b37
+          fix/table-action-overlap 5570655394cbcdf3396aa8c4fac076ea88f07b69
+          perf/solver-precompute 753f949d38652fd6c72d2b46e2c9e657f32562e7
+          refonte-ui-minimaliste 180efe984a0c26305a90568aa9048f49fd6bcc22
+          test/game-engine-audit ed9c67068ad3282a4fe5105c734f35969898ae7f
+          ARCHIVE_HEADS
+
+          # Annotated, immutable human-readable archive tags. Re-running is safe.
+          while read -r branch expected; do
+            tag="archive/$branch"
+            if git ls-remote --tags origin "refs/tags/$tag" | grep -q .; then
+              git fetch origin "refs/tags/$tag:refs/tags/$tag" || true
+              actual="$(git rev-parse "refs/tags/$tag^{commit}")"
+              if [[ "$actual" != "$expected" ]]; then
+                echo "Refusing to replace existing tag $tag ($actual != $expected)" >&2
+                exit 1
+              fi
+              echo "Verified existing tag: $tag -> $expected"
+            else
+              git tag -a "$tag" "$expected" -m "Archive remote branch $branch at audited commit $expected"
+              git push origin "refs/tags/$tag"
+              echo "Created tag: $tag -> $expected"
+            fi
+          done <<'ARCHIVE_HEADS'
+          audit/deep-betting-and-sidepots eece695bae8c5ac2317a6181601bdb757e03ffa2
+          feat/offline-preflop-ranges 1bb56716a9ef79ab21bd912f30a670941c0619cf
+          feat/pokerlab-completion dfcfc1473607e0d1fdfb4906358d6ca978fd8577
+          feat/pokerlab-modal-fix 2fde2c3e863093bd76b0d97e82b7ce55c047c265
+          feat/training-bet-sizing-controls b70dd79e7e68edd17f956c573339ee2cd60b6154
+          feat/v2-ts-rust-migration 29a50ae585cfc4cc3e52ecd3395e889bbe1b02fa
+          feature/postflop-four-raise-tree d13a4818eb7fbab6cce9142a73eb072c0eb55dfe
+          feature/postflop-solver-mvp a48f968709b9540d5cb910c6f90a195c85d82dea
+          feature/range-vs-range-cfr a1e81a8909ec5e2f31bd4fc91d129355a32b4871
+          feature/range-vs-range-cfr-v2 fc6c40c0289d5b73ccf741d9f89397478c31e4e9
+          feature/range-vs-range-cfr-v3 5c64b0ffec63fcfa47e4a1dea4a2fcd4212def87
+          fix/interface-card-privacy-readme 5b2683f6eab8d34a1687db3d6853f026091d4c4e
+          fix/range-vs-range-cfr-invariants 89b1217a90ceaba7b6ca60e43b04578c990f9b8f
+          fix/range-vs-range-cfr-invariants-v2 234962471a0eabc7f09152db6c4ac28ba8bd0337
+          fix/showdown-modal-position 8be0fe9056440b976bcb61ae4b7ac3f093ea4171
+          fix/solver-foundation-audit 382cfb39e825c00a800b6e0466c179c057333906
+          fix/solver-state-invariants 96e57f1d64430fd0efca85c2db5d1c1f72270b37
+          fix/table-action-overlap 5570655394cbcdf3396aa8c4fac076ea88f07b69
+          perf/solver-precompute 753f949d38652fd6c72d2b46e2c9e657f32562e7
+          refonte-ui-minimaliste 180efe984a0c26305a90568aa9048f49fd6bcc22
+          test/game-engine-audit ed9c67068ad3282a4fe5105c734f35969898ae7f
+          ARCHIVE_HEADS
+
+          # Keep the temporary workflow OUT of main. Freeze this own work branch too.
+          git rm .github/workflows/archive-branches.yml
+          git commit -m 'chore(archive): remove one-shot archive workflow'
+          git push origin HEAD:refs/heads/chore/archive-branch-refs
+          git tag -a archive/chore/archive-branch-refs HEAD -m 'Archive the temporary tag-creation work branch'
+          git push origin refs/tags/archive/chore/archive-branch-refs
+          echo 'Archived 21 diverged branches and the temporary work branch; no heads deleted.'
