@@ -99,3 +99,27 @@ test("prepared chance sampler cache eviction preserves exact V1 draws across man
  }
  assert.ok(visited.size>32,"the fixture must exercise the bounded cache eviction");
 });
+
+
+test("river shortcut preserves V1's unused shuffle draws, next samples and board identity",()=>{
+ const river=[...board,card(6,"hearts"),card(8,"spades")];
+ for(const [scenario,villains,heroes] of [
+  [0,villainRange,heroRange],
+  [1,null,heroRange],
+  [2,villainRange,null]
+ ]){
+  let oldDraws=0,newDraws=0;
+  const baseline=rng(7331+scenario),optimized=rng(7331+scenario);
+  const oldRandom=()=>{oldDraws++;return baseline();};
+  const newRandom=()=>{newDraws++;return optimized();};
+  const prepared=createDealSampler(actualHero,river,villains,true,newRandom,heroes);
+  for(let i=0;i<30;i++){
+   const expected=old.sampleDeals(actualHero,river,villains,1,true,oldRandom,heroes);
+   const current=prepared(1);
+   assert.deepEqual(plain(current),plain(expected),"river shortcut mismatch on deal "+i);
+   assert.equal(current.deals[0].runout.length,0);
+   assert.deepEqual(plain(current.deals[0].finalBoard),plain(river));
+   assert.equal(newDraws,oldDraws,"RNG stream must remain compatible with V1");
+  }
+ }
+});
