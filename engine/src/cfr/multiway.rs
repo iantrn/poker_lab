@@ -17,7 +17,10 @@ const MAX_INFO_SETS:usize=65_536;
 const MAX_STEPS:u32=1_000_000;
 
 #[derive(Clone,Copy)]
-struct Node {actor:i8,info:usize,start:usize,count:usize}
+struct Node {actor:i8,start:usize,count:usize}
+/// Validated public topology is immutable across all sampled private hands,
+/// public runouts and counterfactual payoffs of a single solve.
+struct PreparedTree {nodes:Vec<Node>,edges:Vec<u32>}
 #[derive(Clone)]
 struct Info {
     actor:i8,count:usize,regret:[f64;MAX_ACTIONS],sum:[f64;MAX_ACTIONS]
@@ -65,7 +68,8 @@ fn regret_strategy(info:&Info)->[f64;MAX_ACTIONS]{
     strategy
 }
 fn traverse(
-    nodes:&[Node],edges:&[u32],payoffs:&[f64],player_count:usize,
+    nodes:&[Node],edges:&[u32],ids:&[u32],
+    payoffs:&[f64],player_count:usize,
     infos:&mut[Info],index:usize,traverser:usize,
     reach:&mut[f64;MAX_PLAYERS],weight:f64,average_weight:f64
 )->f64{
@@ -74,18 +78,19 @@ fn traverse(
         return payoffs[index*player_count+traverser];
     }
     let actor=node.actor as usize;
-    let strategy=regret_strategy(&infos[node.info]);
+    let info=ids[index] as usize;
+    let strategy=regret_strategy(&infos[info]);
     let own=reach[actor];
     if traverser==0 {
         for a in 0..node.count{
-            infos[node.info].sum[a]+=average_weight*own*strategy[a]*weight;
+            infos[info].sum[a]+=average_weight*own*strategy[a]*weight;
         }
     }
     let mut action_values=[0.;MAX_ACTIONS];
     let mut expected=0.;
     for a in 0..node.count {
         reach[actor]=own*strategy[a];
-        action_values[a]=traverse(nodes,edges,payoffs,player_count,infos,
+        action_values[a]=traverse(nodes,edges,ids,payoffs,player_count,infos,
             edges[node.start+a] as usize,traverser,reach,weight,average_weight);
         reach[actor]=own;
         expected+=strategy[a]*action_values[a];
@@ -95,8 +100,8 @@ fn traverse(
             .enumerate().filter(|(player,_)|*player!=actor)
             .map(|(_,value)|*value).product::<f64>();
         for a in 0..node.count {
-            let old=infos[node.info].regret[a];
-            infos[node.info].regret[a]=(old+
+            let old=infos[info].regret[a];
+            infos[info].regret[a]=(old+
                 weight*opponents_reach*(action_values[a]-expected)).max(0.);
         }
     }
@@ -107,7 +112,8 @@ fn traverse(
 pub struct MultiwayCfrSession {
     players:usize,
     infos:Vec<Info>,
-    steps:u32
+    steps:u32,
+    prepared:Option<PreparedTree>
 }
 #[wasm_bindgen]
 impl MultiwayCfrSession {
@@ -120,6 +126,23 @@ impl MultiwayCfrSession {
         children:&[u32],payoffs:&[f64],chance_weight:f64
     )->Result<u32,JsValue>{
         self.step_internal(actors,ids,offsets,counts,children,payoffs,chance_weight)
+            .map_err(JsValue::from_str)
+    }
+    /// Validate the public action graph exactly once; never trust chance
+    /// sample data as a substitute for the validated topology.
+    pub fn prepare_tree(
+        &mut self,actors:&[i8],offsets:&[u32],counts:&[u8],
+        children:&[u32]
+    )->Result<u32,JsValue>{
+        self.prepare_tree_internal(actors,offsets,counts,children)
+            .map_err(JsValue::from_str)
+    }
+    /// The only per-deal transfers are information-set IDs, terminal
+    /// utilities and chance weight. Invalid samples are atomic rejects.
+    pub fn step_prepared(
+        &mut self,ids:&[u32],payoffs:&[f64],chance_weight:f64
+    )->Result<u32,JsValue>{
+        self.step_prepared_internal(ids,payoffs,chance_weight)
             .map_err(JsValue::from_str)
     }
     pub fn average_strategy(&self)->Vec<f64>{
@@ -139,76 +162,72 @@ impl MultiwayCfrSession {
         if !(2..=MAX_PLAYERS as u8).contains(&players){
             return Err("Multiway CFR+ requires 2–6 players");
         }
-        Ok(Self{players:players as usize,infos:Vec::new(),steps:0})
+        Ok(Self{players:players as usize,infos:Vec::new(),steps:0,prepared:None})
     }
     fn strategy_internal(&self,id:u32)->Result<Vec<f64>,&'static str>{
         let info=self.infos.get(id as usize).ok_or("Unknown multiway information set")?;
         Ok(average(info)[..info.count].to_vec())
     }
+    fn prepare_tree_internal(
+        &mut self,actors:&[i8],offsets:&[u32],counts:&[u8],children:&[u32]
+    )->Result<u32,&'static str>{
+        if self.prepared.is_some()||self.steps>0||!self.infos.is_empty(){
+            return Err("Multiway topology must be prepared once before training");
+        }
+        // Never install a half-validated tree.
+        let topology=Self::compile_tree(self.players,actors,offsets,counts,children)?;
+        self.prepared=Some(topology);
+        Ok(0)
+    }
+    fn step_prepared_internal(
+        &mut self,ids:&[u32],payoffs:&[f64],chance_weight:f64
+    )->Result<u32,&'static str>{
+        let topology=self.prepared.as_ref()
+            .ok_or("Multiway topology must be prepared before sampled steps")?;
+        Self::execute_sample(
+            &mut self.infos,&mut self.steps,self.players,
+            topology,ids,payoffs,chance_weight
+        )
+    }
     fn step_internal(
         &mut self,actors:&[i8],ids:&[u32],offsets:&[u32],counts:&[u8],
         children:&[u32],payoffs:&[f64],chance_weight:f64
     )->Result<u32,&'static str>{
+        let topology=Self::compile_tree(self.players,actors,offsets,counts,children)?;
+        Self::execute_sample(
+            &mut self.infos,&mut self.steps,self.players,
+            &topology,ids,payoffs,chance_weight
+        )
+    }
+    fn compile_tree(
+        players:usize,actors:&[i8],offsets:&[u32],counts:&[u8],
+        children:&[u32]
+    )->Result<PreparedTree,&'static str>{
         let n=actors.len();
-        if self.steps>=MAX_STEPS||n<2||n>MAX_NODES||
-           ids.len()!=n||offsets.len()!=n||counts.len()!=n||
-           payoffs.len()!=n*self.players||
-           !chance_weight.is_finite()||chance_weight<0. {
-            return Err("Invalid multiway CFR+ sample dimensions or weight");
+        if n<2||n>MAX_NODES||offsets.len()!=n||counts.len()!=n||
+           children.len()>MAX_NODES*MAX_ACTIONS {
+            return Err("Invalid multiway topology dimensions");
         }
         let mut nodes=Vec::with_capacity(n);
-        let known=self.infos.len();
-        let mut additional=Vec::<(i8,usize)>::new();
-        for i in 0..n{
-            let actor=actors[i];
-            let count=counts[i] as usize;
-            let start=offsets[i] as usize;
-            if start>children.len()||count>children.len()-start{
+        for index in 0..n{
+            let actor=actors[index];
+            let count=counts[index] as usize;
+            let start=offsets[index] as usize;
+            if start>children.len()||count>children.len()-start {
                 return Err("Multiway CFR+ child offsets out of range");
             }
             if actor==-1{
                 if count!=0{return Err("Terminal multiway node has children");}
-                let row=&payoffs[i*self.players..(i+1)*self.players];
-                if row.iter().any(|v|!v.is_finite()){
-                    return Err("Non-finite terminal multiway utility");
-                }
-                let sum: f64=row.iter().sum();
-                let scale:f64=row.iter().map(|v|v.abs()).sum();
-                if sum.abs()>1e-7*(1.+scale){
-                    return Err("Multiway poker terminal payoffs must sum to zero");
-                }
-            }else if actor<0||actor as usize>=self.players||
+            }else if actor<0||actor as usize>=players||
                      count<1||count>MAX_ACTIONS{
                 return Err("Invalid multiway decision actor or action count");
-            }else{
-                let id=ids[i] as usize;
-                if id<known{
-                    let info=&self.infos[id];
-                    if info.actor!=actor||info.count!=count{
-                        return Err("Inconsistent multiway information set");
-                    }
-                }else{
-                    if id>=MAX_INFO_SETS{return Err("Multiway information set capacity exceeded");}
-                    let offset=id-known;
-                    if offset>additional.len(){
-                        return Err("Multiway information set IDs contain gaps");
-                    }
-                    if offset==additional.len(){additional.push((actor,count));}
-                    else if additional[offset]!=(actor,count){
-                        return Err("Inconsistent new multiway information set");
-                    }
-                }
             }
-            nodes.push(Node{actor,info:ids[i] as usize,start,count});
+            nodes.push(Node{actor,start,count});
         }
         if nodes[0].actor<0{return Err("Multiway root is terminal");}
-        if children.iter().any(|id|*id as usize>=n){
+        if children.iter().any(|index|*index as usize>=n){
             return Err("Multiway child index out of bounds");
         }
-        if known+additional.len()>MAX_INFO_SETS{
-            return Err("Multiway information set capacity exceeded");
-        }
-        // Ensure no hidden disconnected decisions, aliases, DAGs, or cycles.
         let mut indegrees=vec![0u8;n];
         for node in &nodes{
             if node.actor<0{continue;}
@@ -226,18 +245,66 @@ impl MultiwayCfrSession {
         if marks.iter().any(|v|*v!=2){
             return Err("Multiway game tree is not fully reachable");
         }
-        // Only after complete validation do we allocate persistent infos.
-        for (actor,count) in additional{self.infos.push(Info::new(actor,count));}
-        let mut reach=[1.;MAX_PLAYERS];
-        // One chance sample trains every seat's counterfactual regret.
-        // This differs from HU's sign inversion: utilities are seat-specific.
-        for traverser in 0..self.players{
-            reach.fill(1.);
-            traverse(&nodes,children,payoffs,self.players,&mut self.infos,
-                0,traverser,&mut reach,chance_weight,(self.steps+1) as f64);
+        Ok(PreparedTree{nodes,edges:children.to_vec()})
+    }
+    fn execute_sample(
+        infos:&mut Vec<Info>,steps:&mut u32,players:usize,
+        topology:&PreparedTree,ids:&[u32],payoffs:&[f64],chance_weight:f64
+    )->Result<u32,&'static str>{
+        let n=topology.nodes.len();
+        if *steps>=MAX_STEPS||ids.len()!=n||payoffs.len()!=n*players||
+           !chance_weight.is_finite()||chance_weight<0.{
+            return Err("Invalid multiway CFR+ sample dimensions or weight");
         }
-        self.steps+=1;
-        Ok(self.steps)
+        let known=infos.len();
+        let mut additional=Vec::<(i8,usize)>::new();
+        for (index,node) in topology.nodes.iter().enumerate(){
+            if node.actor<0{
+                let row=&payoffs[index*players..(index+1)*players];
+                if row.iter().any(|v|!v.is_finite()){
+                    return Err("Non-finite terminal multiway utility");
+                }
+                let sum:f64=row.iter().sum();
+                let scale:f64=row.iter().map(|v|v.abs()).sum();
+                if sum.abs()>1e-7*(1.+scale){
+                    return Err("Multiway poker terminal payoffs must sum to zero");
+                }
+                continue;
+            }
+            let id=ids[index] as usize;
+            if id<known{
+                let info=&infos[id];
+                if info.actor!=node.actor||info.count!=node.count{
+                    return Err("Inconsistent multiway information set");
+                }
+            }else{
+                if id>=MAX_INFO_SETS{
+                    return Err("Multiway information set capacity exceeded");
+                }
+                let offset=id-known;
+                if offset>additional.len(){
+                    return Err("Multiway information set IDs contain gaps");
+                }
+                if offset==additional.len(){
+                    additional.push((node.actor,node.count));
+                }else if additional[offset]!=(node.actor,node.count){
+                    return Err("Inconsistent new multiway information set");
+                }
+            }
+        }
+        if known+additional.len()>MAX_INFO_SETS{
+            return Err("Multiway information set capacity exceeded");
+        }
+        // All validation completes before committing to the session.
+        for (actor,count) in additional{infos.push(Info::new(actor,count));}
+        let mut reach=[1.;MAX_PLAYERS];
+        for traverser in 0..players{
+            reach.fill(1.);
+            traverse(&topology.nodes,&topology.edges,ids,payoffs,players,infos,
+                0,traverser,&mut reach,chance_weight,(*steps+1) as f64);
+        }
+        *steps+=1;
+        Ok(*steps)
     }
 }
 
