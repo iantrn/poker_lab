@@ -99,7 +99,7 @@ test("numeric prefix/suffix IDs preserve canonical keys across private hands and
     const before=concatenations;
     const efficient=fast(tree,cb,indexed);
     const exact=plain(tree,{
-      informationKey:cb.informationKey,
+      informationKey:node=>node.key+"|"+hand+"|"+board,
       terminalUtility:cb.terminalUtility
     },canonical);
     assert.deepEqual([...efficient.informationSets],[...exact.informationSets]);
@@ -141,7 +141,7 @@ test("numeric registry isolation and batch rollback reject orphan IDs",()=>{
   assert.throws(()=>build(tree,invalid,a),/terminale n'est pas finie/);
   assert.equal(a.byKey.size,0);
   const recovered=build(tree,callbacks("bad"),a);
-  assert.deepEqual([...recovered.informationSets],[0,1,1,0,0,0,0]);
+  assert.deepEqual([...recovered.informationSets],[0,1,0,0,1,0,0]);
   assert.equal(a.byKey.size,2);
 });
 test("numeric split rejects noncanonical identities without reserving IDs",()=>{
@@ -169,7 +169,7 @@ test("numeric split rejects noncanonical identities without reserving IDs",()=>{
     terminalUtility:node=>node.value
   },registry);
   assert.equal(registry.byKey.size,2);
-  assert.deepEqual([...valid.informationSets],[0,1,1,0,0,0,0]);
+  assert.deepEqual([...valid.informationSets],[0,1,0,0,1,0,0]);
 });
 test("non-gating reusable CFR numeric key benchmark compares equal serializations",()=>{
   const {performance}=globalThis;
