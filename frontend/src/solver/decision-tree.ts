@@ -185,7 +185,7 @@ const CHIP_EPSILON = 0.000001;
             }
 
             const actions: AbstractPokerAction[] = [];
-            const currentBet = Math.max(state.bets[0], state.bets[1]);
+            const currentBet = Math.max(state.bets[0]!, state.bets[1]!);
             const actorRaiseRights = !state.hasActed[actor]! ||
                 currentBet - state.lastActedBets[actor]! >= state.lastFullRaise - CHIP_EPSILON;
             const canContinueAggression = state.stacks[other]! > 0 &&
