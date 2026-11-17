@@ -280,6 +280,9 @@ function createCore() {
         }
 
         const records:ResponseRecord[] = [];
+        // Group decision nodes while traversing. Filtering every node at every
+        // depth makes NashConv diagnostics O(tree nodes × tree depth).
+        const decisionRecordsByDepth:ResponseRecord[][] = [];
         const roots:WeightedRoot[] = [];
         let maximumDepth = 0;
 
@@ -314,6 +317,7 @@ function createCore() {
                 value: 0
             };
             records.push(record);
+            (decisionRecordsByDepth[depth] ??= []).push(record);
 
             for (let index = 0; index < node.actions.length; index++) {
                 const childReach = node.actor === responder
@@ -346,9 +350,7 @@ function createCore() {
         }
 
         for (let depth = maximumDepth; depth >= 0; depth--) {
-            const level = records.filter(record =>
-                !record.terminal && record.depth === depth
-            );
+            const level = decisionRecordsByDepth[depth] ?? [];
             const responseGroups = new Map<string, ResponseRecord[]>();
 
             for (const record of level) {
