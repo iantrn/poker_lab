@@ -48,15 +48,15 @@ jobs:
           rg -n --hidden --glob '!.git/**' --glob '!frontend/package-lock.json' --glob '!data/**'             '(\.\./\.\./css/|\./js/|\bjs/|from .?\./\.\./|from .?\./\.\./\.\./|postflop-solver\.yml|tests/[^ ]*\.test\.js|index\.html)' frontend tests .github README.md V2_MIGRATION_CHECKPOINT.md || true
       - name: Baseline Rust tests
         run: cargo test --manifest-path engine/Cargo.toml
-      - name: Baseline Node V1, ranges, and other tests
-        run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
-      - name: Baseline TypeScript V1 parity tests
-        run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: Build Rust browser and Node WASM
         run: |
           cd engine
           wasm-pack build --release --target web --out-dir pkg
           wasm-pack build --release --target nodejs --out-dir pkg-node
+      - name: Baseline Node V1, ranges, and other tests
+        run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
+      - name: Baseline TypeScript V1 parity tests
+        run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: Baseline npm ci and Vite build
         run: |
           cd frontend
