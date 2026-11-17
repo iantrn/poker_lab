@@ -273,8 +273,8 @@ async function run() {
           {id:"villain",isHuman:false,isBot:true,folded:false,holeCards:null,stack:90,position:"BB"}
         ]
       };
-      async function measure(url) {
-        const worker = new Worker(url);
+      async function measure(url,typed=false) {
+        const worker = typed ? window.PokerLabV2.createTypedPostflopWorker() : new Worker(url);
         const begin = performance.now();
         try {
           const result = await new Promise((resolve,reject)=>{
@@ -292,15 +292,19 @@ async function run() {
         } finally {worker.terminate();}
       }
       return {legacy:await measure("./pokerlab-solver-worker.js"),
-        accelerated:await measure("./pokerlab-solver-worker-v2.js")};
+        accelerated:await measure("./pokerlab-solver-worker-v2.js"),
+        typed:await measure(undefined,true)};
     });
     const legacyEquity = postflopEquity.legacy.result;
     const rustEquity = postflopEquity.accelerated.result;
-    for (const result of [legacyEquity,rustEquity]) {
+    for (const result of [legacyEquity,rustEquity,postflopEquity.typed.result]) {
       assert.equal(result.iterations,1800);
       assert.equal(result.wins+result.ties+result.losses,result.iterations);
       assert.ok(result.equity>=0 && result.equity<=1);
     }
+    assert.ok(Math.abs(legacyEquity.equity-postflopEquity.typed.result.equity)<0.12,
+      "Fully typed Rust-backed postflop Worker must agree with V1 within Monte Carlo tolerance");
+    console.log("Fully typed postflop Worker total: "+postflopEquity.typed.elapsed.toFixed(1)+"ms");
     assert.ok(Math.abs(legacyEquity.equity-rustEquity.equity)<0.12,
       "Legacy and WASM-accelerated solver equities must agree within Monte Carlo tolerance");
     console.log("Postflop worker end-to-end equity: V1 "+
