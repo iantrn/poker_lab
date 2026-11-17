@@ -112,3 +112,17 @@ test("Phase 3 retains GTO numeric output while improving range and solver presen
   assert.match(design, /\.pl-solve-frequency-fill/);
   assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/);
 });
+
+test("Phase 4 moves only gameplay controls out of the mobile table", () => {
+  const training = read("frontend/src/training/session.ts");
+  const css = read("frontend/src/styles/design-system.css");
+  assert.match(training, /function synchronizeActionPanelPlacement\(\): void/);
+  assert.match(training, /globals\.innerWidth <= 767/);
+  assert.match(training, /tableElement\.insertAdjacentElement\("afterend", actionsElement\)/);
+  assert.match(training, /globals\.addEventListener\("resize", synchronizeActionPanelPlacement\)/);
+  assert.match(css, /#training-game > #training-actions\.pl-action-panel/);
+  assert.match(css, /min-height:\s*48px !important/);
+  assert.match(css, /font-size:\s*16px !important/);
+  assert.match(css, /grid-template-areas:/);
+  assert.doesNotMatch(css, /\.pl-card(?:\b|--|__)/, "The new UI layer cannot change card rendering");
+});

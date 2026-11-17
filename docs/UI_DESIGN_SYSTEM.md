@@ -81,3 +81,12 @@ The V2 validation job optionally saves viewport screenshots to `dist/ui-preview/
 Images cover home, training configuration, the ranges explorer and Game Review on Chromium/WebKit, on desktop and mobile viewports.
 The dedicated `pokerlab-ui-review` GitHub Actions artifact makes visual inspection possible **without modifying production PWA icons or adding screenshot files to source**.
 Screenshots are a review aid, not proof of physical-device Safari performance or complete WCAG compliance.
+
+## Phase 4 — Mobile in-game action ergonomics
+
+- At viewports <=767px, `#training-actions` is moved immediately after `#training-table`. At desktop sizes, the **same** existing element is mounted inside the original `.pl-hero-actions-mount`.
+- This reparenting preserves action click handlers, the SOLVE observer/dialog, and all game state. Rotation/resizing moves the existing node without restarting a hand.
+- Mobile betting UI becomes a two-column grid of primary decisions (48px) with a dedicated 3-column sizing-preset row (44px), number input (44px and 16px font) and wide 44px range slider.
+- The table's mobile vertical reservation is reduced from 800px to a 600–700px clamp now that controls are outside it. Existing poker card dimensions, suit graphics, classes, animations, felt appearance and seat placement are untouched.
+- The SOLVE dialog remains native and outside the table's clipping region on phones.
+- Added Chromium/WebKit smoke assertions at 390px and 320px, plus active-session viewport change 390 -> 1024 -> 390, and screenshot captures at phone widths.

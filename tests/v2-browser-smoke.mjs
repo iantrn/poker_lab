@@ -241,6 +241,61 @@ async function run() {
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
     await captureUi("home-mobile");
+    // Verify actual phone gameplay: the single action node follows the table
+    // and has usable 48px buttons instead of being compressed over hero cards.
+    await page.locator('nav.pl-mobile-nav a[data-page="training"]').click();
+    const mobileGame = await page.evaluate(() => {
+      const config = window.PokerLabTraining.updateConfig({ gameMode: "heads-up", playerCount: 2 });
+      if (!config.success) return { success: false, errors: config.errors };
+      return window.PokerLabTraining.createSession();
+    });
+    assert.equal(mobileGame.success, true, JSON.stringify(mobileGame.errors ?? []));
+    await page.waitForFunction(() => Boolean(document.querySelector(
+      '#training-game > #training-actions.pl-action-panel')), null, { timeout: 30000 });
+    const verifyPhoneActions = async (width) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForFunction(() =>
+        document.getElementById("training-actions")?.parentElement?.id === "training-game");
+      const measured = await page.evaluate(() => {
+        const table = document.querySelector(".pl-table-container");
+        const actions = document.getElementById("training-actions");
+        const controls = [...actions.querySelectorAll(".pl-action-buttons button")];
+        const presets = [...actions.querySelectorAll(".pl-bet-preset")];
+        const input = actions.querySelector(".pl-bet-number");
+        const slider = actions.querySelector(".pl-bet-slider");
+        return {
+          nodes: document.querySelectorAll("#training-actions").length,
+          panelTop: actions.getBoundingClientRect().top,
+          tableBottom: table.getBoundingClientRect().bottom,
+          minActionHeight: controls.length ? Math.min(...controls.map(el => el.getBoundingClientRect().height)) : null,
+          minPresetHeight: presets.length ? Math.min(...presets.map(el => el.getBoundingClientRect().height)) : null,
+          inputHeight: input?.getBoundingClientRect().height ?? null,
+          sliderHeight: slider?.getBoundingClientRect().height ?? null,
+          overflow: document.documentElement.scrollWidth - innerWidth
+        };
+      });
+      assert.equal(measured.nodes, 1, "Must retain exactly one action node");
+      assert.ok(measured.panelTop >= measured.tableBottom - 1,
+        "Mobile controls must not overlap the actual poker table");
+      assert.ok(measured.minActionHeight === null || measured.minActionHeight >= 48,
+        "Mobile decision actions must have >=48px touch targets");
+      assert.ok(measured.minPresetHeight === null || measured.minPresetHeight >= 44,
+        "Mobile sizing presets must have >=44px touch targets");
+      assert.ok(measured.inputHeight === null || measured.inputHeight >= 44);
+      assert.ok(measured.sliderHeight === null || measured.sliderHeight >= 44);
+      assert.ok(measured.overflow <= 1, "No horizontal overflow in active mobile gameplay");
+    };
+    await verifyPhoneActions(390);
+    await captureUi("gameplay-mobile-390");
+    await verifyPhoneActions(320);
+    await captureUi("gameplay-mobile-320");
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.waitForFunction(() => Boolean(document.querySelector(
+      ".pl-hero-actions-mount > #training-actions")));
+    assert.equal(await page.locator("#training-actions").count(), 1);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await verifyPhoneActions(390);
+    assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
     await page.locator('nav.pl-mobile-nav a[data-page="review"]').click();
     assert.equal(await page.locator("#review").isVisible(), true);
     assert.equal(await page.locator('nav.pl-mobile-nav a[data-page="review"]').getAttribute("aria-current"), "page");

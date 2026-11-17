@@ -760,7 +760,29 @@ function createTraining(globals: TrainingGlobals): TrainingApi {
     }
 
 
-    /**
+        /**
+     * Keeps the single controller-owned action element in an accessible spot.
+     * Mobile buttons and bet presets need more vertical room than the table
+     * overlay allows; desktop retains the existing in-table composition.
+     * This function moves DOM only and never modifies game or bet state.
+     */
+    function synchronizeActionPanelPlacement(): void {
+        if (!tableElement || !actionsElement) return;
+
+        if (globals.innerWidth <= 767) {
+            if (actionsElement.previousElementSibling !== tableElement) {
+                tableElement.insertAdjacentElement("afterend", actionsElement);
+            }
+            return;
+        }
+
+        const mount = tableElement.querySelector<HTMLElement>(".pl-hero-actions-mount");
+        if (mount && actionsElement.parentElement !== mount) {
+            mount.appendChild(actionsElement);
+        }
+    }
+
+/**
  * Affiche la table de jeu.
  */
 function renderGame(state: GameState | null = null): void {
@@ -774,11 +796,10 @@ function renderGame(state: GameState | null = null): void {
 
     globals.PokerLabTable!.render(tableElement, gameState);
 
-    // Mount the action panel inside the table container, below the hero cards.
-    const actionMount = tableElement.querySelector<HTMLElement>(".pl-hero-actions-mount");
-    if (actionMount && actionsElement && actionsElement.parentElement !== actionMount) {
-        actionMount.appendChild(actionsElement);
-    }
+    // Presentation-only responsive placement: keep actions in the existing
+    // table mount on desktop, but BELOW the table on phones. The original
+    // #training-actions node and its attached listeners never get recreated.
+    synchronizeActionPanelPlacement();
 
     renderGameActions(gameState);
 
@@ -1471,6 +1492,9 @@ function renderGame(state: GameState | null = null): void {
 
         bindConfigurationInputs();
         bindActionButtons();
+        // Reparent the same action panel on rotation/viewport resize without
+        // restarting the hand or reattaching action/solver listeners.
+        globals.addEventListener("resize", synchronizeActionPanelPlacement);
 
         initialized = true;
 
