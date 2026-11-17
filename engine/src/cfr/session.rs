@@ -186,12 +186,7 @@ impl CfrSession {
     /// Read one averaged information set without transferring the whole
     /// CFR+ strategy table to JS. Used by progressive root recommendations.
     pub fn strategy_for_info_set(&self,id:u32)->Result<Vec<f64>,JsValue>{
-        let info=self.infos.get(id as usize)
-            .ok_or_else(||JsValue::from_str("Unknown CFR+ information set"))?;
-        let total:f64=info.sum[..info.len].iter().sum();
-        Ok((0..info.len).map(|i|
-            if total>0. {info.sum[i]/total}else{1./info.len as f64}
-        ).collect())
+        self.strategy_for_info_set_internal(id).map_err(JsValue::from_str)
     }
     pub fn average_strategy(&self)->Vec<f64>{
         let mut result=Vec::new();
@@ -208,6 +203,17 @@ impl CfrSession {
 }
 impl Default for CfrSession {fn default()->Self{Self::new()}}
 impl CfrSession {
+    pub(crate) fn strategy_for_info_set_internal(
+        &self,id:u32
+    )->Result<Vec<f64>,&'static str>{
+        let info=self.infos.get(id as usize)
+            .ok_or("Unknown CFR+ information set")?;
+        let total:f64=info.sum[..info.len].iter().sum();
+        Ok((0..info.len).map(|i|
+            if total>0. {info.sum[i]/total}else{1./info.len as f64}
+        ).collect())
+    }
+
     pub(crate) fn prepare_payoffs_internal(
         &mut self,handle:u32,kinds:&[u8],pots:&[f64],invested:&[f64]
     )->Result<(),&'static str>{
@@ -710,9 +716,9 @@ mod tests {
         let expected=session.average_strategy();
         let iterations=session.iterations();
         let infos=session.information_set_count();
-        assert_eq!(session.strategy_for_info_set(0).unwrap(),expected[..2]);
-        assert_eq!(session.strategy_for_info_set(1).unwrap(),expected[2..4]);
-        assert!(session.strategy_for_info_set(2).is_err());
+        assert_eq!(session.strategy_for_info_set_internal(0).unwrap(),expected[..2]);
+        assert_eq!(session.strategy_for_info_set_internal(1).unwrap(),expected[2..4]);
+        assert!(session.strategy_for_info_set_internal(2).is_err());
         assert_eq!(session.iterations(),iterations);
         assert_eq!(session.information_set_count(),infos);
     }
