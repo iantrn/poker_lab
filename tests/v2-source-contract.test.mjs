@@ -33,3 +33,10 @@ test("V2 keeps existing engines and source data unchanged", () => {
     "data/ranges/preflop/matrix/index.json", "data/ranges/preflop/matrix/ranges.json"
   ]) assert.ok(fs.statSync(path.join(root, file)).size > 100);
 });
+
+test("V2 main thread uses the strict TypeScript postflop strategy without loading its classic script", () => {
+  const loader = read("frontend/src/legacy/loader.ts");
+  assert.match(loader, /if \(file === "js\/modules\/postflop-strategy\.js"\) \{ installStrategy\(\); continue; \}/);
+  assert.doesNotMatch(loader, /loadClassicScript\("js\/modules\/postflop-strategy\.js"\)/);
+  assert.match(loader, /import \{ installStrategy \} from "\.\.\/solver\/strategy"/);
+});
