@@ -1,19 +1,25 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HomePage } from "./HomePage";
+import { TacticsPage } from "./TacticsPage";
+import { ReviewPage } from "./ReviewPage";
 import shell from "./legacy-shell.html?raw";
 import { loadLegacy } from "../legacy/loader";
 
 export function LegacyApplication() {
   const [failure, setFailure] = useState<string | null>(null);
-  const [homeMount, setHomeMount] = useState<HTMLElement | null>(null);
-  // Claim the existing, stable navigation target before the legacy listeners
-  // attach; subsequent updates to its hidden/class attributes are untouched.
+  const [pageMounts, setPageMounts] = useState<Partial<Record<"home" | "tactics" | "review", HTMLElement>>>({});
+  // Keep the six stable section elements owned by typed navigation; React only
+  // replaces static interior content before V1-compatible modules attach.
   useLayoutEffect(() => {
-    const node = document.querySelector<HTMLElement>('#home[data-module="home"]');
-    if (!node) return;
-    node.replaceChildren();
-    setHomeMount(node);
+    const nodes: Partial<Record<"home" | "tactics" | "review", HTMLElement>> = {};
+    for (const id of ["home", "tactics", "review"] as const) {
+      const node = document.querySelector<HTMLElement>(`#${id}[data-module="${id}"]`);
+      if (!node) continue;
+      node.replaceChildren();
+      nodes[id] = node;
+    }
+    setPageMounts(nodes);
   }, []);
   useEffect(() => {
     let mounted = true;
@@ -24,7 +30,9 @@ export function LegacyApplication() {
   }, []);
   return <>
     <div dangerouslySetInnerHTML={{ __html: shell }} />
-    {homeMount && createPortal(<HomePage />, homeMount)}
+    {pageMounts.home && createPortal(<HomePage />, pageMounts.home)}
+    {pageMounts.tactics && createPortal(<TacticsPage />, pageMounts.tactics)}
+    {pageMounts.review && createPortal(<ReviewPage />, pageMounts.review)}
     {failure && <div role="alert" className="tw-fixed tw-bottom-4 tw-left-4 tw-z-[9999] tw-rounded-xl tw-bg-red-950 tw-p-4 tw-text-white">
       Initialisation impossible : {failure}
     </div>}
