@@ -112,3 +112,5 @@ was **specific to the test server**, not evidence of a missing build asset.
 The smoke server now serves the correct MIME type, asserts an actual decoded
 logo image (`naturalWidth > 0`), and validates the SVG content type.
 The build stage also checks that `dist/assets/icons/pokerlab-mark.svg` exists.
+
+- Keyboard/screen-reader usability: the quick ranges shortcut now focuses the named `#preflop-ranges-section` landmark (`tabIndex=-1`) after scrolling, so subsequent keyboard navigation enters the range explorer instead of proceeding through every lesson card.

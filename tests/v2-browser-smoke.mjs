@@ -246,6 +246,8 @@ async function run() {
     // The ranges section is several screens below the lessons catalog.
     // A dedicated shortcut must make it available immediately on mobile.
     await page.locator(".pl-learning-shortcut").click();
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "preflop-ranges-section",
+      "The range shortcut should transfer keyboard focus into the range region");
     const rangesHeadingPosition = await page.locator("#preflop-ranges-title").evaluate(element =>
       element.getBoundingClientRect().top);
     assert.ok(rangesHeadingPosition >= -1 && rangesHeadingPosition <= 100,

@@ -9,8 +9,12 @@ export function LessonsPage() {
   return <PagePanel title="Apprentissage"
     description="Progresse avec des leçons structurées, puis approfondis les ranges préflop.">
     <div className="pl-learning-shortcuts">
-      <button type="button" className="pl-learning-shortcut" onClick={() =>
-        document.getElementById("preflop-ranges-title")?.scrollIntoView({ block: "start" })}>
+      <button type="button" className="pl-learning-shortcut" onClick={() => {
+        const destination = document.getElementById("preflop-ranges-section");
+        destination?.scrollIntoView({ block: "start" });
+        // Also transfer keyboard/screen-reader focus to the destination.
+        destination?.focus({ preventScroll: true });
+      }}>
         <PokerLabIcon name="ranges" size={18} />
         Accéder aux ranges
         <PokerLabIcon name="arrow-right" size={16} />
@@ -27,7 +31,8 @@ export function LessonsPage() {
           <p className="pl-help-text">Choisis une leçon pour commencer.</p>
         </div>
       </section>
-      <section className="pl-feature-section" aria-labelledby="preflop-ranges-title">
+      <section id="preflop-ranges-section" tabIndex={-1}
+        className="pl-feature-section" aria-labelledby="preflop-ranges-title">
         <SectionHeading id="preflop-ranges-title" icon="ranges">Ranges préflop</SectionHeading>
         <div data-ranges-viewer className="pl-range-viewer-mount">
           <p className="pl-help-text">Chargement des ranges…</p>

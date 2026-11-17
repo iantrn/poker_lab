@@ -150,7 +150,10 @@ test("Phase 5 screenshot audit: compact mobile labels and direct range discovery
   ]) assert.ok(shell.includes(item), "Missing compact navigation label: " + item);
   assert.match(shell, /aria-label=\{ariaLabel\}/);
   assert.match(lessons, /className="pl-learning-shortcut"/);
-  assert.match(lessons, /getElementById\("preflop-ranges-title"\)\?\.scrollIntoView/);
+  assert.match(lessons, /getElementById\("preflop-ranges-section"\)/);
+  assert.match(lessons, /destination\?\.scrollIntoView/);
+  assert.match(lessons, /destination\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(lessons, /tabIndex=\{-1\}/);
   assert.match(design, /\.pl-mobile-link span/);
   assert.match(design, /\.pl-learning-shortcut:focus-visible/);
 });
