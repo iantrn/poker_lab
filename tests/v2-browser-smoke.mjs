@@ -401,6 +401,25 @@ async function run() {
     });
     assert.equal(cachedRanges, true, "Range bundle must be available offline");
     assert.equal(await page.locator("#home").count(),1);
+    // The typed postflop Worker, its WASM binary and dynamic imports must survive airplane mode.
+    const offlineBackend = await page.evaluate(async () => {
+      const worker=window.PokerLabV2.createTypedPostflopWorker();
+      try {
+        return await new Promise((resolve,reject)=>{
+          const timeout=setTimeout(()=>reject(new Error("Offline postflop Worker timeout")),30000);
+          worker.addEventListener("message",event=>{
+            if(event.data?.id!==3009)return;
+            clearTimeout(timeout);
+            if(event.data.ok)resolve(event.data.result);
+            else reject(new Error(event.data.error||"Worker unavailable offline"));
+          });
+          worker.addEventListener("error",event=>reject(new Error(event.message)));
+          worker.postMessage({id:3009,task:"backend"});
+        });
+      }finally{worker.terminate();}
+    });
+    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript"},
+      "Offline typed postflop Worker must bootstrap Rust/WASM");
     assert.equal(pageErrors.length,0,`Runtime errors: ${pageErrors.join("; ")}`);
     console.log("Browser smoke: UI, matrix, WASM Worker, PWA & offline passed");
   } finally {
