@@ -174,3 +174,28 @@ position indicators no longer compete horizontally with player names.
 They remain visible as tiny lower-right chips; the name label now
 has its own row within each player pill. Browser tests assert all six
 names fit their available width.
+
+## Final approved table refinement: 2 horizontal rails and centred hand
+
+- In 6-max, the avatar capsules occupy **three aligned positions above**
+  and **three below** the felt (no seats at the short-side corners). The
+  bottom-centre seat remains the human hero. Smaller player counts use the
+  same two long-side rails.
+- Poker card backs are the **existing uniform navy/blue design**, not the
+  purple tints that appeared in AI-generated *concept* images. Hole-card
+  dimensions are slightly increased (desktop 46 × 67, mobile bot 34 × 49,
+  mobile hero 38 × 56), with no change to face or back drawings.
+- “VOTRE MAIN” is now a compact label-and-strength pill, without connectors,
+  gappers, suitedness, or redundant card descriptors. Legacy evaluator
+  rank words `deux` through `dix` are normalized to digits **in the
+  display only**, never the poker engine.
+- The hand-strength pill is **centred at the exact table midpoint**, aligned
+  with the upper centre seat. Solver is positioned to the right by half
+  the same responsive pill-width formula. The button remains visible and
+  disabled with noticeably lower opacity when not eligible.
+- The five empty community-card outlines now use translucent cream with
+  slightly stronger contrast, without changing the active cards.
+- The fold/call/raise/all-in buttons share a softer, coordinated set of
+  graphite, muted red, forest green and bronze gradients.
+- A taller gap above the felt on phone widths avoids collisions between
+  the centred hand pill and the aligned upper seats.

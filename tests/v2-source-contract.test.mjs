@@ -186,7 +186,22 @@ test("Approved table design retains native playing cards and solver outputs", ()
   assert.match(solver, /button\.disabled = !canAnalyse/);
   assert.match(session, /anchor\.insertAdjacentElement\("afterend", actionsElement\)/);
   assert.match(css, /\.pl-action-btn-raise/);
-  assert.doesNotMatch(css, /\.pl-card(?:\b|--|__)/,
-    "Playing card graphics are protected and cannot be restyled");
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__|\.pl-card--red\b|\.pl-card--black\b/,
+    "Card faces and backs must not be redesigned; only size and empty slots may change");
   assert.match(solver, /GTO intégral non certifié/);
+});
+
+test("Final table review: two horizontal seat rails, numeric ranks, centred hand and Solver", () => {
+  const table = read("frontend/src/components/table.ts");
+  const css = read("frontend/src/styles/poker-table.css");
+  assert.match(table, /6: \[\[50, 88\], \[15, 88\], \[20, 12\], \[50, 12\], \[80, 12\], \[85, 88\]\]/);
+  assert.match(table, /numericRanks\(label: string\)/);
+  assert.match(table, /Hauteur \$\{getRank\(high\)\}/);
+  assert.doesNotMatch(table, /pl-hand-strength-detail",/);
+  assert.match(css, /left: 50% !important;\s*right: auto !important;\s*transform: translateX\(-50%\) !important/);
+  assert.match(css, /left: calc\(50% \+ clamp\(78px, 22\.5vw, 117px\) \+ 9px\)/);
+  assert.match(css, /opacity: \.38/);
+  assert.match(css, /\.pl-board \.pl-card--empty\s*\{\s*border-color:/);
+  assert.match(css, /\.pl-seat \.pl-player-cards > \*/);
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Keep the existing blue card backs");
 });

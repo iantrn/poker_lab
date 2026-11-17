@@ -98,6 +98,12 @@
 #app #training-game #training-table .pl-table-center {
   gap: 12px;
 }
+#app #training-game #training-table .pl-board .pl-card--empty {
+  border-color: rgba(255,237,224,.42);
+}
+#app #training-game #training-table .pl-board .pl-card--empty::after {
+  background: rgba(255,237,224,.33);
+}
 #app #training-game #training-table .pl-pot-display {
   padding: 7px 21px;
   border: 1px solid rgba(241,207,163,.3);
@@ -109,13 +115,18 @@
   font-variant-numeric: tabular-nums;
 }
 #app #training-game #training-table .pl-table-container > .pl-hand-strength {
+  --pl-hand-pill-width: clamp(156px, 45vw, 234px);
   top: 11px !important;
   bottom: auto !important;
   left: 50% !important;
-  transform: translateX(-50%);
-  max-width: min(37%,410px) !important;
-  min-height: 30px;
-  padding: 5px 10px;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  box-sizing: border-box;
+  width: var(--pl-hand-pill-width) !important;
+  max-width: var(--pl-hand-pill-width) !important;
+  height: 34px;
+  min-height: 34px;
+  padding: 4px 9px;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 9px;
   background: rgba(13,17,21,.83);
@@ -275,6 +286,15 @@
   bottom: calc(100% + 8px);
   top: auto;
 }
+/* Changes to the size only: never recolour/redesign the card backs. */
+#app #training-game #training-table .pl-seat .pl-player-cards > * {
+  width: 46px !important;
+  height: 67px !important;
+}
+#app #training-game #training-table .pl-seat-lower .pl-player-cards {
+  bottom: calc(100% + 26px);
+}
+
 #app #training-game #training-table .pl-player-bet {
   bottom: auto;
   top: calc(100% + 62px);
@@ -296,9 +316,11 @@
 #app #training-game .pl-table-solver-dock {
   position: absolute;
   z-index: 40;
-  top: 50%;
-  right: clamp(12px,2vw,26px);
-  transform: translateY(-50%);
+  top: 11px;
+  left: calc(50% + clamp(78px, 22.5vw, 117px) + 9px);
+  right: auto;
+  bottom: auto;
+  transform: none;
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -308,8 +330,8 @@
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  min-height: 42px;
-  padding: 9px 14px;
+  min-height: 34px;
+  padding: 6px 12px;
   border: 1px solid rgba(201,173,104,.66);
   border-radius: 10px;
   background: rgba(21,25,30,.94);
@@ -326,10 +348,11 @@
   color: #ffe5b3;
 }
 #app #training-game .pl-table-solver-dock > .pl-solve-button:disabled {
-  opacity: .64;
+  opacity: .38;
   cursor: not-allowed;
-  border-color: rgba(201,173,104,.3);
+  border-color: rgba(201,173,104,.26);
   color: #c5b59b;
+  box-shadow: none;
 }
 #app #training-game .pl-table-solver-dock > .pl-solve-button:focus-visible {
   outline: 2px solid #f1cd88;
@@ -502,13 +525,13 @@
   text-align: center;
 }
 #app #training-game > #training-actions .pl-action-btn-fold {
-  background: linear-gradient(#626b74,#535c66) !important;
-  border-color: #727b85 !important;
+  background: linear-gradient(#444d55,#303840) !important;
+  border-color: rgba(201,209,216,.28) !important;
   color: white !important;
 }
 #app #training-game > #training-actions .pl-action-btn-call {
-  background: linear-gradient(#d42b3e,#b92235) !important;
-  border-color: #d42b3e !important;
+  background: linear-gradient(#a73847,#792632) !important;
+  border-color: rgba(205,100,110,.43) !important;
   color: white !important;
 }
 #app #training-game > #training-actions .pl-action-btn-check {
@@ -517,13 +540,13 @@
   color: white !important;
 }
 #app #training-game > #training-actions .pl-action-btn-raise {
-  background: linear-gradient(#259259,#1b7848) !important;
-  border-color: #30935c !important;
+  background: linear-gradient(#3b785b,#29533e) !important;
+  border-color: rgba(105,174,137,.44) !important;
   color: white !important;
 }
 #app #training-game > #training-actions .pl-action-btn-allin {
-  background: #81642d !important;
-  border-color: #ae8c4c !important;
+  background: linear-gradient(#7e6843,#5d4d33) !important;
+  border-color: rgba(201,173,104,.48) !important;
   color: white !important;
 }
 #app #training-game > #training-actions .pl-action-bet-controls {
@@ -635,7 +658,7 @@
     max-height: clamp(540px,147vw,650px) !important;
   }
   #app #training-game #training-table .pl-table-container > .pl-felt {
-    top: 48% !important;
+    top: 50% !important;
     width: 94% !important;
     height: 53% !important;
     border-width: 3px !important;
@@ -643,7 +666,15 @@
   }
   #app #training-game #training-table .pl-table-container > .pl-hand-strength {
     top: 43px !important;
-    max-width: 86% !important;
+    max-width: clamp(156px, 45vw, 234px) !important;
+    gap: 5px;
+    padding-inline: 6px;
+  }
+  #app #training-game #training-table .pl-hand-strength-label {
+    font-size: .5rem;
+  }
+  #app #training-game #training-table .pl-hand-strength-value {
+    font-size: .7rem;
   }
   #app #training-game #training-table .pl-table-header {
     min-height: 34px;
@@ -662,6 +693,10 @@
     width: clamp(90px,27vw,132px) !important;
     height: 45px;
   }
+  /* A 19% top rail clears both the centred hand pill and the felt edge. */
+  #app #training-game #training-table .pl-seat-upper {
+    top: 19% !important;
+  }
   #app #training-game #training-table .pl-table-container .pl-seat-hero {
     width: clamp(122px,36vw,158px) !important;
   }
@@ -673,6 +708,17 @@
     width: 46px;
     height: 46px;
     left: -13px;
+  }
+  #app #training-game #training-table .pl-seat .pl-player-cards > * {
+    width: 34px !important;
+    height: 49px !important;
+  }
+  #app #training-game #training-table .pl-seat-hero .pl-player-cards > * {
+    width: 38px !important;
+    height: 56px !important;
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 52px);
   }
   #app #training-game #training-table .pl-player-name { font-size: .67rem; }
   #app #training-game #training-table .pl-player-stack { font-size: .69rem; }
@@ -716,10 +762,15 @@
     padding: 4px 10px;
     min-width: 75px;
   }
-  #app #training-game .pl-table-solver-dock { top: 55%; right: 6px; }
+  #app #training-game .pl-table-solver-dock {
+    top: 43px;
+    left: calc(50% + clamp(78px, 22.5vw, 117px) + 7px);
+    right: auto;
+    transform: none;
+  }
   #app #training-game .pl-table-solver-dock > .pl-solve-button {
-    min-height: 44px;
-    padding: 9px 8px;
+    min-height: 34px;
+    padding: 7px 8px;
     font-size: .67rem;
     border-radius: 9px;
   }
