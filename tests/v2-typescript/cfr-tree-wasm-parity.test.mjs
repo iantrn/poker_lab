@@ -5,7 +5,7 @@ import {readFileSync} from "node:fs";
 import {runInNewContext} from "node:vm";
 import {flattenCfrTree} from "../../frontend/src/solver/tree-adapter.ts";
 const require=createRequire(import.meta.url);
-const wasm=require("../engine/pkg-node");
+const wasm=require("../../engine/pkg-node");
 const old={};
 runInNewContext(readFileSync("js/modules/cfr-core.js","utf8"),{window:old,Float64Array,Map,WeakMap,Math,JSON});
 const core=old.PokerLabCFRCore;
