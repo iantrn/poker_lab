@@ -95,3 +95,41 @@ test("successful typed Web Worker is preferred and never opens a classic Worker"
   assert.equal(api.getActiveKey(),null);
   assert.equal(api.getCacheSize(),1);
 });
+
+test("V2 worker backend can be rolled back to TypeScript without changing normal task protocol",async()=>{
+  const originalLocalStorage=globalThis.localStorage;
+  const {api,created}=harness("success");
+  globalThis.localStorage={
+    getItem(key){return key==="pokerlab_v2_cfr_backend"?"typescript":null;}
+  };
+  try{
+    api.onStateChange();
+    const value=await api.getOrStart();
+    assert.equal(value.strategyError,null);
+    assert.equal(created.length,1);
+    assert.deepEqual(created[0].messages.map(msg=>msg.task),["equity","strategy"]);
+    assert.equal(Object.hasOwn(created[0].messages[0],"experimentalRustCfr"),false);
+    assert.equal(created[0].messages[1].experimentalRustCfr,false,
+      "Persisted rollback must force the TypeScript solver");
+  }finally{
+    if(originalLocalStorage===undefined)delete globalThis.localStorage;
+    else globalThis.localStorage=originalLocalStorage;
+  }
+});
+
+test("V2 explicit Rust override is carried only by postflop strategy tasks",async()=>{
+  const originalLocalStorage=globalThis.localStorage;
+  const {api,created}=harness("success");
+  globalThis.localStorage={
+    getItem(key){return key==="pokerlab_v2_cfr_backend"?"rust":null;}
+  };
+  try{
+    api.onStateChange();
+    await api.getOrStart();
+    assert.equal(created[0].messages[1].experimentalRustCfr,true);
+    assert.equal(Object.hasOwn(created[0].messages[0],"experimentalRustCfr"),false);
+  }finally{
+    if(originalLocalStorage===undefined)delete globalThis.localStorage;
+    else globalThis.localStorage=originalLocalStorage;
+  }
+});
