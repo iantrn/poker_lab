@@ -9,6 +9,9 @@ const MAX_NODES:usize=250_000;
 // Bound session-owned topologies so caching cannot exhaust mobile WASM memory.
 const MAX_PREPARED_TREES:usize=2048;
 const MAX_PREPARED_NODES:usize=1_000_000;
+// Bound serialized batch payload (<2 MiB per group), independent of tree size.
+const MAX_PREPARED_BATCH:usize=16;
+const MAX_BATCH_ELEMENTS:usize=174_762; // 174762 * (4+8) bytes < 2 MiB
 
 #[derive(Clone,Copy)]
 struct Node {actor:i8,info:usize,start:usize,len:usize,payoff:f64}
@@ -123,6 +126,15 @@ impl CfrSession {
         self.step_prepared_internal(handle,ids,payoffs,chance_weight)
             .map_err(JsValue::from_str)
     }
+    /// Validate an entire batch before any CFR+ state mutation. Each sample
+    /// must use the same prepared public topology; private IDs, payoffs and
+    /// importance weights may change between samples.
+    pub fn step_prepared_batch(
+        &mut self,handle:u32,ids:&[u32],payoffs:&[f64],chance_weights:&[f64]
+    )->Result<u32,JsValue>{
+        self.step_prepared_batch_internal(handle,ids,payoffs,chance_weights)
+            .map_err(JsValue::from_str)
+    }
     pub fn average_strategy(&self)->Vec<f64>{
         let mut result=Vec::new();
         for info in &self.infos {
@@ -217,6 +229,72 @@ impl CfrSession {
                 &mut reach,average_weight,chance_weight);
         }
         self.steps+=1;
+        Ok(self.steps)
+    }
+
+    pub(crate) fn step_prepared_batch_internal(
+        &mut self,handle:u32,ids:&[u32],payoffs:&[f64],weights:&[f64]
+    )->Result<u32,&'static str>{
+        let topology=self.prepared.get(handle as usize)
+            .ok_or("Unknown prepared CFR+ topology")?;
+        let n=topology.nodes.len();
+        let batch=weights.len();
+        let elements=n.checked_mul(batch)
+            .ok_or("Oversized CFR+ sample batch")?;
+        if batch==0||batch>MAX_PREPARED_BATCH||elements>MAX_BATCH_ELEMENTS||
+            ids.len()!=elements||payoffs.len()!=elements||
+            (self.steps as usize).checked_add(batch).map_or(true,|n|n>1_000_000)||
+            weights.iter().any(|w|!w.is_finite()||*w<0.)||
+            payoffs.iter().any(|v|!v.is_finite()){
+            return Err("Invalid or oversized prepared CFR+ batch");
+        }
+        // Preflight the global, sequential info-set allocation across ALL
+        // samples, not just each sample in isolation. A rejected batch must
+        // leave regrets, average strategies and iteration counters unchanged.
+        let known=self.infos.len();
+        let mut new_infos:Vec<(i8,usize)>=Vec::new();
+        for sample in 0..batch {
+            let start=sample*n;
+            for (index,node) in topology.nodes.iter().enumerate(){
+                if node.actor<0 {continue;}
+                let id=ids[start+index] as usize;
+                let expected=(node.actor,node.len);
+                if id<known {
+                    let info=&self.infos[id];
+                    if (info.actor,info.len)!=expected {
+                        return Err("Inconsistent persistent information set");
+                    }
+                } else {
+                    let next=id-known;
+                    if next>new_infos.len(){
+                        return Err("CFR+ information set IDs contain gaps");
+                    }
+                    if next==new_infos.len(){new_infos.push(expected);}
+                    else if new_infos[next]!=expected {
+                        return Err("Inconsistent new information set");
+                    }
+                }
+            }
+        }
+        // Only after successful validation may we allocate information sets
+        // and traverse. Their zeroed initial state is independent of whether
+        // later samples have already reserved their IDs.
+        for (actor,len) in new_infos {self.infos.push(Info::new(actor,len));}
+        let topology=self.prepared.get_mut(handle as usize).unwrap();
+        for sample in 0..batch {
+            let start=sample*n;
+            for (index,node) in topology.nodes.iter_mut().enumerate(){
+                node.info=ids[start+index] as usize;
+                node.payoff=payoffs[start+index];
+            }
+            let average_weight=self.steps as f64+1.;
+            for player in 0..2 {
+                let mut reach=[1.,1.];
+                traverse(&topology.nodes,&topology.edges,&mut self.infos,0,player,
+                    &mut reach,average_weight,weights[sample]);
+            }
+            self.steps+=1;
+        }
         Ok(self.steps)
     }
 
@@ -392,6 +470,65 @@ mod tests {
         assert_eq!(session.average_strategy(),before);
         session.step_prepared_internal(handle,&ids,&good,1.).unwrap();
         assert_eq!(session.iterations(),2);
+    }
+
+
+    #[test]
+    fn prepared_batch_matches_sequential_samples_exactly(){
+        let mut batched=CfrSession::new();
+        let mut serial=CfrSession::new();
+        let actors=[0,1,1,-1,-1,-1,-1];
+        let offsets=[0,2,4,6,6,6,6];
+        let counts=[2,2,2,0,0,0,0];
+        let edges=[1,2,3,4,5,6];
+        let handle=batched.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        let serial_handle=serial.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        let mut ids=Vec::new();
+        let mut payoffs=Vec::new();
+        let mut weights=Vec::new();
+        for i in 0..16 {
+            let group=(i%4) as u32;
+            let info=[2*group,2*group+1,2*group+1,0,0,0,0];
+            let utility=if i%2==0 {[0.,0.,0.,1.,-1.,-1.,1.]}
+                else {[0.,0.,0.,-2.,1.,2.,-1.]};
+            let weight=if i%3==0 {1.5}else{0.25};
+            ids.extend_from_slice(&info);
+            payoffs.extend_from_slice(&utility);
+            weights.push(weight);
+            serial.step_prepared_internal(serial_handle,&info,&utility,weight).unwrap();
+        }
+        assert_eq!(batched.step_prepared_batch_internal(handle,&ids,&payoffs,&weights).unwrap(),16);
+        assert_eq!(batched.information_set_count(),serial.information_set_count());
+        assert_eq!(batched.average_strategy(),serial.average_strategy());
+        assert_eq!(batched.iterations(),serial.iterations());
+    }
+    #[test]
+    fn invalid_prepared_batch_is_atomic_and_recoverable(){
+        let mut session=CfrSession::new();
+        let actors=[0,1,1,-1,-1,-1,-1];
+        let offsets=[0,2,4,6,6,6,6];
+        let counts=[2,2,2,0,0,0,0];
+        let edges=[1,2,3,4,5,6];
+        let handle=session.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        let info=[0,1,1,0,0,0,0];
+        let utility=[0.,0.,0.,1.,-1.,-1.,1.];
+        session.step_prepared_internal(handle,&info,&utility,1.).unwrap();
+        let before=session.average_strategy();
+        let ids=[0,1,1,0,0,0,0, 2,4,4,0,0,0,0];
+        let payoffs=[0.,0.,0.,1.,-1.,-1.,1.,
+                     0.,0.,0.,-1.,1.,1.,-1.];
+        assert!(session.step_prepared_batch_internal(handle,&ids,&payoffs,&[1.,1.]).is_err());
+        assert_eq!(session.iterations(),1);
+        assert_eq!(session.information_set_count(),2);
+        assert_eq!(session.average_strategy(),before);
+        let mut bad=payoffs;
+        bad[9]=f64::NAN;
+        assert!(session.step_prepared_batch_internal(handle,&ids,&bad,&[1.,1.]).is_err());
+        assert!(session.step_prepared_batch_internal(handle,&ids[..7],&payoffs,&[1.,1.]).is_err());
+        assert_eq!(session.iterations(),1);
+        let ids=[0,1,1,0,0,0,0, 2,3,3,0,0,0,0];
+        session.step_prepared_batch_internal(handle,&ids,&payoffs,&[1.,1.]).unwrap();
+        assert_eq!(session.iterations(),3);
     }
 
     #[test]
