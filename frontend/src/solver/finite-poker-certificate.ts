@@ -117,9 +117,14 @@ export function quantizePolicy(
   const total=frequencies.reduce((sum,v)=>sum+v,0);
   if(Math.abs(total-1)>1e-8)
     throw new RangeError("La stratégie CFR doit être normalisée.");
-  const exact=frequencies.map(v=>v*scale);
+  // Normalize within the accepted floating point input tolerance before
+  // quantization; otherwise 1e-9 of rounding error can leave extra chips
+  // in an otherwise integer rational probability profile.
+  const exact=frequencies.map(v=>v/total*scale);
   const integer=exact.map(Math.floor);
-  let remainder=scale-integer.reduce((sum,n)=>sum+n,0);
+  const remainder=scale-integer.reduce((sum,n)=>sum+n,0);
+  if(remainder<0||remainder>frequencies.length)
+    throw new RangeError("Quantification de stratégie impossible.");
   const ranked=exact.map((v,i)=>({i,fraction:v-Math.floor(v)}))
     .sort((a,b)=>b.fraction-a.fraction||a.i-b.i);
   for(let i=0;i<remainder;i++)integer[ranked[i]!.i]!++;
