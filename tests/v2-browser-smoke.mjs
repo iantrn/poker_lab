@@ -145,6 +145,28 @@ async function run() {
     });
     assert.deepEqual(concurrency, { first: "AbortError", second: [9,14] });
 
+    // Every exported Rust/WASM engine function must execute in a real Worker.
+    const wasmPaths = await page.evaluate(async () => {
+      const solver = window.PokerLabV2.solver;
+      const equity = await solver.calculate({
+        kind: "equity", holes: [0x12,0x13,0x22,0x23],
+        board: [0x0e,0x0d,0x0c,0x0b,0x0a], iterations: 100, seed: 11
+      });
+      const range = await solver.calculate({
+        kind: "range", cards: [0x02,0x13,0x24,0x35,0x06], weights: [1], width: 5
+      });
+      const cfr = await solver.calculate({
+        kind: "cfr", payoffs: [1,-1,-1,1], rows: 2, cols: 2, iterations: 10000
+      });
+      return { equity, range, cfr };
+    });
+    assert.deepEqual(wasmPaths.equity, [0,1,0], "Known royal-flush board must split");
+    assert.equal(wasmPaths.range[4], 1, "Weighted histogram must classify straight");
+    assert.equal(wasmPaths.range.reduce((a,b) => a+b,0), 1);
+    assert.equal(wasmPaths.cfr.length, 4);
+    for (const probability of wasmPaths.cfr)
+      assert.ok(Math.abs(probability - 0.5) < 0.04, "CFR+ equilibrium must be mixed");
+
     const registration = await page.evaluate(async () => {
       const worker = await navigator.serviceWorker.ready;
       return Boolean(worker.active);
