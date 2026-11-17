@@ -468,6 +468,8 @@ export async function solveMultiway(
   return {
     algorithm:"CFR+ multiway échantillonné",
     quality:"sampled_estimate" as const,provisional:false,
+    fullGameGtoCertified:false as const,
+    certificationScope:"none — sampled abstract multiway game" as const,
     street:state.street,iterations:session.iterations(),
     requestedIterations:requested,
     modeledStreets:game.streetsModeled,
