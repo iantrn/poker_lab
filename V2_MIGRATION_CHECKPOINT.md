@@ -46,6 +46,39 @@
   backfill et suppression. Aucun basculement asynchrone destructif n'est
   requis pour terminer la migration du code.
 
+## Nettoyage pré-fusion sur la branche de migration
+
+Audit de l'arbre Git réalisé avant toute suppression ; aucun dossier
+`node_modules`, `dist`, `target` ou WASM généré n'était versionné.
+Les fichiers suivants étaient réellement redondants ou obsolètes :
+
+- **2 606 JSON de spots préflop individuels** sous
+  `data/ranges/preflop/matrix/{bb,bu,co,mp,sb,utg}/`.
+  Chaque identifiant est présent dans `matrix/index.json` **et** dans
+  `matrix/ranges.json` (contrôle exhaustif 2 606/2 606).
+  Le visualiseur TypeScript et le module V1 résiduel chargent le bundle
+  unique, sans requête de repli vers un JSON individuel. En cas d'erreur
+  de chargement, une nouvelle tentative reste possible.
+- **6 anciens placeholders cash-6max** (manifest et 5 ranges vides
+  `pending-source`), sans source ni données utilisables.
+- **1 duplication HTML** `frontend/src/ui/legacy-shell.html` :
+  les tests utilisent le `index.html` V1 de référence directement.
+- **1 déclaration de module `*.html?raw`** non utilisée après la
+  disparition du bootstrap HTML injecté.
+
+Le générateur de ranges n'émet désormais que l'index et le bundle.
+Le `.gitignore` empêche de recommitter les sorties individuelles et
+les artefacts temporaires. Des tests garantissent l'absence de copies et
+l'intégrité des **2 606 spots conservés**.
+
+Le build Vite ne distribue plus la totalité du dossier `js/` ou les
+CSS bruts en double : il compile la V2, copie les assets et les données
+et retient uniquement les **cinq modules V1 requis par les Workers de
+secours**. Les fichiers sources JS V1, les Workers de repli, le
+`index.html` historique, les schémas de données, les tests et les
+workflows de validation sont conservés dans Git pour la réversibilité.
+Aucune suppression de l'application V1 sur `main` n'a eu lieu.
+
 ## Validation automatisée
 
 `.github/workflows/v2-migration.yml` valide les étapes suivantes :
