@@ -2,6 +2,7 @@
 //! The full PokerLab postflop tree stays on the proven legacy worker until parity.
 
 pub mod tree;
+pub mod session;
 
 /// Regret matching on preallocated buffers (no heap allocation per iteration).
 #[inline]
