@@ -48,3 +48,11 @@ Semantic colors for folding, calling, raising, all-in and range frequencies rema
 - Navigation uses the existing `PokerLabNavigation` hash router.
 - Next stages: repeated shell panels/forms, range visualizations, SOLVE dialog and responsive action panel.
 - Before merge: CI V2, Chromium/WebKit smoke, manual visual comparisons at 390 / 768 / 1365 px, focus/contrast and iPhone Safari when possible.
+
+## Contrast review (effective colors)
+
+- Primary body text `#f2f4f5` on main red `#c93645`: approximately **4.65:1** (normal-size AA).
+- Secondary text `#b5bdc2` on surface `#1e2327`: approximately **8.32:1**.
+- Muted text `#899399` on surface `#1e2327`: approximately **5.05:1**.
+- Existing brighter red `#d94755` is appropriate for non-text accents on the dark surface but is **not** used for small labels or a hover button background with light text (insufficient contrast).
+- Button hover mixes 90% of the existing red with 10% of the existing background, creating a darker tonal variant rather than a new hue.

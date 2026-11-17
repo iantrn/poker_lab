@@ -130,7 +130,8 @@
 }
 #app .pl-home-eyebrow {
   margin: 0 0 var(--pl-space-2);
-  color: var(--pl-color-accent-hover);
+  /* Small text uses existing gold: red on the dark background falls short of 4.5:1. */
+  color: var(--pl-color-selection);
   font-size: .76rem;
   font-weight: 700;
   letter-spacing: .075em;
@@ -214,8 +215,9 @@
   color: var(--pl-color-text);
 }
 #app .pl-button:hover:not(:disabled) {
-  background: var(--pl-color-accent-hover);
-  border-color: var(--pl-color-accent-hover);
+  /* Darker tonal variant preserves text contrast; no new palette hue. */
+  background: color-mix(in srgb, var(--pl-color-accent) 90%, var(--pl-color-background));
+  border-color: var(--pl-color-accent);
 }
 #app .pl-form-control {
   background: var(--pl-color-background);
