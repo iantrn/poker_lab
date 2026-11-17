@@ -107,3 +107,106 @@ test("non-gating prepared vs legacy Rust CFR+ throughput benchmark",()=>{
     correctness:"identical strategy"
   }));
 });
+
+
+test("batched prepared WASM CFR+ reproduces sequential weighted updates exactly",()=>{
+  const serial=new CfrSession(),batched=new CfrSession();
+  const s=serial.prepare_tree(actors,offsets,counts,edges);
+  const b=batched.prepare_tree(actors,offsets,counts,edges);
+  for(let group=0;group<60;group++){
+    const size=group%4===0?1:group%4===1?3:group%4===2?7:16;
+    const batchIds=new Uint32Array(size*actors.length);
+    const batchPayoffs=new Float64Array(size*actors.length);
+    const weights=new Float64Array(size);
+    for(let i=0;i<size;i++){
+      const index=(group*16+i)%111;
+      // Information sets appear in first-encounter order, even when multiple
+      // samples share a previously learned private hand.
+      const hand=ids[index%ids.length];
+      const values=payoffs[(index*7)%payoffs.length];
+      const weight=index%5===0?2.5:0.75;
+      batchIds.set(hand,i*actors.length);
+      batchPayoffs.set(values,i*actors.length);
+      weights[i]=weight;
+      serial.step_prepared(s,hand,values,weight);
+    }
+    assert.equal(batched.step_prepared_batch(b,batchIds,batchPayoffs,weights),
+      serial.iterations());
+    assert.equal(batched.information_set_count(),serial.information_set_count());
+    assert.deepEqual(Array.from(batched.average_strategy()),
+      Array.from(serial.average_strategy()));
+  }
+});
+test("invalid WASM batch rolls back all new IDs and regret changes",()=>{
+  const session=new CfrSession();
+  const handle=session.prepare_tree(actors,offsets,counts,edges);
+  session.step_prepared(handle,ids[0],payoffs[0],1);
+  const before=Array.from(session.average_strategy());
+  const batchIds=new Uint32Array([...ids[0],0,5,5,0,0,0,0]);
+  const batchPayoffs=new Float64Array([...payoffs[0],...payoffs[1]]);
+  assert.throws(()=>session.step_prepared_batch(handle,batchIds,batchPayoffs,
+    new Float64Array([1,1])),/information set IDs contain gaps/);
+  assert.equal(session.iterations(),1);
+  assert.equal(session.information_set_count(),2);
+  assert.deepEqual(Array.from(session.average_strategy()),before);
+  batchIds.set(ids[1],actors.length);
+  batchPayoffs[actors.length+3]=NaN;
+  assert.throws(()=>session.step_prepared_batch(handle,batchIds,batchPayoffs,
+    new Float64Array([1,1])));
+  batchPayoffs[actors.length+3]=payoffs[1][3];
+  assert.throws(()=>session.step_prepared_batch(handle,batchIds,batchPayoffs,
+    new Float64Array([1,-1])));
+  assert.throws(()=>session.step_prepared_batch(handle,batchIds,batchPayoffs,
+    new Float64Array([1])));
+  assert.throws(()=>session.step_prepared_batch(handle,batchIds,batchPayoffs,
+    new Float64Array(17)));
+  assert.equal(session.iterations(),1);
+  assert.deepEqual(Array.from(session.average_strategy()),before);
+  assert.equal(session.step_prepared_batch(handle,batchIds,batchPayoffs,
+    new Float64Array([1,1])),3);
+});
+
+test("non-gating WASM batch benchmark compares equal sample streams and strategies",()=>{
+  const sampleCount=4096,chunk=8,rounds=5;
+  function measure(batched){
+    const times=[];
+    let results=[];
+    for(let run=0;run<rounds;run++){
+      const session=new CfrSession();
+      const handle=session.prepare_tree(actors,offsets,counts,edges);
+      const batchIds=new Uint32Array(chunk*actors.length);
+      const batchPayoffs=new Float64Array(chunk*actors.length);
+      const weights=new Float64Array(chunk);
+      const start=performance.now();
+      for(let i=0;i<sampleCount;i+=chunk){
+        for(let j=0;j<chunk;j++){
+          const at=i+j;
+          const hand=ids[at%ids.length];
+          const values=payoffs[(at*7)%payoffs.length];
+          const weight=at%11===0?2.25:0.5;
+          if(batched){
+            batchIds.set(hand,j*actors.length);
+            batchPayoffs.set(values,j*actors.length);
+            weights[j]=weight;
+          }else session.step_prepared(handle,hand,values,weight);
+        }
+        if(batched)session.step_prepared_batch(handle,batchIds,batchPayoffs,weights);
+      }
+      times.push(performance.now()-start);
+      results=Array.from(session.average_strategy());
+    }
+    const ordered=times.toSorted((a,b)=>a-b);
+    return {times,p50:ordered[2],p95:ordered[4],results};
+  }
+  const before=measure(false),after=measure(true);
+  assert.deepEqual(after.results,before.results);
+  console.log("WASM CFR+ batching benchmark: "+JSON.stringify({
+    samples:sampleCount,chunk,rounds,
+    serialMs:before.times.map(v=>+v.toFixed(3)),
+    batchMs:after.times.map(v=>+v.toFixed(3)),
+    serialP50Ms:+before.p50.toFixed(3),batchP50Ms:+after.p50.toFixed(3),
+    serialP95Ms:+before.p95.toFixed(3),batchP95Ms:+after.p95.toFixed(3),
+    speedupP50:+(before.p50/Math.max(after.p50,0.00001)).toFixed(2),
+    parity:"identical"
+  }));
+});
