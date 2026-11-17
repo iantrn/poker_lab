@@ -36,6 +36,7 @@ interface HistoryEvent {
   data: HistoryData; canRaiseBefore?: boolean;
 }
 interface WeightedCombo { cards: PokerCard[]; weight: number; }
+interface RichCard extends PokerCard {id:string;rank:string;symbol:string|undefined;}
 interface RangeInfo {
   combos: WeightedCombo[] | null; label: string;
   rangeUsed?: boolean; rangeError?: string;
@@ -64,12 +65,12 @@ function createPostflopSolver(global: PostflopGlobals) {
             ? card.value + "_" + card.suit : null;
     }
 
-    function toCard(value: number, suit: string): PokerCard {
-        const labels = { 11: "J", 12: "Q", 13: "K", 14: "A" };
+    function toCard(value: number, suit: string): RichCard {
+        const labels: Record<number,string> = { 11: "J", 12: "Q", 13: "K", 14: "A" };
         return {
             id: value + "_" + suit, value, suit,
             rank: labels[value] || String(value),
-            symbol: ({clubs:"♣",diamonds:"♦",hearts:"♥",spades:"♠"})[suit]
+            symbol: ( {clubs:"♣",diamonds:"♦",hearts:"♥",spades:"♠"} as Record<string,string> )[suit]
         };
     }
 
@@ -103,13 +104,13 @@ function createPostflopSolver(global: PostflopGlobals) {
 
     function score(hero: PokerCard[], villain: PokerCard[], board: PokerCard[], heroCardsBuffer: PokerCard[], villainCardsBuffer: PokerCard[]): number {
         const evaluator = global.PokerLabHandEvaluator;
-        heroCardsBuffer[0] = hero[0];
-        heroCardsBuffer[1] = hero[1];
-        villainCardsBuffer[0] = villain[0];
-        villainCardsBuffer[1] = villain[1];
+        heroCardsBuffer[0] = hero[0]!;
+        heroCardsBuffer[1] = hero[1]!;
+        villainCardsBuffer[0] = villain[0]!;
+        villainCardsBuffer[1] = villain[1]!;
         for (let index = 0; index < board.length; index++) {
-            heroCardsBuffer[index + 2] = board[index];
-            villainCardsBuffer[index + 2] = board[index];
+            heroCardsBuffer[index + 2] = board[index]!;
+            villainCardsBuffer[index + 2] = board[index]!;
         }
         const a = evaluator.evaluate(heroCardsBuffer).score;
         const b = evaluator.evaluate(villainCardsBuffer).score;
@@ -172,7 +173,7 @@ function createPostflopSolver(global: PostflopGlobals) {
         const actorIndex = preflop.map(event => event.data.playerId).lastIndexOf(opponent.id);
         if (actorIndex < 0) return { combos: null, label: "Range large (non renseignée)" };
 
-        const positions = new Map(state.players.map(player => [player.id, player.position]));
+        const positions = new Map<string,string|null|undefined>(state.players.map(player => [player.id, player.position] as const));
         const prefix: string[] = [];
         let aggressorNumber = 0;
         let targetCode = null;
@@ -207,7 +208,7 @@ function createPostflopSolver(global: PostflopGlobals) {
         }
 
         const weighted: WeightedCombo[] = [];
-        const range = matrix.ranges[spot.id];
+        const range = matrix.ranges[spot.id]!;
         for (let a = 2; a <= 14; a++) for (let b = 2; b <= a; b++) {
             const pairClass = handClass(a, b, true);
             const suitedClass = handClass(a, b, true);
@@ -320,7 +321,7 @@ function createPostflopSolver(global: PostflopGlobals) {
     function estimateBotHandStrength(holeCards: PokerCard[], board: PokerCard[]): number {
         const result = global.PokerLabHandEvaluator.evaluate([...holeCards, ...board]);
         const categoryStrength = [0.24, 0.40, 0.56, 0.68, 0.78, 0.84, 0.91, 0.96, 0.985, 0.995];
-        let strength = categoryStrength[result.score[0]] ?? 0.5;
+        let strength = categoryStrength[result.score[0] ?? 0] ?? 0.5;
         if (Array.isArray(result.score) && result.score.length > 1) {
             const kickerSum = result.score.slice(1).reduce((sum, value) =>
                 sum + (Number.isFinite(value) ? value : 0), 0);
@@ -507,7 +508,7 @@ function createPostflopSolver(global: PostflopGlobals) {
                     ? actionModel.model(strength)
                     : null;
 
-                if (!Number.isFinite(likelihood)) {
+                if (typeof likelihood !== "number" || !Number.isFinite(likelihood)) {
                     if (action === "check") {
                         likelihood = 0.25 + (1 - strength) * 0.75;
                     } else if (action === "call" || action === "all_in_call") {
@@ -697,7 +698,7 @@ function createPostflopSolver(global: PostflopGlobals) {
     }
 
     return { analyse, validateState, getOpponentRange, getPlayerRange, createInput, resolveInput, conditionRangeOnPostflopActions };
-}}
+}
 export type PostflopSolverApi = ReturnType<typeof createPostflopSolver>;
 export function installPostflopSolver(): PostflopSolverApi {
     const target = window as unknown as Window & PostflopGlobals & { PokerLabPostflopSolver?: PostflopSolverApi };
