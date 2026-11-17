@@ -223,7 +223,8 @@ test("full PokerLab river solve uses compiled payoff batches without changing EV
    };
  });
  const opts={iterations:10,samples:8,seed:20261117,
-   evaluationSamples:16,exploitabilitySamples:8};
+   evaluationSamples:16,exploitabilitySamples:8,
+   experimentalCompiledPayoffs:true};
  const baseline=makeTyped();
  const original=simplify(await baseline.solvePostflop(state(),[],opts));
  const optimized=simplify(await rust.solvePostflop(state(),[],opts));
@@ -261,7 +262,8 @@ test("diagnostic full-solver benchmark compares compact and normal Rust batches 
    for(const mode of order){
      const solver=mode==="compact"?makeRustTyped():makeRustTyped(vanillaRustFactory);
      const t0=performance.now();
-     const result=simplify(await solver.solvePostflop(state(),[],opts));
+     const result=simplify(await solver.solvePostflop(state(),[],mode==="compact"
+       ?{...opts,experimentalCompiledPayoffs:true}:opts));
      results[mode].push(performance.now()-t0);
      if(!expected)expected=result;
      else assertNumericallyEquivalent(result,expected,mode+"-run-"+attempt);
@@ -277,4 +279,34 @@ test("diagnostic full-solver benchmark compares compact and normal Rust batches 
    relativeP50:+(median(results.plain)/median(results.compact)).toFixed(3),
    parity:"frequencies EV NashConv identical"
  }));
+});
+
+
+test("default postflop Rust solver does not enable slower compiled payouts",async()=>{
+ const counters={compiled:0,plain:0,prepared:0};
+ const rust=makeRustTyped(()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree:(...args)=>engine.prepare_tree(...args),
+     prepare_payoffs(...args){counters.prepared++;return engine.prepare_payoffs(...args);},
+     step_prepared_outcome_batch(...args){
+       counters.compiled++;return engine.step_prepared_outcome_batch(...args);
+     },
+     step_prepared_batch(...args){
+       counters.plain++;return engine.step_prepared_batch(...args);
+     },
+     step_prepared:(...args)=>engine.step_prepared(...args),
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const result=await rust.solvePostflop(state(),[],{
+   iterations:10,samples:8,seed:20261117,evaluationSamples:16,exploitabilitySamples:8
+ });
+ assert.equal(result.iterations,80);
+ assert.ok(counters.plain>0,"default batching path must execute");
+ assert.equal(counters.compiled,0);
+ assert.equal(counters.prepared,0);
 });
