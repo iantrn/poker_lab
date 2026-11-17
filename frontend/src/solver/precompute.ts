@@ -214,8 +214,26 @@ export function installSolverPrecompute(): PrecomputeApi {
     task.currentTask = type;
     task.requestId = ++taskSequence;
     notify({ key: task.key, version: task.version, phase: type, progress: 0 });
-    try { task.worker!.postMessage({ id: task.requestId, task: type, input: task.input }); }
-    catch (error: unknown) { settleError(task, error instanceof Error ? error : new Error(String(error))); }
+    try {
+      // Local rollback switch for the V2 Rust CFR+ migration. Absent means
+      // automatic Rust with TS fallback; "typescript" forces the proven
+      // TypeScript solver without rebuilding or redeploying the PWA.
+      let preference:string|null=null;
+      if(type==="strategy" && typeof localStorage!=="undefined"){
+        try{preference=localStorage.getItem("pokerlab_v2_cfr_backend");}
+        catch{preference=null;}
+      }
+      const strategyBackend=type==="strategy" && (
+        preference==="typescript"?{experimentalRustCfr:false}:
+        preference==="rust"?{experimentalRustCfr:true}:{}
+      );
+      task.worker!.postMessage({
+        id:task.requestId,task:type,input:task.input,
+        ...strategyBackend
+      });
+    }catch(error:unknown){
+      settleError(task,error instanceof Error?error:new Error(String(error)));
+    }
   }
   function cancel(reason?: string): void {
     if (!active) return;
