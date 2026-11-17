@@ -306,7 +306,7 @@ function createStrategy(global:StrategyGlobal){
             for (let offset = 1; offset <= state.players.length; offset++) {
                 const seat = (state.dealerIndex! + offset) % state.players.length;
                 if (activeIds.has(state.players[seat]!.id)) {
-                    postflopFirstActorId = state.players[seat].id;
+                    postflopFirstActorId = state.players[seat]!.id;
                     break;
                 }
             }
