@@ -164,3 +164,21 @@ test("flop and turn multiway games are labeled checkdown, not full-street GTO",a
    assert.equal(result.nashConv,null);
  }
 });
+
+
+test("multiway money-equity excludes side pots the hero cannot win",async()=>{
+ const state=makeInput(3);
+ state.players[0].totalContribution=5;
+ state.players[1].totalContribution=20;
+ state.players[2].totalContribution=20;
+ state.pot=45;
+ const strategic=createStrategicGameState(state);
+ const result=await analyzeMultiwayEquity(strategic,env(),{
+   iterations:300,seed:1
+ });
+ // Hero has the best hand in every sample but can collect only the 15-chip
+ // main pot; the remaining 30-chip side pot is reserved for opponents.
+ assert.equal(result.wins,300);
+ assert.ok(Math.abs(result.equity-1/3)<1e-12);
+ assert.match(result.note,/pots secondaires/);
+});
