@@ -67,3 +67,32 @@ test("UI phase 1 uses scoped palette aliases and protects card rendering", () =>
   assert.match(mark, /viewBox="0 0 64 64"/);
   assert.doesNotMatch(shell, /[🎯📚⚙]/u);
 });
+
+test("Phase 2 page primitives preserve dynamic runtime mounts and game-card isolation", () => {
+  const primitives = read("frontend/src/ui/PagePrimitives.tsx");
+  assert.match(primitives, /pl-page-panel/);
+  assert.match(primitives, /className="bg-surface/);
+  for (const page of ["TrainingPage", "TacticsPage", "LessonsPage", "ReviewPage", "SettingsPage"]) {
+    const source = read("frontend/src/ui/" + page + ".tsx");
+    assert.match(source, /<PagePanel\b/, page + " must use the shared shell");
+  }
+  const training = read("frontend/src/ui/TrainingPage.tsx");
+  for (const hook of ['id="training-configuration"', 'id="training-game"', 'id="training-table"', 'id="training-actions"',
+    'data-training-action="start"', 'data-training-action="reset"', 'data-training-action="stop"',
+    'data-training-setting="gameMode"', 'data-training-setting="playerCount"',
+    'data-training-setting="difficulty"', 'data-training-setting="startingStackBB"'])
+    assert.ok(training.includes(hook), "Training runtime hook removed: " + hook);
+  const tactics = read("frontend/src/ui/TacticsPage.tsx");
+  for (const hook of ['data-puzzle-action="start"', 'data-puzzle-category', 'data-puzzle-difficulty', 'data-puzzles-container'])
+    assert.ok(tactics.includes(hook), "Puzzle runtime hook removed: " + hook);
+  const lessons = read("frontend/src/ui/LessonsPage.tsx");
+  for (const hook of ['data-lessons-progress', 'data-lessons-catalog', 'data-lesson-content', 'data-ranges-viewer'])
+    assert.ok(lessons.includes(hook), "Lesson or range runtime hook removed: " + hook);
+  const review = read("frontend/src/ui/ReviewPage.tsx");
+  for (const hook of ['data-review-history', 'data-review-detail'])
+    assert.ok(review.includes(hook), "Review runtime hook removed: " + hook);
+  assert.match(read("frontend/src/ui/SettingsPage.tsx"), /id="settings-content"/);
+  const design = read("frontend/src/styles/design-system.css");
+  assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/, "New UI must not modify poker card CSS");
+  assert.match(design, /min-height:\s*44px/, "Touch control size must not be regressed");
+});

@@ -119,6 +119,12 @@ async function run() {
     assert.equal(await page.locator("#training-player-count").inputValue(),"2");
     await page.locator("#training-mode").selectOption("6max");
     assert.equal(await page.locator("#training-player-count").inputValue(),"6");
+    assert.equal(await page.locator('#training .pl-page-panel').count(), 1);
+    assert.equal(await page.locator('#training .pl-training-notes .pl-training-note').count(), 2);
+    const setupSizes = await page.locator('#training-configuration .pl-field-control').evaluateAll(
+      elements => elements.map(element => element.getBoundingClientRect().height));
+    assert.ok(setupSizes.length === 4 && setupSizes.every(height => height >= 44),
+      "Training configuration controls must be touch accessible");
 
 
     // A complete V2 game session must render six seats and preserve the V1 action mount.
@@ -184,6 +190,8 @@ async function run() {
     assert.equal(await page.locator("#review").isVisible(), true);
     assert.equal(await page.locator('#review [data-review-history]').count(),1);
     assert.equal(await page.locator('#review [data-review-detail]').count(),1);
+    assert.equal(await page.locator('#review .pl-review-column').count(), 2);
+    assert.equal(await page.locator('#review .pl-page-panel').count(), 1);
     await page.locator("[data-review-history] .pl-review-empty").waitFor({ timeout: 30000 });
 
     // Responsive behavior: mobile navigation is usable at phone width.
@@ -196,6 +204,13 @@ async function run() {
     await page.locator('a[data-page="home"]').first().click();
     const tabletOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(tabletOverflow <= 1, "The tablet header must not cause horizontal overflow");
+    for (const destination of ["training", "tactics", "lessons", "review", "settings"]) {
+      await page.locator('a[data-page="' + destination + '"]').first().click();
+      const horizontalOverflow = await page.evaluate(() =>
+        document.documentElement.scrollWidth - window.innerWidth);
+      assert.ok(horizontalOverflow <= 1,
+        destination + " page must not overflow viewport at 768px");
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);

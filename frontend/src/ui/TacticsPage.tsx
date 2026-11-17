@@ -1,16 +1,16 @@
-/** React-owned tactics controls; the typed puzzles module still owns its
- * generated question/result DOM and attaches the established native listeners.
+import { PagePanel } from "./PagePrimitives";
+
+/**
+ * The typed puzzles module owns generated exercise and result content.
+ * Filter attributes and the start-action hook are retained unchanged.
  */
 export function TacticsPage() {
-  return <div className="bg-surface rounded-2xl p-6 border border-white/5">
-    <h2 className="text-2xl font-bold mb-2">Tactiques</h2>
-    <p className="text-textMuted text-sm">
-      Travaille tes décisions à travers des situations préflop, postflop et mathématiques.
-    </p>
-    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-      <label className="text-sm text-textMuted">
-        Catégorie
-        <select data-puzzle-category className="pl-form-control mt-1 w-full"
+  return <PagePanel title="Tactiques"
+    description="Travaille tes décisions à travers des situations préflop, postflop et mathématiques.">
+    <div className="pl-form-grid pl-form-grid--filters">
+      <label className="pl-form-field">
+        <span className="pl-form-label">Catégorie</span>
+        <select data-puzzle-category className="pl-form-control pl-field-control"
           aria-label="Filtrer les tactiques par catégorie">
           <option value="">Toutes les catégories</option>
           <option value="Préflop">Préflop</option>
@@ -19,9 +19,9 @@ export function TacticsPage() {
           <option value="Règles">Règles</option>
         </select>
       </label>
-      <label className="text-sm text-textMuted">
-        Difficulté
-        <select data-puzzle-difficulty className="pl-form-control mt-1 w-full"
+      <label className="pl-form-field">
+        <span className="pl-form-label">Difficulté</span>
+        <select data-puzzle-difficulty className="pl-form-control pl-field-control"
           aria-label="Filtrer les tactiques par difficulté">
           <option value="">Toutes les difficultés</option>
           <option value="Débutant">Débutant</option>
@@ -30,16 +30,16 @@ export function TacticsPage() {
         </select>
       </label>
     </div>
-    <div className="mt-4 flex flex-wrap items-center gap-3">
+    <div className="pl-inline-actions">
       <button type="button" data-puzzle-action="start" className="pl-button">
         Commencer un exercice
       </button>
-      <p data-puzzle-stats className="text-sm text-textMuted" aria-live="polite">
+      <p data-puzzle-stats className="pl-session-stats" aria-live="polite">
         Les statistiques de cette session apparaîtront ici.
       </p>
     </div>
-    <div data-puzzles-container className="mt-6" aria-live="polite">
-      <p className="text-textMuted text-sm">Chargement des exercices…</p>
+    <div data-puzzles-container className="pl-tactics-content" aria-live="polite">
+      <p className="pl-help-text">Chargement des exercices…</p>
     </div>
-  </div>;
+  </PagePanel>;
 }

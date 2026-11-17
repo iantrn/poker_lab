@@ -56,3 +56,13 @@ Semantic colors for folding, calling, raising, all-in and range frequencies rema
 - Muted text `#899399` on surface `#1e2327`: approximately **5.05:1**.
 - Existing brighter red `#d94755` is appropriate for non-text accents on the dark surface but is **not** used for small labels or a hover button background with light text (insufficient contrast).
 - Button hover mixes 90% of the existing red with 10% of the existing background, creating a darker tonal variant rather than a new hue.
+
+## Phase 2 — Shared feature UI
+
+- `PagePanel` / `SectionHeading` in `frontend/src/ui/PagePrimitives.tsx`: small reusable presentation-only React primitives.
+- Consolidated headers, fields, buttons, training info and section headings in Training, Tactics, Lessons, Review and Settings.
+- The typed feature runtimes still own the identical `data-*` anchors, action events and dynamic HTML.
+- Catalog and repeated-action buttons use a neutral treatment; the selected/primary actions retain the existing brand color.
+- Replaced non-namespaced layout utilities without matching CSS definitions (e.g. `space-y-6`, complex `lg:grid-cols-[...]`) with explicit, responsive, documented styles.
+- A 44px minimum applies to new form inputs and primary/secondary UI buttons. **The live game-action control strip remains untouched pending its own dedicated responsive audit.**
+- No modifications to `components/cards.ts`, styles selectors for poker cards, engines, worker or solver outputs.
