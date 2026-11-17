@@ -264,7 +264,7 @@ mod tests {
         let (a,i,o,c,e,p)=fixture();
         let mut session=MultiwayCfrSession::new_internal(3).unwrap();
         for n in 0..300{
-            assert_eq!(session.step_internal(&a,&i,&o,&c,&e,&p,if n%2==0{1.}else{.5}).unwrap(),n+1);
+            assert_eq!(session.step_internal(&a,&i,&o,&c,&e,&p,if n%2==0{1.}else{0.5}).unwrap(),n+1);
         }
         assert_eq!(session.player_count(),3);
         assert_eq!(session.information_set_count(),3);
@@ -302,7 +302,7 @@ mod tests {
         let offsets=[0,2,2];let counts=[2,0,0];let edges=[1,2];
         let payoffs=[
           0.,0.,0.,0.,0.,0.,
-          3.,-1.,-1.,-.5,-.5,0.,
+          3.,-1.,-1. ,-0.5 ,-0.5,0.,
           -2.,-1.,-1.,1.,2.,1.
         ];
         assert_eq!(session.step_internal(&actors,&ids,&offsets,&counts,&edges,&payoffs,1.).unwrap(),1);
