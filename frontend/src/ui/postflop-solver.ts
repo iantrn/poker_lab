@@ -83,7 +83,7 @@ export function installPostflopSolverUI(): void {
             return false;
         }
         const active = state.players.filter(player => !player.folded);
-        return active.length === 2;
+        return active.length >= 2 && active.length <= 6;
     }
 
     function stateKey(state: SolverGameState | null): string {
