@@ -8,7 +8,8 @@ import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
 import { installStrategy, createStrategy, type StrategyProgress } from "../solver/strategy";
 import { createRustCfrStrategyCore, type RustCfrSession } from "../solver/rust-cfr-strategy-core";
-import type { SolverCard } from "../solver/input-contract";
+import type { SolverCard, SolverStateInput, SolverInputSnapshot } from "../solver/input-contract";
+import { createStrategicGameState } from "../solver/strategic-state";
 
 interface PostflopRequest {
   id: number;
@@ -134,6 +135,15 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
           [],message.options);
       } else if(message.task==="strategy") {
+        // Defensive preflight shared by every backend. Reject unsupported or
+        // inconsistent public states before exposing any pseudo-GTO frequencies.
+        // This adapter never accesses unrevealed opponent cards.
+        const strategic=createStrategicGameState(
+          message.input as SolverStateInput|SolverInputSnapshot,
+          {stateVersion:Math.max(1,message.id)}
+        );
+        if(strategic.capability.quality==="unavailable")
+          throw new Error(strategic.capability.reason);
         const strategyOptions={
           ...message.options,
           onProgress:(update:StrategyProgress)=>{
