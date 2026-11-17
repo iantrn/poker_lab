@@ -78,11 +78,21 @@ fn traverse(
 /// The caller must maintain globally stable information-set IDs and action
 /// signatures between steps. The current V1 solver owns these semantics.
 #[wasm_bindgen]
-pub struct CfrSession {infos:Vec<Info>,steps:u32}
+pub struct CfrSession {
+    infos:Vec<Info>,steps:u32,
+    // Only working buffers: reset on every sample; V1-equivalent persistent
+    // regrets/strategy sums are kept in infos.
+    nodes:Vec<Node>,
+    pending:Vec<(i8,usize)>,
+    marks:Vec<u8>
+}
 #[wasm_bindgen]
 impl CfrSession {
     #[wasm_bindgen(constructor)]
-    pub fn new()->CfrSession{CfrSession{infos:Vec::new(),steps:0}}
+    pub fn new()->CfrSession{CfrSession{
+        infos:Vec::new(),steps:0,
+        nodes:Vec::new(),pending:Vec::new(),marks:Vec::new()
+    }}
 
     pub fn step(
         &mut self,actors:&[i8],ids:&[u32],offsets:&[u32],counts:&[u8],
@@ -118,8 +128,12 @@ impl CfrSession {
             return Err("Invalid CFR+ sample");
         }
         if actors[0]==-1 {return Err("CFR+ root cannot be terminal");}
-        let mut nodes=Vec::with_capacity(n);
-        let mut pending:Vec<(i8,usize)>=Vec::new();
+        // Reuse allocations across sequential chance samples. The old
+        // implementation allocated nodes, marks and pending IDs on *every*
+        // iteration, even for identical public betting trees.
+        self.nodes.clear();
+        self.nodes.reserve(n.saturating_sub(self.nodes.capacity()));
+        self.pending.clear();
         for i in 0..n {
             let actor=actors[i];
             let start=offsets[i] as usize;
@@ -139,25 +153,26 @@ impl CfrSession {
                     }
                 }else{
                     let new_id=id-self.infos.len();
-                    if new_id>pending.len(){return Err("CFR+ information set IDs contain gaps");}
-                    if new_id==pending.len(){pending.push((actor,count));}
-                    else if pending[new_id]!=(actor,count){
+                    if new_id>self.pending.len(){return Err("CFR+ information set IDs contain gaps");}
+                    if new_id==self.pending.len(){self.pending.push((actor,count));}
+                    else if self.pending[new_id]!=(actor,count){
                         return Err("Inconsistent new information set");
                     }
                 }
             }else {return Err("Invalid CFR+ actor");}
-            nodes.push(Node{actor,info:ids[i] as usize,start,len:count,payoff:payoffs[i]});
+            self.nodes.push(Node{actor,info:ids[i] as usize,start,len:count,payoff:payoffs[i]});
         }
         for &child in edges {
             if child as usize>=n {return Err("CFR+ child index out of bounds");}
         }
-        let mut marks=vec![0u8;n];
-        check(&nodes,edges,0,0,&mut marks)?;
-        for (actor,len) in pending {self.infos.push(Info::new(actor,len));}
+        self.marks.resize(n,0);
+        self.marks.fill(0);
+        check(&self.nodes,edges,0,0,&mut self.marks)?;
+        for &(actor,len) in &self.pending {self.infos.push(Info::new(actor,len));}
         let average_weight=self.steps as f64+1.;
         for player in 0..2 {
             let mut reach=[1.,1.];
-            traverse(&nodes,edges,&mut self.infos,0,player,
+            traverse(&self.nodes,edges,&mut self.infos,0,player,
                 &mut reach,average_weight,chance_weight);
         }
         self.steps+=1;
@@ -205,6 +220,27 @@ mod tests {
             &[0],&[0.,1.],1.).is_err());
         assert_eq!(session.iterations(),1);
         assert_eq!(session.average_strategy(),before);
+    }
+    #[test]
+    fn sample_buffers_reused_and_recovered_after_invalid_tree(){
+        let mut session=CfrSession::new();
+        sample(&mut session,[1.,-1.,-1.,1.],1.);
+        let node_capacity=session.nodes.capacity();
+        let marks_capacity=session.marks.capacity();
+        let pending_capacity=session.pending.capacity();
+        for index in 0..200 {
+            let values=if index%2==0 {[1.,-1.,-1.,1.]} else {[-1.,1.,1.,-1.]};
+            sample(&mut session,values,1.);
+            assert_eq!(session.nodes.capacity(),node_capacity);
+            assert_eq!(session.marks.capacity(),marks_capacity);
+            assert_eq!(session.pending.capacity(),pending_capacity);
+        }
+        let before=session.average_strategy();
+        assert!(session.step_internal(&[0,-1],&[0,0],&[0,1],&[1,0],
+            &[0],&[0.,1.],1.).is_err());
+        assert_eq!(session.average_strategy(),before);
+        sample(&mut session,[1.,-1.,-1.,1.],1.);
+        assert_eq!(session.iterations(),202);
     }
     #[test]
     fn actor_and_action_count_must_match_prior_information_set(){
