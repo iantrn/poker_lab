@@ -192,6 +192,10 @@ async function run() {
     assert.equal(await page.locator('#settings #settings-content').count(),1);
     assert.equal(await page.locator('#settings h2').textContent(),"Paramètres");
 
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.locator('a[data-page="home"]').first().click();
+    const tabletOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    assert.ok(tabletOverflow <= 1, "The tablet header must not cause horizontal overflow");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);

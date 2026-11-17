@@ -238,6 +238,15 @@
   outline-offset: 3px;
 }
 
+/* Intermediate tablet widths keep every destination accessible without overflow. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #app .pl-nav-link {
+    width: 42px;
+    padding: 0;
+  }
+  #app .pl-nav-link span { display: none; }
+}
+
 #app .pl-mobile-nav {
   background: var(--pl-color-surface);
   border-top: 1px solid var(--pl-color-border);

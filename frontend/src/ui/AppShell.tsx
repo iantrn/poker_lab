@@ -39,7 +39,8 @@ export function AppShell() {
         </a>
         <nav className="pl-desktop-nav hidden md:flex items-center" aria-label="Navigation principale">
           {DESKTOP_NAV.map(({ page, label, icon }) =>
-            <a key={page} href={"#" + page} data-page={page} className="pl-nav-link">
+            <a key={page} href={"#" + page} data-page={page} className="pl-nav-link"
+              aria-label={label} title={label}>
               <PokerLabIcon name={icon} size={18} /><span>{label}</span>
             </a>)}
         </nav>
