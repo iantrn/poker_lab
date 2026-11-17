@@ -11,6 +11,10 @@ on:
       - '.github/workflows/v2-migration.yml'
 permissions:
   contents: read
+# Validate the newest feature-branch commit rather than duplicating expensive jobs.
+concurrency:
+  group: pokerlab-v2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   migration:
     runs-on: ubuntu-latest
