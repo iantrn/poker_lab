@@ -542,6 +542,7 @@ async function run() {
           scenarios.push({
             seats,street,elapsedMs:performance.now()-start,
             modeledStreets:strategy.modeledStreets,
+            preparedTopology:strategy.preparedTopology,
             decisionNodes:strategy.decisionNodes,
             requestedIterations:strategy.requestedIterations,
             actions:strategy.actions,algorithm:strategy.algorithm,
@@ -562,6 +563,8 @@ async function run() {
     for(const report of multiwaySmoke){
       assert.equal(report.quality,"sampled_estimate");
       assert.equal(report.nashConv,null);
+      assert.equal(report.preparedTopology,true,
+        "actual browser Worker should use persistent Rust multiway prepared topology");
       assert.equal(report.iterations,16);
       assert.ok(report.actions.length>=2);
       assert.ok(Math.abs(report.actions.reduce((total,action)=>
