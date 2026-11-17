@@ -260,3 +260,54 @@ logic have changed.
 Browser regression checks measure real seat-to-felt gaps and the
 ordering/axis distance of wager and hole-card boxes at desktop, 390px,
 and 320px viewport widths.
+
+## Winner / showdown modal (Phase 7)
+
+The old duplicate result cards (one in the table, one in the action bar) are
+replaced with a **single native `<dialog>`** to give a clear, accessible
+winning summary and a modal backdrop with appropriate keyboard focus.
+
+- Premium charcoal background with restrained gold rim, brand-red primary CTA.
+- Showdown, uncontested victory and split-pot states have distinct headings.
+- The **pot total** is clearly labeled as *distributed winnings*, **not net
+  profit**; for split pots and odd chips, the per-winner payout comes from
+  the game's `share` and `oddChipRecipients` fields, without modifying the
+  accounting logic. Main/side pots are shown with the original recipients.
+- Each winner displays the engine's actual evaluated combination and five
+  winning cards if the result is a showdown. Card rendering is reused as-is.
+- **Main suivante** is inside the modal, calling the original
+  `gameEngine.nextHand()` through one delegated controller event handler.
+- On terminal tables (fewer than two funded players), the dialog explains
+  why no next hand can start. **Quitter la partie** is always available.
+- The old `#training-actions` block is hidden on a completed hand; there
+  is never a second winner summary or a duplicated next-hand button.
+- The native modal prevents accidental interaction with the table behind it
+  and only closes through the next-hand or quit action. The latest table
+  and hand information remains visible beneath its dark backdrop.
+
+### Showdown interactive browser tests
+
+Automated Chromium/WebKit checks cover (1) a representative native
+showdown modal with **main + side pot**, a two-way split of 21.5 BB with
+a half-BB odd chip, category labels, and the five original displayed
+cards for each winner; and (2) an **actual heads-up fold victory**
+followed by clicking the modal's primary CTA and verifying the game
+engine advances `handNumber`. The dialog receives focus and starts
+scrolled at the outcome heading, not the sticky CTA.
+
+### Review history contract after actual showdown smoke
+
+The real heads-up fold test now produces an actual saved hand. The review
+test therefore confirms that a `pl-review-history-item` is present, rather
+than continuing to expect an empty history. The synthetic split-pot scenario
+uses a shared board straight for both evaluated winners to keep the
+screenshot's best five cards consistent with the displayed categories.
+
+### Visual audit — multiple winners
+
+Chromium and WebKit screenshots revealed that two vertically stacked winning
+hands could be hidden partly by the sticky next-hand footer. On desktop,
+multi-winner results now use a **two-column summary** with slightly smaller
+reused card thumbnails, keeping the winner rows and the pot breakdown readily
+visible. On mobile, they remain a single, scrollable column with a sticky
+52px primary CTA.
