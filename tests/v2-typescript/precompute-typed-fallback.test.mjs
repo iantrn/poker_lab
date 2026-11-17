@@ -33,7 +33,7 @@ function harness(mode) {
       this.messages.push(request);
       queueMicrotask(()=>{
         if(this.terminated)return;
-        if(this.kind==="typed") {
+        if(this.kind==="typed" && mode!=="success") {
           if(mode==="event")this.emit("error",{message:"Worker script failed to load"});
           else this.emit("message",{data:{id:request.id,ok:false,error:"Typed worker unavailable"}});
           return;
@@ -80,3 +80,18 @@ for (const mode of ["response","event"]) {
     assert.deepEqual(events.filter(phase=>phase==="complete"),["complete"]);
   });
 }
+
+
+test("successful typed Web Worker is preferred and never opens a classic Worker",async()=>{
+  const {api,created,events}=harness("success");
+  api.onStateChange();
+  const result=await api.getOrStart();
+  assert.equal(result.equity.equity,0.5);
+  assert.deepEqual(result.strategy.actions,[{action:"check",frequency:1}]);
+  assert.equal(created.length,1,"Successful typed mode never initializes fallback");
+  assert.equal(created[0].kind,"typed");
+  assert.deepEqual(created[0].messages.map(m=>m.task),["equity","strategy"]);
+  assert.deepEqual(events.filter(phase=>phase==="complete"),["complete"]);
+  assert.equal(api.getActiveKey(),null);
+  assert.equal(api.getCacheSize(),1);
+});
