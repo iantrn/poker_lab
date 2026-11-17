@@ -247,3 +247,61 @@ test("four-seat all-in contribution tiers preserve net chips exactly",()=>{
  assert.deepEqual(utility,[15,5,0,-20]);
  assert.equal(utility.reduce((sum,x)=>sum+x,0),0);
 });
+
+
+test("importance correction removes sequential card-blocker bias in the multiway joint range",async()=>{
+ const input=makeInput(3);
+ // All three legal private-hand assignments have identical product-range
+ // weight, hence are each 1/3 in the properly conditioned JOINT range:
+ // P1=A/P2=D, P1=B/P2=C, P1=B/P2=D. A sequential sampler without
+ // importance correction draws 1/2, 1/4, 1/4 respectively.
+ const A=[card(3,"clubs"),card(4,"clubs")];
+ const B=[card(5,"clubs"),card(6,"clubs")];
+ const C=[card(3,"clubs"),card(8,"clubs")];
+ const D=[card(10,"clubs"),card(12,"clubs")];
+ const environment={
+   newSession:players=>new MultiwayCfrSession(players),
+   loadRange:async id=>({
+     label:"two-combo-"+id,rangeUsed:true,
+     combos:(id==="p1"?[A,B]:[C,D]).map(cards=>({cards,weight:1}))
+   }),
+   evaluate:cards=>{
+     const first=cards.slice(0,2).map(c=>c.value).sort((a,b)=>a-b).join(",");
+     // Hero wins whenever P1 holds B. When P1 holds A it beats the hero.
+     if(first==="3,4")return [20];
+     if(first==="14,14")return [10];
+     return [0];
+   },
+   compareScores:(a,b)=>a[0]-b[0]
+ };
+ const state=createStrategicGameState(input);
+ const result=await analyzeMultiwayEquity(state,environment,{
+   iterations:3000,seed:20261117
+ });
+ assert.ok(Math.abs(result.equity-2/3)<0.035,
+   "corrected P(hero wins) should approach 2/3, not biased proposal 1/2: "+result.equity);
+ assert.ok(result.effectiveSampleSize>2400);
+ assert.ok(result.effectiveSampleSize<3000);
+ assert.match(result.note,/pondérée/);
+ const solve=await solveMultiway(state,environment,{
+   iterations:80,samples:1,evaluationSamples:128,seed:20261117
+ });
+ assert.equal(solve.quality,"sampled_estimate");
+ assert.ok(solve.evaluationEffectiveSampleSize>90);
+ assert.ok(solve.evaluationEffectiveSampleSize<128);
+ assert.ok(Number.isFinite(solve.heroEV));
+ assert.ok(solve.heroEVLower95<=solve.heroEV);
+ assert.ok(solve.heroEV<=solve.heroEVUpper95);
+ assert.match(solve.evaluationMethod,/ESS de Kish/);
+});
+test("disjoint fixed multiway ranges retain unit importance weights and exact side-pot equity",async()=>{
+ const state=createStrategicGameState(makeInput(4));
+ const eq=await analyzeMultiwayEquity(state,env(),{iterations:300,seed:7});
+ assert.equal(eq.effectiveSampleSize,300);
+ assert.equal(eq.equity,1);
+ const solution=await solveMultiway(state,env(),{
+   iterations:32,samples:1,evaluationSamples:32,seed:7
+ });
+ assert.equal(solution.evaluationEffectiveSampleSize,32);
+ assert.equal(solution.iterations,32);
+});
