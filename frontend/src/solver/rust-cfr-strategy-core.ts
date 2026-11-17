@@ -25,6 +25,7 @@ interface Session {
   registry:CfrInformationRegistry;
   dirty:boolean;
   prepared:WeakMap<AbstractTreeNode,number>;
+  unprepared:WeakSet<AbstractTreeNode>;
 }
 export function createRustCfrStrategyCore(
   original:CFRCoreApi,
@@ -56,7 +57,8 @@ export function createRustCfrStrategyCore(
     createMaps(){
       const maps=original.createMaps();
       sessions.set(maps,{engine:newSession(),registry:createCfrInformationRegistry(),
-        dirty:false,prepared:new WeakMap<AbstractTreeNode,number>()});
+        dirty:false,prepared:new WeakMap<AbstractTreeNode,number>(),
+        unprepared:new WeakSet<AbstractTreeNode>()});
       return maps;
     },
     runCfr(...args:Parameters<CFRCoreApi["runCfr"]>){
@@ -78,14 +80,22 @@ export function createRustCfrStrategyCore(
         const publicTree=root as unknown as AbstractTreeNode;
         // Root identity is stable across deals for a cached public betting tree.
         // Preserve the legacy step() path for older (already installed) WASM.
-        if(session.engine.prepare_tree && session.engine.step_prepared){
-          let handle=session.prepared.get(publicTree);
-          if(handle===undefined){
+        let handle=session.prepared.get(publicTree);
+        if(session.engine.prepare_tree && session.engine.step_prepared &&
+            handle===undefined && !session.unprepared.has(publicTree)){
+          try{
             handle=session.engine.prepare_tree(
               request.actors,request.childOffsets,request.childCounts,request.children
             );
             session.prepared.set(publicTree,handle);
+          }catch(error:unknown){
+            // Cache is bounded in Rust. Continue with the validated legacy
+            // kernel when the budget is exhausted; do not disable Rust entirely.
+            if(!String(error).includes("oversized prepared CFR+ topology"))throw error;
+            session.unprepared.add(publicTree);
           }
+        }
+        if(handle!==undefined && session.engine.step_prepared){
           session.engine.step_prepared(
             handle,request.informationSets,request.terminalUtilities,chanceWeight
           );
