@@ -3,6 +3,7 @@
 
 pub mod tree;
 pub mod session;
+pub mod multiway;
 
 /// Regret matching on preallocated buffers (no heap allocation per iteration).
 #[inline]
