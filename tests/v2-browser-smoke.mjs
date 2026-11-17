@@ -92,6 +92,21 @@ async function run() {
     assert.equal(gameState.street, "preflop");
     assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
 
+    // Heads-up special position/action order also requires an actual rendered game.
+    const headsUp = await page.evaluate(() => {
+      const config = window.PokerLabTraining.updateConfig({ gameMode: "heads-up", playerCount: 2 });
+      if (!config.success) return { success: false, errors: config.errors };
+      return window.PokerLabTraining.createSession();
+    });
+    assert.equal(headsUp.success, true, JSON.stringify(headsUp.errors ?? []));
+    await page.waitForFunction(() =>
+      document.querySelectorAll("#training-table .pl-seat").length === 2,
+      null, { timeout: 30000 });
+    const headsUpState = await page.evaluate(() => window.PokerLabTraining.getGameState());
+    assert.equal(headsUpState.players.length, 2);
+    assert.equal(headsUpState.street, "preflop");
+    assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
+
     await page.locator('a[data-page="lessons"]').first().click();
     assert.equal(await page.locator("#lessons").isVisible(), true);
     await page.waitForFunction(() => document.querySelectorAll(".pl-range-cell").length === 169, null, { timeout: 30000 });
