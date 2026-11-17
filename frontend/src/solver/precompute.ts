@@ -23,11 +23,20 @@ export interface PrecomputeResult {
   strategy: unknown;
   strategyError: string | null;
 }
+export interface PreviewAction {
+  action:string;
+  frequency:number;
+}
 export interface PrecomputeSnapshot {
   key: string;
   version: number;
   phase: "equity" | "strategy" | "error" | "cancelled" | "complete";
   progress?: number;
+  /** Provisional sampled policy, not certified GTO or a final solve. */
+  previewActions?: readonly PreviewAction[];
+  provisional?: boolean;
+  iterations?: number;
+  stage?: string;
   error?: string;
   result?: PrecomputeResult;
   cached?: boolean;
@@ -45,6 +54,10 @@ interface WorkerResult {
   id: number;
   ok?: boolean;
   progress?: number;
+  previewActions?: unknown;
+  provisional?: boolean;
+  iterations?: number;
+  phase?: string;
   result?: unknown;
   error?: string;
 }
@@ -149,7 +162,22 @@ export function installSolverPrecompute(): PrecomputeApi {
     if (!task || task.controller.signal.aborted ||
       message.id !== task.requestId || task.version !== stateVersion) return;
     if (message.progress !== undefined) {
-      notify({ key: task.key, version: task.version, phase: task.currentTask!, progress: message.progress });
+      // A progress notification is never cached or treated as a completed
+      // result; it belongs to exactly one active request and state version.
+      const actions=Array.isArray(message.previewActions)
+        ?message.previewActions.filter((action:unknown):action is PreviewAction=>{
+          if(!action||typeof action!=="object")return false;
+          const item=action as Partial<PreviewAction>;
+          return typeof item.action==="string" && Number.isFinite(item.frequency) &&
+            Number(item.frequency)>=0 && Number(item.frequency)<=1;
+        }).slice(0,5):undefined;
+      notify({
+        key:task.key,version:task.version,phase:task.currentTask!,
+        progress:Math.max(0,Math.min(1,Number(message.progress)||0)),
+        ...(actions?.length?{previewActions:actions,provisional:true}:{}),
+        ...(Number.isSafeInteger(message.iterations)?{iterations:message.iterations}:{}),
+        ...(typeof message.phase==="string"?{stage:message.phase}:{})
+      });
       return;
     }
     if (!message.ok) {
