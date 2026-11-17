@@ -77,14 +77,14 @@ function makeTyped(){
     else globalThis.window=old;
   }
 }
-function makeRustTyped(){
+function makeRustTyped(sessionFactory=()=>new wasm.CfrSession()){
   const old=globalThis.window;
   const target={PokerLabPostflopSolver:mockRanges()};
   globalThis.window=target;
   try {
     installEvaluator();
     const cfr=installCfrCore();
-    target.PokerLabCFRCore=createRustCfrStrategyCore(cfr,()=>new wasm.CfrSession());
+    target.PokerLabCFRCore=createRustCfrStrategyCore(cfr,sessionFactory);
     return createStrategy(target);
   }finally{
     if(old===undefined)delete globalThis.window;
@@ -200,4 +200,38 @@ test("persistent Rust CFR+ strategy matches full TypeScript flop, turn and river
   assertNumericallyEquivalent(accelerated,reference,street);
   assert.equal(accelerated.iterations,80);
  }
+});
+
+
+test("full PokerLab river solve uses compiled payoff batches without changing EV or NashConv",async()=>{
+ const calls={prepareTree:0,preparePayouts:0,compact:0,plain:0,single:0,samples:0};
+ const rust=makeRustTyped(()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree(...args){calls.prepareTree++;return engine.prepare_tree(...args);},
+     prepare_payoffs(...args){calls.preparePayouts++;return engine.prepare_payoffs(...args);},
+     step_prepared_outcome_batch(...args){
+       calls.compact++;calls.samples+=args[2].length;
+       return engine.step_prepared_outcome_batch(...args);
+     },
+     step_prepared_batch(...args){calls.plain++;return engine.step_prepared_batch(...args);},
+     step_prepared(...args){calls.single++;return engine.step_prepared(...args);},
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ const baseline=makeTyped();
+ const original=simplify(await baseline.solvePostflop(state(),[],opts));
+ const optimized=simplify(await rust.solvePostflop(state(),[],opts));
+ assertNumericallyEquivalent(optimized,original,"compiled-river");
+ assert.equal(calls.prepareTree,1);
+ assert.equal(calls.preparePayouts,1);
+ assert.equal(calls.samples,80);
+ assert.ok(calls.compact>0,"the compact WASM path must be exercised");
+ assert.equal(calls.plain,0);
+ assert.equal(calls.single,0);
 });
