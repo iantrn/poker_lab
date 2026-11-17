@@ -662,6 +662,8 @@ export function createStrategy(global:StrategyGlobal){
 
         return {
             algorithm: "CFR+ avec rééchantillonnage des chances",
+            quality: "sampled_estimate" as const,
+            provisional: false,
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
