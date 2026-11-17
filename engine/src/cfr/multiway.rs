@@ -387,4 +387,54 @@ mod tests {
         assert!(session.step_internal(&a,&i,&o,&c,&children,&p,1.).is_err());
         assert_eq!(session.iterations(),0);
     }
+    #[test]fn prepared_multiway_steps_match_fully_validated_steps_exactly(){
+        let (actors,ids,offsets,counts,edges,payoffs)=fixture();
+        let mut reference=MultiwayCfrSession::new_internal(3).unwrap();
+        let mut prepared=MultiwayCfrSession::new_internal(3).unwrap();
+        assert_eq!(prepared.prepare_tree_internal(
+            &actors,&offsets,&counts,&edges
+        ).unwrap(),0);
+        assert!(prepared.prepare_tree_internal(
+            &actors,&offsets,&counts,&edges
+        ).is_err(),"prepared topology must be installed only once");
+        for iteration in 0..512 {
+            let chance_weight=if iteration%3==0 {0.5}else if iteration%7==0{2.5}else{1.};
+            let mut sample=payoffs.clone();
+            // Preserve strict zero-sum payoffs while changing sampled utility.
+            sample[6]+=iteration as f64/1024.;
+            sample[7]-=iteration as f64/1024.;
+            assert_eq!(
+                reference.step_internal(&actors,&ids,&offsets,&counts,&edges,
+                    &sample,chance_weight).unwrap(),
+                prepared.step_prepared_internal(&ids,&sample,chance_weight).unwrap()
+            );
+            assert_eq!(reference.average_strategy(),prepared.average_strategy());
+            assert_eq!(reference.information_set_count(),prepared.information_set_count());
+        }
+        assert_eq!(prepared.iterations(),512);
+    }
+    #[test]fn prepared_multiway_sample_rejections_preserve_session_and_recover(){
+        let (actors,ids,offsets,counts,edges,payoffs)=fixture();
+        let mut session=MultiwayCfrSession::new_internal(3).unwrap();
+        let bad_edges=[1,1,2,3,5,6];
+        assert!(session.prepare_tree_internal(
+            &actors,&offsets,&counts,&bad_edges
+        ).is_err(),"invalid topology must not be installed");
+        assert!(session.step_prepared_internal(&ids,&payoffs,1.).is_err());
+        session.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        session.step_prepared_internal(&ids,&payoffs,1.).unwrap();
+        let before=session.average_strategy();
+        let mut bad_ids=ids.clone();bad_ids[4]=9000;
+        assert!(session.step_prepared_internal(&bad_ids,&payoffs,1.).is_err());
+        let mut bad_payoffs=payoffs.clone();bad_payoffs[8]+=20.;
+        assert!(session.step_prepared_internal(&ids,&bad_payoffs,1.).is_err());
+        bad_payoffs=payoffs.clone();bad_payoffs[6]=f64::NAN;
+        assert!(session.step_prepared_internal(&ids,&bad_payoffs,1.).is_err());
+        assert!(session.step_prepared_internal(&ids,&payoffs,f64::INFINITY).is_err());
+        assert_eq!(session.average_strategy(),before);
+        assert_eq!(session.iterations(),1);
+        assert_eq!(session.information_set_count(),3);
+        assert_eq!(session.step_prepared_internal(&ids,&payoffs,1.).unwrap(),2);
+    }
+
 }
