@@ -167,15 +167,20 @@ async function run() {
         kind: "equity", holes: [0x12,0x13,0x22,0x23],
         board: [0x0e,0x0d,0x0c,0x0b,0x0a], iterations: 100, seed: 11
       });
+      const equityRange = await solver.calculate({
+        kind: "equityRange",hero:[0x0e,0x23],board:[0x0d,0x0c,0x0b,0x0a,0x02],
+        villainPairs:[0x12,0x14,0x0e,0x32], weights:[1,10],iterations:100,seed:11
+      });
       const range = await solver.calculate({
         kind: "range", cards: [0x02,0x13,0x24,0x35,0x06], weights: [1], width: 5
       });
       const cfr = await solver.calculate({
         kind: "cfr", payoffs: [1,-1,-1,1], rows: 2, cols: 2, iterations: 10000
       });
-      return { equity, range, cfr };
+      return { equity, equityRange, range, cfr };
     });
     assert.deepEqual(wasmPaths.equity, [0,1,0], "Known royal-flush board must split");
+    assert.deepEqual(wasmPaths.equityRange, [1,0,0], "Weighted range equity must filter blockers and evaluate exactly on river");
     assert.equal(wasmPaths.range[4], 1, "Weighted histogram must classify straight");
     assert.equal(wasmPaths.range.reduce((a,b) => a+b,0), 1);
     assert.equal(wasmPaths.cfr.length, 4);

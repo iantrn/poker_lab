@@ -46,3 +46,22 @@ test("Rust WASM CFR+ converges to mixed equilibrium of Matching Pennies", () => 
   const strategy = Array.from(wasm.cfr_plus_matrix(new Float64Array([1,-1,-1,1]), 2,2,20000));
   for (const probability of strategy) assert.ok(Math.abs(probability - 0.5) < 0.025);
 });
+
+test("WASM weighted range equity is exact on river and deterministic on flop",()=>{
+  const exact=Array.from(wasm.equity_range_monte_carlo(
+    new Uint8Array([0x0e,0x23]),
+    new Uint8Array([0x0d,0x0c,0x0b,0x0a,0x02]),
+    new Uint8Array([0x12,0x14,0x0e,0x32]),
+    new Float64Array([1,10]),10,11n));
+  assert.deepEqual(exact,[1,0,0]);
+  const args=[
+    new Uint8Array([0x0e,0x1e]),
+    new Uint8Array([0x02,0x13,0x24]),
+    new Uint8Array([0x0d,0x1d,0x03,0x14]),
+    new Float64Array([1,2]),500,123n
+  ];
+  const first=Array.from(wasm.equity_range_monte_carlo(...args));
+  const second=Array.from(wasm.equity_range_monte_carlo(...args));
+  assert.deepEqual(first,second);
+  assert.ok(Math.abs(first.reduce((a,b)=>a+b,0)-1)<1e-12);
+});
