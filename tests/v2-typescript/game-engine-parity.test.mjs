@@ -85,3 +85,62 @@ test("three-way unequal-stack all-in produces identical V1/V2 side pots and cons
   }
   assert.deepEqual(play(migrated),play(Legacy));
 });
+
+
+test("five consecutive heads-up and six-max hands preserve V1 blind rotation, chip conservation and card secrecy",()=>{
+ for(const seats of [2,6]){
+  const players=Array.from({length:seats},(_,index)=>({
+   id:"seat_"+index,name:"Seat "+index,isHuman:index===0,stack:200
+  }));
+  const options={players,dealerIndex:seats-1};
+  function scenario(Engine) {
+   const engine=new Engine(options);
+   const initialTotal=engine.players.reduce((sum,player)=>sum+player.stack,0);
+   const observed=[];
+   for(let hand=0;hand<5;hand++){
+    if(hand===0)engine.startHand();
+    else engine.nextHand();
+    const dealer=engine.dealerIndex;
+    const state=engine.getState();
+    assert.equal(state.handNumber,hand+1);
+    assert.equal(state.players.length,seats);
+    // Internal engine cards belong to the server-side game state; the public
+    // state must not expose opponent cards before legal showdown.
+    for(const player of state.players){
+      if(!player.isHuman)assert.equal(player.holeCards,null);
+      else assert.equal(player.holeCards?.length,2);
+    }
+    if(hand>0)assert.equal(dealer,(observed[hand-1].dealer+1)%seats,
+      "Dealer/blind button did not move to the next eligible seat");
+    const actions=[];
+    for(let turn=0;turn<70&&!engine.handComplete;turn++){
+      const actor=engine.currentPlayerId;
+      assert.ok(actor,"active hand without actor");
+      const options=engine.getPlayerActionOptions(actor);
+      const action=options.canCheck?"check":options.canCall?"call":"fold";
+      actions.push({street:engine.street,actor,action});
+      engine.act(action,null,actor);
+      assert.ok(turn<69,"betting round failed to progress");
+      if(!engine.handComplete)for(const player of engine.getState().players){
+        if(!player.isHuman)assert.equal(player.holeCards,null,
+          "opponent private cards leaked before showdown");
+      }
+    }
+    const complete=engine.getState();
+    assert.equal(complete.handComplete,true);
+    assert.equal(complete.result?.type,"showdown");
+    for(const player of complete.players){
+      if(!player.folded)assert.equal(player.holeCards?.length,2,
+        "showdown did not reveal eligible opponent cards");
+    }
+    const total=engine.players.reduce((sum,player)=>sum+player.stack,0);
+    assert.equal(total,initialTotal,"chips were lost or created in sequential hands");
+    const history=plain(engine.getHandHistory()).map(({timestamp,...event})=>event);
+    observed.push({dealer,actions,state:plain(complete),history});
+   }
+   return observed;
+  }
+  assert.deepEqual(plain(scenario(migrated)),plain(scenario(Legacy)),
+    "V1/V2 multi-hand divergence with "+seats+" players");
+ }
+});
