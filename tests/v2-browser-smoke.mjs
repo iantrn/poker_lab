@@ -343,7 +343,7 @@ async function run() {
         ]
       }};
       let id=1000;
-      const run=(task,options={})=>new Promise((resolve,reject)=>{
+      const run=(task,options={},experimentalRustCfr=false)=>new Promise((resolve,reject)=>{
         const currentId=++id;
         const timeout=setTimeout(()=>reject(new Error(
           "Typed postflop "+task+" calculation exceeded 60s")),60000);
@@ -357,7 +357,7 @@ async function run() {
         worker.addEventListener("error",event=>{
           clearTimeout(timeout);reject(new Error(event.message||"Module Worker error"));
         },{once:true});
-        worker.postMessage({id:currentId,task,input,options});
+        worker.postMessage({id:currentId,task,input,options,experimentalRustCfr});
       });
       try {
         const equity=await run("equity");
@@ -365,12 +365,19 @@ async function run() {
           iterations:10,samples:8,seed:20261117,
           evaluationSamples:16,exploitabilitySamples:8
         });
+        const rustStrategy=await run("strategy",{
+          iterations:10,samples:8,seed:20261117,
+          evaluationSamples:16,exploitabilitySamples:8
+        },true);
         return {
           equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
             losses:equity.losses,value:equity.equity},
           strategy:{iterations:strategy.iterations,actions:strategy.actions,
             nashConv:strategy.nashConv,heroEV:strategy.heroEV,
-            evaluationSamples:strategy.evaluationSamples}
+            evaluationSamples:strategy.evaluationSamples},
+          rustStrategy:{iterations:rustStrategy.iterations,actions:rustStrategy.actions,
+            nashConv:rustStrategy.nashConv,heroEV:rustStrategy.heroEV,
+            evaluationSamples:rustStrategy.evaluationSamples}
         };
       } finally {worker.terminate();}
     });
@@ -385,6 +392,20 @@ async function run() {
     assert.ok(Number.isFinite(typedPostflop.strategy.heroEV));
     assert.ok(Number.isFinite(typedPostflop.strategy.nashConv));
     assert.equal(typedPostflop.strategy.evaluationSamples,16);
+    assert.equal(typedPostflop.rustStrategy.iterations,typedPostflop.strategy.iterations);
+    assert.equal(typedPostflop.rustStrategy.actions.length,typedPostflop.strategy.actions.length);
+    for(let i=0;i<typedPostflop.strategy.actions.length;i++){
+      const expected=typedPostflop.strategy.actions[i];
+      const actual=typedPostflop.rustStrategy.actions[i];
+      assert.equal(actual.action,expected.action);
+      assert.ok(Math.abs(actual.frequency-expected.frequency)<1e-6,
+        "Rust sampled CFR+ action frequency diverged: "+actual.action);
+    }
+    assert.ok(Math.abs(typedPostflop.rustStrategy.heroEV-typedPostflop.strategy.heroEV)<1e-6,
+      "Rust sampled CFR+ must preserve strategy EV");
+    assert.ok(Math.abs(typedPostflop.rustStrategy.nashConv-typedPostflop.strategy.nashConv)<1e-6,
+      "Rust sampled CFR+ must preserve sampled NashConv");
+
 
 
 
