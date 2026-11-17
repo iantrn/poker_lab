@@ -318,7 +318,7 @@ async function run() {
         });
       } finally {worker.terminate();}
     });
-    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript"});
+    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust"});
 
     // Integration gate: the typed module Worker must run a real river equity
     // calculation and a seeded range-vs-range CFR+ solve, not just initialize.
@@ -347,7 +347,7 @@ async function run() {
         ]
       }};
       let id=1000;
-      const run=(task,options={},experimentalRustCfr=false)=>new Promise((resolve,reject)=>{
+      const run=(task,options={},experimentalRustCfr)=>new Promise((resolve,reject)=>{
         const currentId=++id;
         const timeout=setTimeout(()=>reject(new Error(
           "Typed postflop "+task+" calculation exceeded 60s")),60000);
@@ -366,17 +366,18 @@ async function run() {
       try {
         const equity=await run("equity");
         const typedBegin=performance.now();
-        const strategy=await run("strategy",{
+        const solveOptions={
           iterations:10,samples:8,seed:20261117,
           evaluationSamples:16,exploitabilitySamples:8
-        });
+        };
+        // Keep an explicitly forced TypeScript oracle even though automatic
+        // V2 production requests now prefer Rust CFR+ when WASM is available.
+        const strategy=await run("strategy",solveOptions,false);
         const typedDurationMs=performance.now()-typedBegin;
         const rustBegin=performance.now();
-        const rustStrategy=await run("strategy",{
-          iterations:10,samples:8,seed:20261117,
-          evaluationSamples:16,exploitabilitySamples:8
-        },true);
+        const rustStrategy=await run("strategy",solveOptions,true);
         const rustDurationMs=performance.now()-rustBegin;
+        const autoStrategy=await run("strategy",solveOptions);
         return {
           timing:{typedDurationMs,rustDurationMs},
           equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
@@ -386,7 +387,9 @@ async function run() {
             evaluationSamples:strategy.evaluationSamples},
           rustStrategy:{iterations:rustStrategy.iterations,actions:rustStrategy.actions,
             nashConv:rustStrategy.nashConv,heroEV:rustStrategy.heroEV,
-            evaluationSamples:rustStrategy.evaluationSamples}
+            evaluationSamples:rustStrategy.evaluationSamples},
+          autoStrategy:{iterations:autoStrategy.iterations,actions:autoStrategy.actions,
+            nashConv:autoStrategy.nashConv,heroEV:autoStrategy.heroEV}
         };
       } finally {worker.terminate();}
     });
@@ -406,6 +409,12 @@ async function run() {
       typedPostflop.timing.rustDurationMs.toFixed(1)+"ms, relative "+
       (typedPostflop.timing.typedDurationMs / typedPostflop.timing.rustDurationMs).toFixed(2)+
       "x (runner-dependent, non-gating)");
+    assert.deepEqual(typedPostflop.autoStrategy,{
+      iterations:typedPostflop.rustStrategy.iterations,
+      actions:typedPostflop.rustStrategy.actions,
+      nashConv:typedPostflop.rustStrategy.nashConv,
+      heroEV:typedPostflop.rustStrategy.heroEV
+    },"Default postflop Worker must use the same Rust CFR+ path as explicit opt-in");
     assert.equal(typedPostflop.rustStrategy.iterations,typedPostflop.strategy.iterations);
     assert.equal(typedPostflop.rustStrategy.actions.length,typedPostflop.strategy.actions.length);
     for(let i=0;i<typedPostflop.strategy.actions.length;i++){
@@ -531,7 +540,7 @@ async function run() {
         });
       }finally{worker.terminate();}
     });
-    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript"},
+    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust"},
       "Offline typed postflop Worker must bootstrap Rust/WASM");
     assert.equal(pageErrors.length,0,`Runtime errors: ${pageErrors.join("; ")}`);
     console.log("Browser smoke: UI, matrix, WASM Worker, PWA & offline passed");
