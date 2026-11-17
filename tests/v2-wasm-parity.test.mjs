@@ -1,17 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { installEvaluator } from "../frontend/src/core/evaluator.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const wasm = require(path.join(root, "engine", "pkg-node"));
-const legacy = { window: {} };
-vm.runInNewContext(fs.readFileSync(path.join(root, "js", "core", "evaluator.js"), "utf8"), legacy);
-const old = legacy.window.PokerLabHandEvaluator;
+const previousWindow = globalThis.window;
+globalThis.window = {};
+const old = installEvaluator();
+if (previousWindow === undefined) delete globalThis.window;
+else globalThis.window = previousWindow;
 const SUITS = ["clubs", "diamonds", "hearts", "spades"];
 const deck = Array.from({ length: 52 }, (_, index) => ({ value: 2 + index % 13, suit: SUITS[Math.floor(index / 13)] }));
 function packed(card) { return card.value | (SUITS.indexOf(card.suit) << 4); }
@@ -67,7 +68,7 @@ test("WASM weighted range equity is exact on river and deterministic on flop",()
 });
 
 
-test("one-call Rust showdown exactly matches V1 on 8,000 distinct nine-card deals",()=>{
+test("one-call Rust showdown exactly matches V2 TypeScript on 8,000 distinct nine-card deals",()=>{
   for(let attempt=0;attempt<8000;attempt++){
     const cards=deck.slice();
     for(let index=0;index<9;index++){

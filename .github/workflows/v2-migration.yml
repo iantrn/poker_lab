@@ -1,4 +1,5 @@
 name: PokerLab V2 - React/TypeScript/Rust validation
+# V1 source is archived on v1-backup. Keep this standalone V2 gate on main.
 on:
   push:
     branches: [main, feat/v2-ts-rust-migration]
@@ -10,6 +11,9 @@ on:
       - 'engine/**'
       - 'shared/**'
       - 'tests/v2-*.test.mjs'
+      - 'tests/v2-typescript/**'
+      - 'tests/pwa-assets.test.mjs'
+      - 'tests/ranges/**'
       - '.github/workflows/v2-migration.yml'
 permissions:
   contents: read
@@ -32,6 +36,24 @@ jobs:
         uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: 'latest'
+      - name: Assert no tracked V1 app and no classic Worker references
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files js css)"
+          for file in index.html service-worker.js manifest.json \
+            pokerlab-solver-worker.js pokerlab-solver-worker-v2.js \
+            .github/workflows/postflop-solver.yml; do
+            if git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+              echo "Forbidden V1 source remains tracked: $file"
+              exit 1
+            fi
+            echo "PASS: no tracked V1 source $file"
+          done
+          if git grep -n -E 'pokerlab-solver-worker|js/(core|bots|modules|components)/|[.][.]/[.][.]/css/' -- frontend/src frontend/vite.config.ts; then
+            echo "V2 runtime still references archived V1 sources"
+            exit 1
+          fi
+          echo "PASS: no active V2 references to classic V1 sources"
       - name: Rust tests
         run: cargo test --manifest-path engine/Cargo.toml
       - name: Build browser and Node WASM
@@ -39,9 +61,9 @@ jobs:
           cd engine
           wasm-pack build --release --target web --out-dir pkg
           wasm-pack build --release --target nodejs --out-dir pkg-node
-      - name: Legacy baseline tests (126 tests)
-        run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
-      - name: TypeScript V1 parity for range data
+      - name: Standalone V2 PWA and range contracts
+        run: node --test tests/v2-source-contract.test.mjs tests/pwa-assets.test.mjs tests/ranges/*.test.mjs
+      - name: Standalone TypeScript V2 regression suites
         run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: WASM versus JavaScript parity tests
         run: node --test tests/v2-wasm-parity.test.mjs
@@ -56,7 +78,7 @@ jobs:
       - name: Comparative JavaScript versus optimized WASM benchmark
         run: node --test tests/v2-wasm-benchmark.test.mjs
       - name: Install frontend dependencies
-        run: npm install --prefix frontend --no-audit --no-fund
+        run: npm ci --prefix frontend --no-audit --no-fund
       - name: TypeScript strict + Vite production build
         run: npm run build --prefix frontend
       - name: Inspect offline build artifacts
@@ -65,14 +87,9 @@ jobs:
           test -s dist/service-worker.js
           test -s dist/wasm/pokerlab_engine_bg.wasm
           test -s dist/data/ranges/preflop/matrix/ranges.json
-          test -s dist/pokerlab-solver-worker.js
-          test -s dist/pokerlab-solver-worker-v2.js
-          test -s dist/js/core/evaluator.js
-          test -s dist/js/bots/bot-profiles.js
-          test -s dist/js/modules/postflop-solver.js
-          test -s dist/js/modules/cfr-core.js
-          test -s dist/js/modules/postflop-strategy.js
-          test ! -e dist/js/app.js
+          test ! -e dist/pokerlab-solver-worker.js
+          test ! -e dist/pokerlab-solver-worker-v2.js
+          test ! -d dist/js
           test ! -e dist/css/style.css
           test ! -d dist/data/ranges/preflop/matrix/bb
           test -s dist/assets/icons/icon-192.png

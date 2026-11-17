@@ -92,12 +92,9 @@ export function installSolverPrecompute(): PrecomputeApi {
   const global = window as LegacyWindow;
   if (global.PokerLabSolverPrecompute) return global.PokerLabSolverPrecompute;
   const MAX_CACHE_ENTRIES = 6;
-  const WORKER_URL = "./pokerlab-solver-worker-v2.js";
   const cache = new Map<string, PrecomputeResult>();
   const listeners = new Set<(snapshot: PrecomputeSnapshot) => void>();
   let worker: Worker | null = null;
-  let usingTypedWorker = false;
-  let classicFallbackUsed = false;
   let taskSequence = 0;
   let stateVersion = 0;
   let active: Task | null = null;
@@ -144,19 +141,12 @@ export function installSolverPrecompute(): PrecomputeApi {
       throw new Error("Les Web Workers ne sont pas disponibles. Le solveur reste désactivé pour préserver la fluidité de l'interface.");
     }
     const createTyped = global.PokerLabV2?.createTypedPostflopWorker;
-    if (!classicFallbackUsed && typeof createTyped === "function") {
-      try {
-        worker = createTyped();
-        usingTypedWorker = true;
-      } catch (error: unknown) {
-        console.warn("[PokerLab V2] Module Worker indisponible, repli sur le Worker classique :", error);
-        classicFallbackUsed = true;
-      }
+    if (typeof createTyped !== "function") {
+      throw new Error("Le Worker TypeScript V2 du solveur est indisponible.");
     }
-    if (!worker) {
-      worker = new global.Worker(WORKER_URL);
-      usingTypedWorker = false;
-    }
+    // No classic JavaScript fallback: the compiled V2 Worker is the only entrypoint.
+    // Rust CFR+ still falls back to TypeScript *inside* that Worker.
+    worker = createTyped();
     worker.addEventListener("message", handleWorkerMessage);
     worker.addEventListener("error", handleWorkerError);
     return worker;
@@ -187,7 +177,6 @@ export function installSolverPrecompute(): PrecomputeApi {
     }
     if (!message.ok) {
       const error = new Error(message.error || "Erreur du Worker de solveur.");
-      if (retryWithClassicWorker(task, error)) return;
       if (task.currentTask === "strategy") {
         task.strategyError = error.message;
         settleSuccess(task);
@@ -202,27 +191,10 @@ export function installSolverPrecompute(): PrecomputeApi {
       settleSuccess(task);
     }
   }
-  function retryWithClassicWorker(task: Task, reason: Error): boolean {
-    if (active !== task || !usingTypedWorker || classicFallbackUsed ||
-        task.controller.signal.aborted) return false;
-    classicFallbackUsed = true;
-    console.warn("[PokerLab V2] Repli sur le solveur classique :", reason);
-    task.worker?.terminate();
-    if (worker === task.worker) worker = null;
-    usingTypedWorker = false;
-    try {
-      task.worker = ensureWorker();
-      if (task.currentTask) postTask(task, task.currentTask);
-      return true;
-    } catch (error: unknown) {
-      settleError(task, error instanceof Error ? error : new Error(String(error)));
-      return true;
-    }
-  }
   function handleWorkerError(event: ErrorEvent): void {
     if (!active) return;
     const error = new Error(event.message || "Le Worker du solveur a rencontré une erreur.");
-    if (!retryWithClassicWorker(active, error)) settleError(active, error);
+    settleError(active, error);
   }
   function settleError(task: Task, error: Error): void {
     if (active !== task) return;

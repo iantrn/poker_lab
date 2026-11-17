@@ -1,83 +1,88 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
-import { installSolverPrecompute } from '../../frontend/src/solver/precompute.ts';
+import test from "node:test";
+import assert from "node:assert/strict";
+import { installSolverPrecompute } from "../../frontend/src/solver/precompute.ts";
 
-const source = readFileSync('js/modules/solver-precompute.js', 'utf8');
-function state(handNumber=1) {
-  return {handNumber,street:'flop',handComplete:false,currentPlayerId:'hero',players:[
-    {id:'hero',isHuman:true,folded:false,holeCards:[{value:14,suit:'spades'},{value:14,suit:'hearts'}]},
-    {id:'villain',isHuman:false,folded:false,holeCards:null}
-  ]};
+function state(handNumber = 1) {
+  return { handNumber, street: "flop", handComplete: false,
+    currentPlayerId: "hero", players: [
+      { id: "hero", isHuman: true, folded: false,
+        holeCards: [{value:14,suit:"spades"},{value:14,suit:"hearts"}] },
+      { id: "villain", isHuman: false, folded: false, holeCards: null }
+    ] };
 }
-function harness(typed,delay=0) {
-  let current=state();
-  const workers=[];
+
+function harness(delay = 0) {
+  let current = state();
+  const workers = [];
   class FakeWorker {
-    constructor(){this.listeners=new Map();this.terminated=false;workers.push(this);}
-    addEventListener(type,callback){const callbacks=this.listeners.get(type)||[];callbacks.push(callback);this.listeners.set(type,callbacks);}
-    postMessage(msg){setTimeout(()=>{
-      if(this.terminated)return;
-      const result=msg.task==='equity'?{equity:.5,handNumber:msg.input.state.handNumber}
-        :{actions:[],handNumber:msg.input.state.handNumber};
-      for(const callback of this.listeners.get('message')||[])callback({data:{id:msg.id,ok:true,result}});
-    },delay);}
-    terminate(){this.terminated=true;}
+    constructor() {
+      this.listeners = new Map(); this.terminated = false; workers.push(this);
+    }
+    addEventListener(type, callback) {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(callback); this.listeners.set(type, listeners);
+    }
+    postMessage(message) {
+      setTimeout(() => {
+        if (this.terminated) return;
+        const result = message.task === "equity"
+          ? {equity:0.5,handNumber:message.input.state.handNumber}
+          : {actions:[],handNumber:message.input.state.handNumber};
+        for (const callback of this.listeners.get("message") ?? [])
+          callback({data:{id:message.id,ok:true,result}});
+      }, delay);
+    }
+    terminate() { this.terminated = true; }
   }
-  const global={Worker:FakeWorker,AbortController,
-    PokerLabTraining:{getGameState:()=>current,getHandHistory:()=>[]},
-    PokerLabPostflopSolver:{createInput(s){return {schemaVersion:1,state:JSON.parse(JSON.stringify(s)),history:[]};}}};
+  const global = {
+    Worker: FakeWorker, AbortController,
+    PokerLabV2: {createTypedPostflopWorker: () => new FakeWorker()},
+    PokerLabTraining: {getGameState: () => current, getHandHistory: () => []},
+    PokerLabPostflopSolver: {
+      createInput(s) {return {schemaVersion:1,state:JSON.parse(JSON.stringify(s)),history:[]};}
+    }
+  };
+  globalThis.window = global;
   let api;
-  if(typed){
-    globalThis.window=global;
-    api=installSolverPrecompute();
-    delete globalThis.window;
-  }else{
-    global.window=global;
-    runInNewContext(source,{window:global,console,Map,Set,Promise,Error,AbortController,setTimeout,clearTimeout,JSON});
-    api=global.PokerLabSolverPrecompute;
-  }
-  return {api,workers,setState(next){current=next;}};
-}
-async function cache(typed){
-  const h=harness(typed),snapshots=[];
-  h.api.subscribe(s=>snapshots.push({phase:s.phase,progress:s.progress,cached:s.cached}));
-  h.api.onStateChange();
-  const result=await h.api.getOrStart();
-  const cached=await h.api.getOrStart();
-  return JSON.parse(JSON.stringify({result,cached,workers:h.workers.length,cacheSize:h.api.getCacheSize(),snapshots}));
-}
-async function cancel(typed){
-  const h=harness(typed,15);
-  h.api.onStateChange();
-  const old=h.api.getOrStart();
-  h.setState(state(2));h.api.onStateChange();
-  let abortName;
-  try{await old;}catch(e){abortName=e.name;}
-  const current=await h.api.getOrStart();
-  return JSON.parse(JSON.stringify({abortName,current,workers:h.workers.length,terminated:h.workers[0].terminated}));
-}
-async function ineligible(typed){
-  const h=harness(typed);h.setState({...state(),street:'preflop'});h.api.onStateChange();
-  let error;
-  try{await h.api.getOrStart();}catch(e){error=e.message;}
-  return {error,workers:h.workers.length,active:h.api.getActiveKey()};
-}
-for(const [label,scenario] of Object.entries({cache,cancel,ineligible})){
-  test('typed precompute matches JS '+label,async()=>{
-    const typed=await scenario(true),legacy=await scenario(false);
-    if(label==="ineligible"){
-      // Explicit multiway enablement intentionally expands the eligibility
-      // contract and changes only the user-facing rejection explanation.
-      assert.equal(typed.active,legacy.active);
-      assert.equal(typed.workers,legacy.workers);
-      assert.match(typed.error,/2–6 joueurs actifs/);
-      assert.match(legacy.error,/heads-up/);
-    }else assert.deepEqual(typed,legacy);
-  });
+  try { api = installSolverPrecompute(); } finally { delete globalThis.window; }
+  return {api, workers, setState(next) {current = next;}};
 }
 
+test("V2 caches a completed typed Worker result without spawning another Worker", async () => {
+  const h = harness();
+  const snapshots = [];
+  h.api.subscribe(s => snapshots.push(s));
+  h.api.onStateChange();
+  const result = await h.api.getOrStart();
+  assert.equal(result.equity.equity, 0.5);
+  assert.equal(result.strategyError, null);
+  assert.deepEqual(await h.api.getOrStart(), result);
+  assert.equal(h.workers.length, 1);
+  assert.equal(h.api.getCacheSize(), 1);
+  assert.ok(snapshots.some(s => s.phase === "complete"));
+});
+
+test("V2 cancels stale requests when a new game action changes the hand", async () => {
+  const h = harness(15);
+  h.api.onStateChange();
+  const old = h.api.getOrStart();
+  h.setState(state(2));
+  h.api.onStateChange();
+  await assert.rejects(old, {name:"AbortError"});
+  const next = await h.api.getOrStart();
+  assert.equal(next.equity.handNumber, 2);
+  assert.equal(h.workers.length, 2);
+  assert.equal(h.workers[0].terminated, true);
+});
+
+test("V2 rejects ineligible preflop states before spawning a Worker", async () => {
+  const h = harness();
+  h.setState({...state(),street:"preflop"});
+  h.api.onStateChange();
+  await assert.rejects(() => h.api.getOrStart(), /2–6 joueurs actifs/);
+  assert.equal(h.workers.length, 0);
+  assert.equal(h.api.getActiveKey(), null);
+});
 
 test("typed Worker provisional frequencies are versioned and discarded on new game action",async()=>{
  const current={state:state(1)};
@@ -97,6 +102,7 @@ test("typed Worker provisional frequencies are versioned and discarded on new ga
  }
  const global={
    Worker:ControlledWorker,AbortController,
+   PokerLabV2:{createTypedPostflopWorker:()=>new ControlledWorker()},
    PokerLabTraining:{getGameState:()=>current.state,getHandHistory:()=>[]},
    PokerLabPostflopSolver:{
      createInput:game=>({schemaVersion:1,state:JSON.parse(JSON.stringify(game)),history:[]})
@@ -154,7 +160,7 @@ test("typed Worker provisional frequencies are versioned and discarded on new ga
 
 
 test("live controller exposes privacy-preserving strategic snapshots across table versions",()=>{
- const h=harness(true);
+ const h=harness();
  const card=(value,suit)=>({value,suit});
  const board=[card(2,"clubs"),card(7,"diamonds"),card(9,"hearts")];
  const current={

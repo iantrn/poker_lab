@@ -1,108 +1,46 @@
-# PokerLab V2 — application React / TypeScript / Rust-WASM
+# PokerLab V2 — frontend React, TypeScript et Rust/WASM
 
-La V2 est l'implémentation React/TypeScript/Rust-WASM du dépôt. La branche
-`feat/v2-ts-rust-migration` a servi à sa migration et à sa validation.
-Le point d'entrée V1 `index.html` et les sources historiques restent
-conservés pour comparaison et repli ; la V2 est construite depuis
-`frontend/index.html` vers `dist/`. Une fusion Git n'est **pas**
-un déploiement automatique du bundle V2 sur GitHub Pages.
+L'interface de production est construite depuis `frontend/index.html`, avec Vite et TypeScript strict. Les pages React partagent des modules de logique typés et des Workers ES module ; aucun ancien fichier source JavaScript V1 n'est chargé ou copié dans le bundle.
 
-## Architecture
+## Installation et exécution
 
-- Le point d'entrée V2 est `frontend/index.html` et le shell est rendu en
-  React. Les pages d'accueil, jeu, tactiques, leçons, Game Review et paramètres
-  préservent les identifiants et attributs fonctionnels hérités du V1.
-- L'initialisation de la page n'injecte **aucun script V1** : les modules de
-  règles, bots, sessions, table, ranges, leçons, puzzles, historique, solveur
-  et navigation sont des implémentations TypeScript chargées dans l'ordre
-  de leurs dépendances. Les contrôleurs TypeScript conservent la gestion du
-  DOM dynamique de la table pour éviter des listeners concurrents avec React.
-- Le Worker postflop ES module TypeScript calcule l'équité et la stratégie.
-  Les routines Rust/WASM couvrent l'évaluation 5–7 cartes, la comparaison
-  directe des showdowns, les ranges pondérées, Monte Carlo, CFR+ matriciel
-  et une session CFR+ persistante sur arbre avec regrets inter-échantillons.
-  L'orchestration du sampling et les clés d'information sets restent typées
-  en TypeScript.
-- Avec WASM disponible, la session Rust CFR+ est le **backend automatique**
-  du Worker typé. En cas d'échec, un circuit breaker relance la résolution
-  depuis le début en TypeScript. Sans WASM, TypeScript reste disponible.
-  L'ancien Worker classique subsiste uniquement comme fallback indépendant
-  et oracle de parité, pas comme bootstrap de la nouvelle application.
-- La PWA est offline-first ; Workbox pré-cache les ressources et les ranges
-  préflop. Aucun serveur applicatif n'est nécessaire. `localStorage` demeure
-  volontairement la source de vérité pour les sauvegardes historiques, avec
-  réplication ordonnée vers Dexie/IndexedDB. Ce choix protège les données
-  existantes et est indépendant de la migration du moteur de calcul.
+Depuis la racine du dépôt, compiler le WebAssembly navigateur avec :
 
-## Assets conservés après le nettoyage de branche
-
-Le référentiel garde les sources JavaScript V1 comme **oracle de tests et
-repli historique** (le point d'entrée `index.html` à la racine demeure
-classique). En revanche, le bundle V2 `dist/` n'embarque plus leur copie
-complète : seulement les **cinq modules** nécessaires aux deux Workers
-de secours et les scripts de ces Workers sont copiés. Les styles CSS
-applicatifs sont compilés dans les assets Vite, sans doubles feuilles brutes.
-
-Les **2 606 matrices individuelles** `data/ranges/preflop/matrix/*/*.json`
-ont été supprimées, après vérification exhaustive de leur présence dans
-`index.json` et `ranges.json`. Le runtime, y compris le visualiseur V1
-de repli, utilise maintenant ce bundle unique. Les six squelettes
-`cash-6max` vides et la copie HTML de l'ancien shell ont été retirés.
-Le contrat des ancres de la page React est vérifié directement contre
-le `index.html` historique.
-
-## Build et tests
-
-```sh
+```bash
 cd engine
-cargo test
 wasm-pack build --release --target web --out-dir pkg
-wasm-pack build --release --target nodejs --out-dir pkg-node
 cd ..
-node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
-node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
-node --test tests/v2-wasm-parity.test.mjs
-cd frontend
-npm install --no-audit --no-fund
-npm run build
-npm run dev
+npm ci --prefix frontend
+npm run build --prefix frontend
+npm run dev --prefix frontend
 ```
 
-`dist/` est prêt pour une prévisualisation statique sous
-`POKERLAB_BASE=/poker_lab/` par défaut ; cela **ne déploie pas** sur GitHub
-Pages. Les 2 606 spots préflop, données de leçons, puzzles et historique
-restent disponibles. Le workflow `.github/workflows/v2-migration.yml`
-construit Rust, Node-WASM et Web-WASM, compare les sorties V1/V2,
-vérifie TypeScript strict, le bundle offline, le stockage, les sessions de
-jeu et exécute le test de navigation/solveur sur **Chromium et WebKit Linux**.
-WebKit Linux est une couverture de compatibilité, **pas un test sur iPhone**.
+Le répertoire de sortie est `dist/` à la racine, avec `base: "/poker_lab/"`. Les styles originaux ont été **déplacés à l'identique** vers `frontend/src/styles/` et restent intégrés aux ressources CSS du bundle Vite.
 
-## Repli immédiat du solveur vers TypeScript
+`vite-plugin-pwa` génère `dist/manifest.webmanifest` et `dist/service-worker.js` ; l'orchestrateur TypeScript les enregistre pour le mode hors ligne. Le plugin `staticResources` copie les données `data/`, les icônes et ressources `assets/`, et `engine/pkg/` vers `dist/wasm/`.
 
-Dans la console du navigateur sur la V2 :
+## Solveur
+
+`src/workers/postflop.worker.ts` est le seul Worker postflop de production. Le calcul Rust/WASM est choisi automatiquement quand il est disponible et le chemin TypeScript sert de repli algorithmique **dans le même Worker**. Les deux anciens Workers classiques et les cinq modules JavaScript qu'ils importaient ont été supprimés.
+
+Un échec de chargement du Worker typé est signalé : aucun ancien Worker externe n'est démarré à sa place.
+
+Pour forcer temporairement le backend TypeScript dans la console du navigateur :
 
 ```js
 localStorage.setItem("pokerlab_v2_cfr_backend", "typescript");
 location.reload();
 ```
 
-Ce réglage force le solveur TypeScript même lorsque Rust/WASM est disponible.
-Pour rétablir la sélection automatique, effacer la préférence et recharger :
+Pour rétablir la sélection automatique :
 
 ```js
 localStorage.removeItem("pokerlab_v2_cfr_backend");
 location.reload();
 ```
 
-La valeur `"rust"` force explicitement la session Rust et fait remonter
-ses erreurs au lieu de les masquer ; à réserver aux diagnostics.
+## Tests et limites
 
-## Limites et validation avant production
+Les tests TypeScript autonomes, les tests Rust/WASM, et les scénarios navigateur Chromium/WebKit (hors ligne et Workers compris) sont exécutés dans la CI V2. La sauvegarde historique se trouve dans la branche `v1-backup`, pas dans `main`.
 
-Le solveur est un CFR+ **sur un arbre de mises abstrait** ; ses fréquences,
-EV et NashConv ne certifient pas un équilibre GTO du Texas Hold'em complet.
-Les benchmarks varient avec le spot, le budget et le navigateur.
-Une campagne sur un **véritable iPhone/Safari**, avec mémoire limitée,
-mise à jour du Service Worker, conservation des données et manches longues,
-demeure nécessaire avant de considérer **le déploiement public V2** comme
-validé sur iPhone. La fusion du code et sa mise en production sont distinctes.
+Ce solveur CFR+ repose sur une abstraction et n'est **pas** un certificat GTO pour tous les coups de Texas Hold'em No-Limit. La validation sur WebKit Linux ne remplace pas un test sur un vrai iPhone/Safari.

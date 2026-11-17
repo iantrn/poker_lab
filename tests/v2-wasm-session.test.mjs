@@ -1,16 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createRequire} from "node:module";
-import {readFileSync} from "node:fs";
-import {runInNewContext} from "node:vm";
+import {installCfrCore} from "../frontend/src/solver/cfr-core.ts";
 
 const require=createRequire(import.meta.url);
 const wasm=require("../engine/pkg-node");
-const globals={};
-runInNewContext(readFileSync("js/modules/cfr-core.js","utf8"),{
-  window:globals,Map,WeakMap,Float64Array,Math,JSON
-});
-const legacy=globals.PokerLabCFRCore;
+const previousWindow=globalThis.window;
+globalThis.window={};
+const legacy=installCfrCore();
+if(previousWindow===undefined)delete globalThis.window;
+else globalThis.window=previousWindow;
 
 const actors=new Int8Array([0,1,1,-1,-1,-1,-1]);
 const infos=new Uint32Array([0,1,1,0,0,0,0]);
@@ -32,7 +31,7 @@ function payoffTree(values){
         child:opponent(values[2],values[3])}
     ]};
 }
-test("stateful WASM CFR+ exactly matches sampled V1 regret updates with chance importance weights",()=>{
+test("stateful WASM CFR+ exactly matches sampled V2 TypeScript regret updates with chance importance weights",()=>{
   const session=new wasm.CfrSession();
   const maps=legacy.createMaps();
   const callbacks={
@@ -61,7 +60,7 @@ test("stateful WASM CFR+ exactly matches sampled V1 regret updates with chance i
   assert.equal(rust.length,js.length);
   for(let i=0;i<rust.length;i++)
     assert.ok(Math.abs(rust[i]-js[i])<1e-12,
-      "Sampled CFR+ mismatch at "+i+" wasm="+rust+" V1="+js);
+      "Sampled CFR+ mismatch at "+i+" wasm="+rust+" TS="+js);
 });
 test("CFR+ session rejects cyclic deals and preserves last good average",()=>{
   const session=new wasm.CfrSession();
