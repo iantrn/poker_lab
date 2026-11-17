@@ -8,6 +8,7 @@ import { installCfrCore } from "../solver/cfr-core";
 import { installBotProfiles } from "../bots/profiles";
 import { installBotEngine } from "../bots/engine";
 import { installDeck } from "../core/deck";
+import { installApp } from "../app";
 import { installPokerRules } from "../core/poker-rules";
 import { installGameEngine } from "../core/game-engine";
 import { installEvaluator } from "../core/evaluator";
@@ -41,6 +42,7 @@ export function loadLegacy(): Promise<void> {
   loading = (async () => {
     for (const file of SCRIPTS) {
       // Preserve the original module load position with the typed implementation.
+      if (file === "js/app.js") { installApp(); continue; }
       if (file === "js/core/deck.js") { installDeck(); continue; }
       if (file === "js/core/poker-rules.js") { installPokerRules(); continue; }
       if (file === "js/core/evaluator.js") { installEvaluator(); continue; }
