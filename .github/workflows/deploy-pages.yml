@@ -40,7 +40,7 @@ jobs:
       - name: Test Rust engine
         run: cargo test --manifest-path engine/Cargo.toml
       - name: Build browser WASM
-        run: wasm-pack build --release --target web --out-dir pkg --manifest-path engine/Cargo.toml
+        run: cd engine && wasm-pack build --release --target web --out-dir pkg
       - name: Install pinned frontend dependencies
         run: npm ci --prefix frontend --no-audit --no-fund
       - name: Build strict TypeScript and Vite PWA
