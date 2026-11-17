@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync, readFileSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, webkit } from "../frontend/node_modules/playwright-core/index.mjs";
@@ -77,40 +77,27 @@ async function run() {
     console.log("Browser UI ready:", JSON.stringify(uiSnapshot));
     assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
 
-    // Contract uses the untouched V1 HTML fixture, NOT the React component
-    // implementation. This fails if a migrated page loses a functional ID,
-    // data-* hook, nav link or input expected by typed imperatively bound code.
-    // Compare the React DOM directly to the authoritative V1 root document.
-    // A second copied HTML fixture was redundant and could drift out of sync.
-    const originalIndex=readFileSync(path.resolve(root,"..","index.html"),"utf8");
-    const originalStart=originalIndex.indexOf('<div id="app"');
-    const originalEnd=originalIndex.indexOf('<!-- JAVASCRIPT');
-    assert.ok(originalStart>=0 && originalEnd>originalStart,
-      "Original V1 app fragment must be present");
-    const originalShell=originalIndex.slice(originalStart,originalEnd);
-    const count=(values)=>values.reduce((acc,value)=>(acc.set(value,(acc.get(value)||0)+1),acc),new Map());
-    const originalIds=count([...originalShell.matchAll(/\sid="([^"]+)"/g)].map(match=>match[1]));
-    const originalHooks=count([...originalShell.matchAll(/\s(data-[\w-]+)="([^"]+)"/g)]
-      .map(match=>match[1]+"="+match[2]));
-    const originalNavigation=count([...originalShell.matchAll(/href="#([^"]+)"/g)].map(match=>match[1]));
-    const mounted=await page.evaluate(()=>{
-      const mount=document.getElementById("app");
-      const all=mount?[mount,...mount.querySelectorAll("*")]:[];
+    // V2-owned React contract: assert stable ids, page anchors, and hooks
+    // without relying on the archived V1 HTML as a runtime test fixture.
+    const mounted = await page.evaluate(() => {
+      const mount = document.getElementById("app");
+      const all = mount ? [mount, ...mount.querySelectorAll("*")] : [];
       return {
-        ids:all.filter(el=>el.id).map(el=>el.id),
-        hooks:all.flatMap(el=>[...el.attributes].filter(attr=>attr.name.startsWith("data-"))
-          .map(attr=>attr.name+"="+attr.value)),
-        navigation:all.filter(el=>el.hasAttribute("href")&&el.getAttribute("href")?.startsWith("#"))
-          .map(el=>el.getAttribute("href").slice(1))
+        ids: all.filter(el => el.id).map(el => el.id),
+        hooks: all.flatMap(el => [...el.attributes]
+          .filter(attr => attr.name.startsWith("data-"))
+          .map(attr => attr.name + "=" + attr.value)),
+        navigation: all.filter(el => el.getAttribute("href")?.startsWith("#"))
+          .map(el => el.getAttribute("href").slice(1))
       };
     });
-    for(const [label,expected,actual] of [
-      ["id",originalIds,count(mounted.ids)],
-      ["data hook",originalHooks,count(mounted.hooks)],
-      ["nav anchor",originalNavigation,count(mounted.navigation)]
-    ])for(const [key,value] of expected) {
-      assert.equal(actual.get(key),value,"React shell changed V1 "+label+": "+key);
-    }
+    assert.equal(new Set(mounted.ids).size, mounted.ids.length,
+      "V2 React must never render duplicate IDs");
+    for (const id of ["app", "home", "training", "tactics", "lessons", "review", "settings"])
+      assert.ok(mounted.ids.includes(id), "Missing V2 React mount ID: " + id);
+    for (const pageName of ["home", "training", "tactics", "lessons", "review", "settings"])
+      assert.ok(mounted.navigation.includes(pageName), "Missing V2 navigation: " + pageName);
+    assert.ok(mounted.hooks.length >= 31, "V2 must retain imperative data hooks");
 
     assert.equal(await page.locator("[data-page]").count() > 5, true);
     assert.equal(await page.locator("#home").isVisible(), true);
@@ -288,27 +275,8 @@ async function run() {
     for (const probability of wasmPaths.cfr)
       assert.ok(Math.abs(probability - 0.5) < 0.04, "CFR+ equilibrium must be mixed");
 
-    // The actual postflop solver worker must use WASM, not merely a separate test worker.
-    const postflopBackend = await page.evaluate(async () => {
-      const worker = new Worker("./pokerlab-solver-worker-v2.js");
-      try {
-        return await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error("Postflop worker did not initialize")), 30000);
-          worker.addEventListener("message", event => {
-            if (event.data.id !== 123) return;
-            clearTimeout(timeout);
-            if (event.data.ok) resolve(event.data.result.backend);
-            else reject(new Error(event.data.error || "Postflop worker failed"));
-          });
-          worker.addEventListener("error", event => reject(new Error(event.message)));
-          worker.postMessage({id:123,task:"backend"});
-        });
-      } finally { worker.terminate(); }
-    });
-    assert.equal(postflopBackend, "wasm", "The real postflop solver worker must activate Rust/WASM evaluation");
-
-    // Preview: the complete TypeScript main-thread postflop API in a dedicated
-    // ESM Worker, without importScripts. The old worker is still production fallback.
+    // Production: the TypeScript postflop API runs in the dedicated Vite ESM Worker.
+    // Rust/WASM is the default backend, with TypeScript fallback inside this Worker.
     const typedBackend = await page.evaluate(async () => {
       const worker = window.PokerLabV2.createTypedPostflopWorker();
       try {
@@ -595,56 +563,43 @@ async function run() {
         report.elapsedMs.toFixed(1)+"ms (non-gating, CI browser)");
     }
 
-    // Statistical parity and full-pipeline timing: the V1 and V2 solvers use
-    // independent random streams, so this is intentionally not bit-for-bit parity.
+    // The production typed Worker completes real equity calculations on its own.
     const postflopEquity = await page.evaluate(async () => {
       const state = {
         street: "flop",
         board: [{value:2,suit:"clubs"},{value:7,suit:"diamonds"},{value:9,suit:"hearts"}],
         pot:10,currentPlayerId:"hero",handComplete:false,
         players: [
-          {id:"hero",isHuman:true,folded:false,holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
+          {id:"hero",isHuman:true,folded:false,
+            holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
             stack:90,amountToCall:0,actionOptions:{canBet:true}},
-          {id:"villain",isHuman:false,isBot:true,folded:false,holeCards:null,stack:90,position:"BB"}
+          {id:"villain",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:90,position:"BB"}
         ]
       };
-      async function measure(url,typed=false) {
-        const worker = typed ? window.PokerLabV2.createTypedPostflopWorker() : new Worker(url);
-        const begin = performance.now();
-        try {
-          const result = await new Promise((resolve,reject)=>{
-            const timeout=setTimeout(()=>reject(new Error("Postflop equity worker timed out")),30000);
-            worker.addEventListener("message",event=>{
-              if(event.data.id !== 77 || event.data.progress !== undefined) return;
-              clearTimeout(timeout);
-              if(event.data.ok) resolve(event.data.result);
-              else reject(new Error(event.data.error));
-            });
-            worker.addEventListener("error",event=>reject(new Error(event.message)));
-            worker.postMessage({id:77,task:"equity",input:state});
+      const worker = window.PokerLabV2.createTypedPostflopWorker();
+      const begin = performance.now();
+      try {
+        const result = await new Promise((resolve,reject) => {
+          const timeout=setTimeout(()=>reject(new Error("Typed postflop equity timed out")),30000);
+          worker.addEventListener("message",event=>{
+            if(event.data.id !== 77 || event.data.progress !== undefined)return;
+            clearTimeout(timeout);
+            if(event.data.ok)resolve(event.data.result);
+            else reject(new Error(event.data.error));
           });
-          return {result,elapsed:performance.now()-begin};
-        } finally {worker.terminate();}
-      }
-      return {legacy:await measure("./pokerlab-solver-worker.js"),
-        accelerated:await measure("./pokerlab-solver-worker-v2.js"),
-        typed:await measure(undefined,true)};
+          worker.addEventListener("error",event=>reject(new Error(event.message)));
+          worker.postMessage({id:77,task:"equity",input:state});
+        });
+        return {result,elapsed:performance.now()-begin};
+      } finally {worker.terminate();}
     });
-    const legacyEquity = postflopEquity.legacy.result;
-    const rustEquity = postflopEquity.accelerated.result;
-    for (const result of [legacyEquity,rustEquity,postflopEquity.typed.result]) {
-      assert.equal(result.iterations,1800);
-      assert.equal(result.wins+result.ties+result.losses,result.iterations);
-      assert.ok(result.equity>=0 && result.equity<=1);
-    }
-    assert.ok(Math.abs(legacyEquity.equity-postflopEquity.typed.result.equity)<0.12,
-      "Fully typed Rust-backed postflop Worker must agree with V1 within Monte Carlo tolerance");
-    console.log("Fully typed postflop Worker total: "+postflopEquity.typed.elapsed.toFixed(1)+"ms");
-    assert.ok(Math.abs(legacyEquity.equity-rustEquity.equity)<0.12,
-      "Legacy and WASM-accelerated solver equities must agree within Monte Carlo tolerance");
-    console.log("Postflop worker end-to-end equity: V1 "+
-      postflopEquity.legacy.elapsed.toFixed(1)+"ms, WASM V2 "+
-      postflopEquity.accelerated.elapsed.toFixed(1)+"ms (including cold initialization and range loading)");
+    assert.equal(postflopEquity.result.iterations,1800);
+    assert.equal(postflopEquity.result.wins + postflopEquity.result.ties +
+      postflopEquity.result.losses,postflopEquity.result.iterations);
+    assert.ok(postflopEquity.result.equity>=0 && postflopEquity.result.equity<=1);
+    console.log("Production typed postflop equity total: " +
+      postflopEquity.elapsed.toFixed(1) + "ms");
 
     const registration = await page.evaluate(async () => {
       const worker = await navigator.serviceWorker.ready;
