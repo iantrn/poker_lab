@@ -6,6 +6,7 @@ import { installRangesData } from "../ranges/data";
 import { installRangesViewer } from "../ranges/viewer";
 import { installLessons } from "../training/lessons";
 import { installPuzzles } from "../training/puzzles";
+import { installGameReview } from "../training/game-review";
 import { installSolverPrecompute } from "../solver/precompute";
 import { installCfrCore } from "../solver/cfr-core";
 import { installPostflopSolverUI } from "../ui/postflop-solver";
@@ -60,6 +61,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/modules/ranges-viewer.js") { installRangesViewer(); continue; }
       if (file === "js/modules/lessons.js") { installLessons(); continue; }
       if (file === "js/modules/puzzles.js") { installPuzzles(); continue; }
+      if (file === "js/modules/game-review.js") { installGameReview(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
       if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
       if (file === "js/modules/postflop-solver-ui.js") { installPostflopSolverUI(); continue; }
