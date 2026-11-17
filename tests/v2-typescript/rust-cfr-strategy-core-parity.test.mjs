@@ -67,3 +67,62 @@ test("Rust incremental CFR+ bridge matches TypeScript strategy sums, EV and Nash
   assert.ok(Math.abs(v1[key]-rust[key])<1e-10,"Exploitability mismatch: "+key);
  }
 });
+
+
+test("stable public tree is prepared once while changing private infosets and terminal utilities",()=>{
+ const existingWindow=globalThis.window;
+ globalThis.window={};
+ let baseline;
+ try{baseline=installCfrCore();}
+ finally{if(existingWindow===undefined)delete globalThis.window;else globalThis.window=existingWindow;}
+ let prepareCalls=0,preparedSteps=0,legacySteps=0;
+ const rust=createRustCfrStrategyCore(baseline,()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree(...args){prepareCalls++;return engine.prepare_tree(...args);},
+     step_prepared(...args){preparedSteps++;return engine.step_prepared(...args);},
+     step(...args){legacySteps++;return engine.step(...args);},
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const expected=baseline.createMaps(),actual=rust.createMaps();
+ const root=makeTree([1,-1,-1,1]);
+ const leaves=[
+   root.actions[0].child.actions[0].child,
+   root.actions[0].child.actions[1].child,
+   root.actions[1].child.actions[0].child,
+   root.actions[1].child.actions[1].child
+ ];
+ let hand="a";
+ const cb={
+   informationKey:node=>node.key+"|"+hand,
+   utility:node=>node.value
+ };
+ for(let i=0;i<240;i++){
+   hand=["a","b","c"][i%3];
+   const values=i%2===0?[1,-1,-1,1]:[-1,1,1,-1];
+   leaves.forEach((leaf,index)=>{leaf.value=values[index];});
+   const weight=i%5===0?2.5:0.75;
+   for(const [core,maps] of [[baseline,expected],[rust,actual]]){
+     core.runCfr(root,null,0,[1,1],maps,cb,i+1,weight);
+     core.runCfr(root,null,1,[1,1],maps,cb,i+1,weight);
+   }
+ }
+ assert.equal(prepareCalls,1);
+ assert.equal(preparedSteps,240);
+ assert.equal(legacySteps,0);
+ for(const key of ["hero|a","hero|b","hero|c",
+   "villain|a","villain|b","villain|c"]){
+   const a=actual.strategy.get(key);
+   // Call getStrategy to flush Rust averages before comparing the maps.
+   rust.getStrategy(root,null,actual,cb);
+   const b=expected.strategy.get(key);
+   assert.ok(a || actual.strategy.get(key));
+   const got=actual.strategy.get(key);
+   assert.equal(got.length,b.length);
+   for(let j=0;j<got.length;j++)
+     assert.ok(Math.abs(got[j]-b[j])<1e-11,"strategy mismatch at "+key+"/"+j);
+ }
+});
