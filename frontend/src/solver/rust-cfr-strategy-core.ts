@@ -18,6 +18,10 @@ export interface RustCfrSession {
     chanceWeight:number):number;
   step_prepared_batch?(handle:number,infos:Uint32Array,payoffs:Float64Array,
     chanceWeights:Float64Array):number;
+  prepare_payoffs?(handle:number,kinds:Uint8Array,pots:Float64Array,
+    heroInvested:Float64Array):void;
+  step_prepared_outcome_batch?(handle:number,infos:Uint32Array,
+    outcomes:Int8Array,chanceWeights:Float64Array):number;
   average_strategy():Float64Array | number[];
   iterations():number;
   information_set_count():number;
@@ -28,9 +32,16 @@ interface Session {
   dirty:boolean;
   prepared:WeakMap<AbstractTreeNode,number>;
   unprepared:WeakSet<AbstractTreeNode>;
+  compiledPayoffs:WeakSet<AbstractTreeNode>;
 }
 const MAX_BATCH_SAMPLES=16;
 const MAX_BATCH_BYTES=2*1024*1024;
+const MAX_BATCH_ELEMENTS=174_762;
+interface PayoutModel {
+  kinds:Uint8Array;
+  pots:Float64Array;
+  heroInvested:Float64Array;
+}
 
 export function createRustCfrStrategyCore(
   original:CFRCoreApi,
@@ -38,6 +49,44 @@ export function createRustCfrStrategyCore(
 ):CFRCoreApi {
   const sessions=new WeakMap<CFRMaps,Session>();
   const serialize=createReusableRustTreeSerializer();
+  const payoutModels=new WeakMap<AbstractTreeNode,PayoutModel|null>();
+
+  // Compute terminal metadata from an immutable PokerLab public tree once.
+  // Never silently apply this model to another solver callback convention.
+  function payoutModel(root:AbstractTreeNode):PayoutModel|null {
+    const cached=payoutModels.get(root);
+    if(cached!==undefined)return cached;
+    const kinds:number[]=[],pots:number[]=[],invested:number[]=[];
+    let valid=true;
+    function visit(node:AbstractTreeNode):void {
+      if(node.terminal){
+        if(!Number.isFinite(node.pot)||!Number.isFinite(node.heroInvested)){
+          valid=false;return;
+        }
+        const kind=node.type==="fold"
+          ? node.winner===0?1:node.winner===1?2:0
+          : node.type==="showdown"?3:0;
+        if(kind===0){valid=false;return;}
+        kinds.push(kind);pots.push(node.pot);invested.push(node.heroInvested);
+      }else{
+        kinds.push(0);pots.push(0);invested.push(0);
+        for(const entry of node.actions)visit(entry.child);
+      }
+    }
+    visit(root);
+    const model=valid?{
+      kinds:Uint8Array.from(kinds),
+      pots:Float64Array.from(pots),
+      heroInvested:Float64Array.from(invested)
+    }:null;
+    payoutModels.set(root,model);
+    return model;
+  }
+  function sampledShowdown(sample:CFRBatchSample):number|null {
+    const deal=sample.deal as {showdownResult?:unknown}|null|undefined;
+    const result=deal?.showdownResult;
+    return result===1||result===0||result===-1?result:null;
+  }
 
   function sync(maps:CFRMaps):void {
     const session=sessions.get(maps);
@@ -59,11 +108,13 @@ export function createRustCfrStrategyCore(
     session.dirty=false;
   }
   function pack(
-    session:Session,root:CFRNode,deal:unknown,callbacks:CFRCallbacks
+    session:Session,root:CFRNode,deal:unknown,callbacks:CFRCallbacks,
+    compiledPayouts=false
   ):PreparedRustTree {
     return serialize(root as unknown as AbstractTreeNode,{
       informationKey:node=>callbacks.informationKey(node as unknown as CFRNode,deal),
-      terminalUtility:node=>callbacks.utility(node as unknown as CFRNode,deal)
+      terminalUtility:node=>compiledPayouts?0:
+        callbacks.utility(node as unknown as CFRNode,deal)
     },session.registry);
   }
   function preparedHandle(session:Session,root:CFRNode,request:PreparedRustTree):number|undefined {
@@ -150,12 +201,19 @@ export function createRustCfrStrategyCore(
     // The first serialization gives the exact node count. The returned arrays
     // are reused/mutated on every deal, so each sample must be copied into the
     // contiguous batch immediately after serialization.
-    const first=pack(session,samples[0]!.root,samples[0]!.deal,samples[0]!.callbacks);
+    const model=engine.prepare_payoffs&&engine.step_prepared_outcome_batch&&
+      samples.every(sample=>sample.compilePokerPayoffs===true &&
+        sampledShowdown(sample)!==null)
+      ? payoutModel(firstRoot as unknown as AbstractTreeNode):null;
+    const compact=Boolean(model);
+    const first=pack(session,samples[0]!.root,samples[0]!.deal,
+      samples[0]!.callbacks,compact);
     const rollbacks=[first.rollback];
     let executed=false;
     try {
       const n=first.actors.length;
-      if(n*samples.length*12>MAX_BATCH_BYTES){
+      if(n*samples.length>MAX_BATCH_ELEMENTS||
+         n*samples.length*(compact?4:12)>MAX_BATCH_BYTES){
         // Roll back reservations before the sequential fallback, otherwise
         // new IDs could be seen out of sequence by the Rust session.
         first.rollback();
@@ -171,23 +229,34 @@ export function createRustCfrStrategyCore(
         return;
       }
       const ids=new Uint32Array(n*samples.length);
-      const payoffs=new Float64Array(n*samples.length);
+      const payoffs=compact?null:new Float64Array(n*samples.length);
+      const outcomes=compact?new Int8Array(samples.length):null;
       const weights=new Float64Array(samples.length);
+      if(model&&!session.compiledPayoffs.has(firstRoot as unknown as AbstractTreeNode)){
+        engine.prepare_payoffs!(handle,model.kinds,model.pots,model.heroInvested);
+        session.compiledPayoffs.add(firstRoot as unknown as AbstractTreeNode);
+      }
       ids.set(first.informationSets,0);
-      payoffs.set(first.terminalUtilities,0);
+      payoffs?.set(first.terminalUtilities,0);
+      if(outcomes)outcomes[0]=sampledShowdown(samples[0]!)!;
       weights[0]=samples[0]!.chanceWeight;
       for(let i=1;i<samples.length;i++){
         const sample=samples[i]!;
-        const request=pack(session,sample.root,sample.deal,sample.callbacks);
+        const request=pack(session,sample.root,sample.deal,sample.callbacks,compact);
         rollbacks.push(request.rollback);
         if(request.informationSets.length!==n){
           throw new Error("La topologie CFR+ a changé pendant le lot.");
         }
         ids.set(request.informationSets,i*n);
-        payoffs.set(request.terminalUtilities,i*n);
+        payoffs?.set(request.terminalUtilities,i*n);
+        if(outcomes)outcomes[i]=sampledShowdown(sample)!;
         weights[i]=sample.chanceWeight;
       }
-      engine.step_prepared_batch(handle,ids,payoffs,weights);
+      if(outcomes){
+        engine.step_prepared_outcome_batch!(handle,ids,outcomes,weights);
+      }else{
+        engine.step_prepared_batch(handle,ids,payoffs!,weights);
+      }
       session.dirty=true;
       executed=true;
     }finally{
@@ -203,7 +272,8 @@ export function createRustCfrStrategyCore(
       const maps=original.createMaps();
       sessions.set(maps,{engine:newSession(),registry:createCfrInformationRegistry(),
         dirty:false,prepared:new WeakMap<AbstractTreeNode,number>(),
-        unprepared:new WeakSet<AbstractTreeNode>()});
+        unprepared:new WeakSet<AbstractTreeNode>(),
+        compiledPayoffs:new WeakSet<AbstractTreeNode>()});
       return maps;
     },
     runCfr(...args:Parameters<CFRCoreApi["runCfr"]>){
