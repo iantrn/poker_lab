@@ -77,14 +77,14 @@ function makeTyped(){
     else globalThis.window=old;
   }
 }
-function makeRustTyped(sessionFactory=()=>new wasm.CfrSession()){
+function makeRustTyped(sessionFactory=()=>new wasm.CfrSession(),bridgeOptions={}){
   const old=globalThis.window;
   const target={PokerLabPostflopSolver:mockRanges()};
   globalThis.window=target;
   try {
     installEvaluator();
     const cfr=installCfrCore();
-    target.PokerLabCFRCore=createRustCfrStrategyCore(cfr,sessionFactory);
+    target.PokerLabCFRCore=createRustCfrStrategyCore(cfr,sessionFactory,bridgeOptions);
     return createStrategy(target);
   }finally{
     if(old===undefined)delete globalThis.window;
@@ -309,4 +309,42 @@ test("default postflop Rust solver does not enable slower compiled payouts",asyn
  assert.ok(counters.plain>0,"default batching path must execute");
  assert.equal(counters.compiled,0);
  assert.equal(counters.prepared,0);
+});
+
+
+test("diagnostic numeric info-set index matches full HU solver on flop, turn and river",async()=>{
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ const samples={};
+ for(const [street,boardLength] of [["flop",3],["turn",4],["river",5]]){
+   const spot=state();
+   spot.street=street;
+   spot.board=spot.board.slice(0,boardLength);
+   for(const player of spot.players)player.stack=4;
+   spot.players[0].actionOptions.maximumRaiseTo=4;
+   const timings={canonical:[],numeric:[]};
+   let baseline=null;
+   for(let repeat=0;repeat<3;repeat++){
+     const order=repeat%2===0?["canonical","numeric"]:["numeric","canonical"];
+     for(const mode of order){
+       const solver=makeRustTyped(()=>new wasm.CfrSession(),
+         {numericInformationIndex:mode==="numeric"});
+       const t0=performance.now();
+       const result=simplify(await solver.solvePostflop(spot,[],opts));
+       timings[mode].push(performance.now()-t0);
+       if(!baseline)baseline=result;
+       else assertNumericallyEquivalent(result,baseline,street+"-"+mode);
+     }
+   }
+   const median=times=>[...times].sort((a,b)=>a-b)[1];
+   samples[street]={
+     canonicalMs:timings.canonical.map(t=>+t.toFixed(2)),
+     numericMs:timings.numeric.map(t=>+t.toFixed(2)),
+     canonicalP50Ms:+median(timings.canonical).toFixed(2),
+     numericP50Ms:+median(timings.numeric).toFixed(2),
+     speedupP50:+(median(timings.canonical)/median(timings.numeric)).toFixed(3),
+     parity:"frequency EV NashConv identical"
+   };
+ }
+ console.log("Full CFR+ numeric index diagnostic: "+JSON.stringify(samples));
 });
