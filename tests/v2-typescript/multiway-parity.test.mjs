@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 import {createStrategicGameState} from "../../frontend/src/solver/strategic-state.ts";
 import {
-  buildMultiwayTree,multiwayTerminalPayoffs
+  buildMultiwayTree,buildAdaptiveMultiwayTree,multiwayTerminalPayoffs
 } from "../../frontend/src/solver/multiway-tree.ts";
 import {
   solveMultiway,analyzeMultiwayEquity
@@ -136,7 +136,8 @@ test("multiway river resolver emits valid frequencies EV and honest non-Nash met
    assert.ok(Number.isFinite(result.heroEV));
    assert.ok(result.heroEVLower95<=result.heroEV);
    assert.ok(result.heroEV<=result.heroEVUpper95);
-   assert.ok(result.abstraction.includes("une seule street"));
+   assert.equal(result.modeledStreets,1);
+   assert.match(result.abstraction,/1 street\(s\) de mises/);
    assert.ok(progress.some(update=>update.phase==="training"&&
      update.provisional&&update.actions?.length));
    assert.ok(progress.some(update=>update.phase==="evaluation"&&update.provisional));
@@ -152,13 +153,15 @@ test("multiway sampled showdown equity uses no hidden bot hand from game state",
  assert.equal(result.rangeLabel.includes("fixture-p1"),true);
  assert.ok(result.note.includes("mises futures"));
 });
-test("flop and turn multiway games are labeled checkdown, not full-street GTO",async()=>{
+test("flop and turn multiway solve across future betting streets without Nash claims",async()=>{
  for(const street of ["flop","turn"]){
    const state=createStrategicGameState(makeInput(3,street));
    const result=await solveMultiway(state,env(),{
      iterations:16,samples:1,evaluationSamples:16,seed:40
    });
-   assert.ok(result.abstraction.includes("checkdown"));
+   assert.ok(result.modeledStreets>=2,
+     "a 3-way future street should fit the bounded multi-street budget");
+   assert.match(result.abstraction,/cartes futures révélées progressivement/);
    assert.equal(result.quality,"sampled_estimate");
    assert.equal(result.street,street);
    assert.equal(result.nashConv,null);
@@ -308,4 +311,107 @@ test("disjoint fixed multiway ranges retain unit importance weights and exact si
  assert.equal(solution.evaluationEffectiveSampleSize,32);
  assert.equal(solution.heroRangeEffectiveSampleSize,32);
  assert.equal(solution.iterations,32);
+});
+
+
+test("multi-street tree resets street bets, respects clockwise postflop order and preserves chip conservation",()=>{
+ const strategic=createStrategicGameState(makeInput(3,"flop"));
+ const tree=buildMultiwayTree(strategic,{maxStreets:3});
+ assert.equal(tree.model,"multi-street-sampled-runout");
+ assert.equal(tree.streetsModeled,3);
+ assert.ok(tree.nodes<=12_000);
+ const nodes=[];
+ const visit=node=>{
+   nodes.push(node);
+   if(!node.terminal)for(const child of node.actions)visit(child.child);
+ };
+ visit(tree.root);
+ assert.ok(nodes.some(node=>!node.terminal&&node.street==="flop"));
+ assert.ok(nodes.some(node=>!node.terminal&&node.street==="turn"));
+ assert.ok(nodes.some(node=>!node.terminal&&node.street==="river"));
+ const firstTurn=nodes.find(node=>!node.terminal&&node.street==="turn");
+ const firstRiver=nodes.find(node=>!node.terminal&&node.street==="river");
+ assert.equal(firstTurn.actor,1,"action must start left of the dealer on turn");
+ assert.equal(firstRiver.actor,1,"action must start left of the dealer on river");
+ assert.equal(firstTurn.boardLength,4);
+ assert.equal(firstRiver.boardLength,5);
+ assert.ok(firstTurn.history.includes("|turn"));
+ assert.ok(firstRiver.history.includes("|turn"));
+ assert.ok(firstRiver.history.includes("|river"));
+ // The tree is built without a future runout and cannot leak its card IDs.
+ assert.ok(!firstTurn.history.includes("14_spades"));
+ assert.ok(!firstRiver.history.includes("13_hearts"));
+ const score=Array.from({length:3},(_,i)=>[i]);
+ let checked=0;
+ for(const node of nodes){
+   if(!node.terminal)continue;
+   const winnings=multiwayTerminalPayoffs(node,score,(a,b)=>a[0]-b[0]);
+   assert.ok(Math.abs(winnings.reduce((a,b)=>a+b,0))<1e-7);
+   assert.ok(node.contributions.every((contribution,i)=>
+     contribution>=strategic.players[i].totalContribution));
+   checked++;
+ }
+ assert.ok(checked>8);
+});
+test("flop policies cannot peek at future sampled cards while turn strategies distinguish runouts",async()=>{
+ const strategic=createStrategicGameState(makeInput(3,"flop"));
+ const {tree}=buildAdaptiveMultiwayTree(strategic,24);
+ assert.ok(tree.streetsModeled>=2);
+ const nodes=[];
+ const walk=node=>{
+   nodes.push(node);
+   if(!node.terminal)for(const child of node.actions)walk(child.child);
+ };
+ walk(tree.root);
+ const turnIndex=nodes.findIndex(node=>!node.terminal&&node.boardLength===4);
+ assert.ok(turnIndex>0);
+ const seenRoot=[],seenTurn=[];
+ const custom={
+   ...env(),
+   newSession:players=>{
+     const inner=new MultiwayCfrSession(players);
+     return {
+       step(actors,ids,offsets,counts,children,payoffs,weight){
+         seenRoot.push(ids[0]);
+         seenTurn.push(ids[turnIndex]);
+         return inner.step(actors,ids,offsets,counts,children,payoffs,weight);
+       },
+       strategy_for_info_set:id=>inner.strategy_for_info_set(id),
+       average_strategy:()=>inner.average_strategy(),
+       iterations:()=>inner.iterations(),
+       information_set_count:()=>inner.information_set_count()
+     };
+   }
+ };
+ const result=await solveMultiway(strategic,custom,{
+   iterations:24,samples:1,evaluationSamples:16,seed:212
+ });
+ assert.ok(result.modeledStreets>=2);
+ assert.ok(seenRoot.length>=16);
+ assert.equal(new Set(seenRoot).size,1,
+   "every flop sample with fixed hole cards must reuse the same root infoset");
+ assert.ok(new Set(seenTurn).size>1,
+   "turn infoset must condition on the newly revealed fourth board card");
+});
+test("mobile bounded horizon retains at least two betting streets for 3–6 seats",()=>{
+ for(const count of [3,4,5,6]){
+   const strategic=createStrategicGameState(makeInput(count,"flop"));
+   const plan=buildAdaptiveMultiwayTree(strategic,256);
+   assert.ok(plan.tree.nodes<=12_000);
+   assert.ok(plan.tree.streetsModeled>=2,
+     count+"-seat flop horizon must include at least one future betting round");
+   assert.ok(plan.trainingSamples>=16);
+   assert.ok(plan.trainingSamples*plan.tree.decisionNodes<=60_000);
+   assert.equal(plan.tree.model,"multi-street-sampled-runout");
+ }
+});
+test("river planning never invents another street and invalid horizons fail closed",()=>{
+ for(const count of [3,6]){
+   const state=createStrategicGameState(makeInput(count,"river"));
+   const {tree,trainingSamples}=buildAdaptiveMultiwayTree(state,32);
+   assert.equal(tree.streetsModeled,1);
+   assert.equal(tree.model,"single-street-checkdown");
+   assert.ok(trainingSamples>0);
+   assert.throws(()=>buildMultiwayTree(state,{maxStreets:2}),RangeError);
+ }
 });
