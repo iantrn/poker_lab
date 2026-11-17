@@ -1,6 +1,7 @@
-pub mod tree;
 //! CFR+ regret-matching core for a zero-sum matrix (a restricted game tree).
 //! The full PokerLab postflop tree stays on the proven legacy worker until parity.
+
+pub mod tree;
 
 /// Regret matching on preallocated buffers (no heap allocation per iteration).
 #[inline]
