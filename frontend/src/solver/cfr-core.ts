@@ -449,7 +449,17 @@ function createCore() {
         createMaps
     };
 }
-export type CFRCoreApi = ReturnType<typeof createCore>;
+/** One completed chance sample: both CFR+ traversers must be applied in order. */
+export interface CFRBatchSample {
+  root:CFRNode;
+  deal:unknown;
+  callbacks:CFRCallbacks;
+  chanceWeight:number;
+}
+export type CFRCoreApi = ReturnType<typeof createCore> & {
+  /** Optional Rust accelerator; TypeScript keeps its established single-step path. */
+  runCfrBatch?:(samples:readonly CFRBatchSample[],maps:CFRMaps,averageWeightStart:number)=>void;
+};
 export function installCfrCore():CFRCoreApi {
   const target = window as Window & {PokerLabCFRCore?:CFRCoreApi};
   if (!target.PokerLabCFRCore) target.PokerLabCFRCore = createCore();
