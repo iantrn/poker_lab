@@ -266,3 +266,13 @@ test("Showdown dialog scroll/focus and actual win-flow are browser-regression te
   assert.match(smoke, /showdown-uncontested-dialog-desktop/);
   assert.match(smoke, /The modal's primary CTA must call the actual engine nextHand/);
 });
+
+test("Multi-winner modal is condensed only at desktop widths", () => {
+  const css=read("frontend/src/styles/poker-table.css");
+  const table=read("frontend/src/components/table.ts");
+  const smoke=read("tests/v2-browser-smoke.mjs");
+  assert.match(table,/winnings\.classList\.add\("pl-result-winnings--multi"\)/);
+  assert.match(css,/@media \(min-width: 601px\)/);
+  assert.match(css,/\.pl-result-winnings--multi\s*\{\s*grid-template-columns: repeat\(2/);
+  assert.match(smoke,/both winners should be side-by-side/);
+});

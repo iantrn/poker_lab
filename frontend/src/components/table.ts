@@ -789,6 +789,7 @@ function createTable() {
         );
 
         const winnings = createElement("section", "pl-result-winnings");
+        if (winnerIds.length > 1) winnings.classList.add("pl-result-winnings--multi");
         winnings.setAttribute("aria-label", "Détails de la victoire");
         winnings.appendChild(createElement("h3", "pl-result-section-title", "Gains et mains gagnantes"));
         if (!winnerIds.length) {

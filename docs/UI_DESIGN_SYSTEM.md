@@ -302,3 +302,12 @@ test therefore confirms that a `pl-review-history-item` is present, rather
 than continuing to expect an empty history. The synthetic split-pot scenario
 uses a shared board straight for both evaluated winners to keep the
 screenshot's best five cards consistent with the displayed categories.
+
+### Visual audit — multiple winners
+
+Chromium and WebKit screenshots revealed that two vertically stacked winning
+hands could be hidden partly by the sticky next-hand footer. On desktop,
+multi-winner results now use a **two-column summary** with slightly smaller
+reused card thumbnails, keeping the winner rows and the pot breakdown readily
+visible. On mobile, they remain a single, scrollable column with a sticky
+52px primary CTA.

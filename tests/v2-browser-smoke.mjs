@@ -345,6 +345,10 @@ async function run() {
         gains:[...modal.querySelectorAll(".pl-result-winner-gain")].map(el=>el.textContent),
         categories:[...modal.querySelectorAll(".pl-result-winner-hand")].map(el=>el.textContent),
         fiveCards:[...modal.querySelectorAll(".pl-result-best-five")].map(el=>el.children.length),
+        winnerGrid:getComputedStyle(modal.querySelector(".pl-result-winnings")).gridTemplateColumns,
+        winnerCards:[...modal.querySelectorAll(".pl-result-winner")].map(el => {
+          const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom};
+        }),
         pots:[...modal.querySelectorAll(".pl-result-pot-name")].map(el=>el.textContent),
         next:modal?.querySelectorAll('[data-training-action="next-hand"]').length,
         quit:modal?.querySelectorAll('[data-training-action="end-session"]').length,
@@ -361,6 +365,11 @@ async function run() {
     assert.deepEqual(multiPotFixture.gains,["+11 BB","+20,5 BB"]);
     assert.deepEqual(multiPotFixture.categories,["Quinte","Quinte"]);
     assert.deepEqual(multiPotFixture.fiveCards,[5,5]);
+    assert.equal(multiPotFixture.winnerGrid.trim().split(/\s+/).length,2,
+      "On desktop both winners should be side-by-side for a compact summary");
+    assert.ok(Math.abs(multiPotFixture.winnerCards[0].top-
+      multiPotFixture.winnerCards[1].top)<=2,
+      "Winning hand detail panels must share a baseline on desktop");
     assert.deepEqual(multiPotFixture.pots,["Pot principal","Pot secondaire 1"]);
     assert.equal(multiPotFixture.next,1,"Next hand action must be inside the modal");
     assert.equal(multiPotFixture.quit,1);

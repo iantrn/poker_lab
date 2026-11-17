@@ -1125,6 +1125,36 @@
 #app #training-game #training-table .pl-result-best-five > * {
   flex: 0 0 auto;
 }
+/* Multiple winners: compact two-up cards on desktop so both winning
+   combinations and the pot allocation are visible before scrolling. */
+@media (min-width: 601px) {
+  #app #training-game #training-table .pl-result-winnings--multi {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 9px;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-section-title {
+    grid-column: 1 / -1;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-winner {
+    padding: 11px 10px 10px;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-winner-top {
+    gap: 5px;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-winner-name {
+    font-size: .83rem;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-winner-gain {
+    font-size: .86rem;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-best-five {
+    gap: 3px;
+  }
+  #app #training-game #training-table .pl-result-winnings--multi .pl-result-best-five > * {
+    width: 32px !important;
+    height: 46px !important;
+  }
+}
 #app #training-game #training-table .pl-result-pot-breakdown {
   margin-top: 1px;
   padding-top: 10px;
