@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { chromium, webkit } from "../frontend/node_modules/playwright-core/index.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const mime = { ".html":"text/html", ".js":"application/javascript", ".json":"application/json", ".webmanifest":"application/manifest+json", ".css":"text/css", ".png":"image/png", ".wasm":"application/wasm" };
+const mime = { ".html":"text/html", ".js":"application/javascript", ".json":"application/json", ".webmanifest":"application/manifest+json", ".css":"text/css", ".png":"image/png", ".svg":"image/svg+xml", ".wasm":"application/wasm" };
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (!url.pathname.startsWith("/poker_lab/")) { res.writeHead(404); res.end(); return; }
@@ -86,6 +86,19 @@ async function run() {
     }));
     console.log("Browser UI ready:", JSON.stringify(uiSnapshot));
     assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
+    // The static SVG mark must be rendered, not a broken <img>. In production
+    // GitHub Pages serves SVG with its image MIME type; mirror that in smoke.
+    await page.waitForFunction(() => {
+      const mark = document.querySelector("img.pl-brand-mark");
+      return mark?.complete === true && mark.naturalWidth > 0;
+    }, null, { timeout: 10000 });
+    const logoMime = await page.evaluate(async () => {
+      const mark = document.querySelector("img.pl-brand-mark");
+      const response = await fetch(mark.src);
+      return { status: response.status, mime: response.headers.get("content-type") };
+    });
+    assert.equal(logoMime.status, 200);
+    assert.match(logoMime.mime ?? "", /image\/svg\+xml/i);
     await captureUi("home-desktop");
 
     // V2-owned React contract: assert stable ids, page anchors, and hooks

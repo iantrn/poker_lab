@@ -93,6 +93,7 @@ jobs:
           test ! -e dist/css/style.css
           test ! -d dist/data/ranges/preflop/matrix/bb
           test -s dist/assets/icons/icon-192.png
+          test -s dist/assets/icons/pokerlab-mark.svg
       - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
         env:
           POKERLAB_CAPTURE_UI: "1"

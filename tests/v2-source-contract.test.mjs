@@ -154,3 +154,11 @@ test("Phase 5 screenshot audit: compact mobile labels and direct range discovery
   assert.match(design, /\.pl-mobile-link span/);
   assert.match(design, /\.pl-learning-shortcut:focus-visible/);
 });
+
+test("Preview server serves SVG as an image so visual captures are faithful", () => {
+  const smoke = read("tests/v2-browser-smoke.mjs");
+  const workflow = read(".github/workflows/v2-migration.yml");
+  assert.match(smoke, /"\.svg":"image\/svg\+xml"/);
+  assert.match(smoke, /mark\.naturalWidth > 0/);
+  assert.match(workflow, /test -s dist\/assets\/icons\/pokerlab-mark\.svg/);
+});

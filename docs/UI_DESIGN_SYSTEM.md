@@ -102,3 +102,13 @@ The first full Chromium and WebKit screenshot review (18 renders) confirmed the 
 3. A route switch did not guarantee scroll reset: the browser could leave the new screen partly scrolled. `navigateTo` now calls `scrollTo(0, 0)` after activating the page. In-page ranges scrolling remains independent of route navigation.
 
 The CI now captures **`ranges-mobile-intro`** and **`ranges-mobile`** showing the actual range explorer rather than only the beginning of the lesson catalog; regression assertions measure 320px label boxes and verify scroll restoration.
+
+### Screenshot MIME correction
+
+The SVG brand mark was correctly copied into the production build, but the
+minimal screenshot test server omitted `.svg: image/svg+xml` in its MIME
+table. Chromium and WebKit therefore captured a broken image placeholder that
+was **specific to the test server**, not evidence of a missing build asset.
+The smoke server now serves the correct MIME type, asserts an actual decoded
+logo image (`naturalWidth > 0`), and validates the SVG content type.
+The build stage also checks that `dist/assets/icons/pokerlab-mark.svg` exists.
