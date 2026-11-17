@@ -325,7 +325,7 @@ async function run() {
         });
       } finally {worker.terminate();}
     });
-    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust"});
+    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust",multiway:"rust-sampled"});
 
     // Integration gate: the typed module Worker must run a real river equity
     // calculation and a seeded range-vs-range CFR+ solve, not just initialize.
@@ -354,12 +354,23 @@ async function run() {
         ]
       }};
       let id=1000;
+      const rustProgress=[];
       const run=(task,options={},experimentalRustCfr)=>new Promise((resolve,reject)=>{
         const currentId=++id;
         const timeout=setTimeout(()=>reject(new Error(
           "Typed postflop "+task+" calculation exceeded 60s")),60000);
         const onMessage=event=>{
-          if(event.data?.id!==currentId || event.data.progress!==undefined)return;
+          if(event.data?.id!==currentId)return;
+          if(event.data.progress!==undefined){
+            if(task==="strategy"&&experimentalRustCfr===true)
+              rustProgress.push({
+                progress:event.data.progress,
+                phase:event.data.phase,
+                provisional:event.data.provisional===true,
+                actionCount:event.data.previewActions?.length??0
+              });
+            return;
+          }
           clearTimeout(timeout);worker.removeEventListener("message",onMessage);
           if(event.data.ok)resolve(event.data.result);
           else reject(new Error(event.data.error||("Typed "+task+" failed")));
@@ -387,6 +398,9 @@ async function run() {
         const autoStrategy=await run("strategy",solveOptions);
         return {
           timing:{typedDurationMs,rustDurationMs},
+          rustProgress,
+          rustQuality:rustStrategy.quality,
+          rustHeroActualSamples:rustStrategy.sampledActualHeroHand,
           equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
             losses:equity.losses,value:equity.equity},
           strategy:{iterations:strategy.iterations,actions:strategy.actions,
@@ -405,6 +419,23 @@ async function run() {
       typedPostflop.equity.losses,1800);
     assert.ok(typedPostflop.equity.value>=0&&typedPostflop.equity.value<=1);
     assert.equal(typedPostflop.strategy.iterations,80);
+    assert.equal(typedPostflop.rustQuality,"sampled_estimate");
+    assert.ok(typedPostflop.rustProgress.length>=4,
+      "real Worker must stream bounded CFR progress checkpoints");
+    assert.ok(typedPostflop.rustProgress.some(update=>
+      update.provisional&&update.phase==="strategy_training"),
+      "real Worker must distinguish un-converged strategy estimates");
+    if(typedPostflop.rustHeroActualSamples>0)
+      assert.ok(typedPostflop.rustProgress.some(update=>update.actionCount>0),
+        "real Worker must send a provisional root policy when sampled hero is known");
+    else
+      assert.ok(typedPostflop.rustProgress.every(update=>update.actionCount===0),
+        "never invent hero-hand frequencies before that hand was sampled");
+    for(let step=1;step<typedPostflop.rustProgress.length;step++)
+      assert.ok(typedPostflop.rustProgress[step].progress>=
+        typedPostflop.rustProgress[step-1].progress,
+        "progress must stay monotonic");
+
     assert.ok(typedPostflop.strategy.actions.length>=2);
     assert.ok(Math.abs(typedPostflop.strategy.actions.reduce((sum,action)=>
       sum+action.frequency,0)-1)<0.001);
@@ -438,6 +469,131 @@ async function run() {
 
 
 
+
+    // Integration gate: actual 3- and 6-seat postflop decisions run in the
+    // production typed Rust Worker (not merely in Node test mocks).
+    // Opponent cards remain hidden; the worker must sample valid blockers.
+    const multiwaySmoke=await page.evaluate(async()=>{
+      const scenarios=[];
+      for(const {seats,street} of [
+        {seats:3,street:"river"},{seats:6,street:"river"},
+        {seats:3,street:"flop"},{seats:6,street:"flop"}
+      ]){
+        const worker=window.PokerLabV2.createTypedPostflopWorker();
+        const ranks=[
+          {value:2,suit:"clubs"},{value:7,suit:"diamonds"},
+          {value:9,suit:"hearts"},{value:11,suit:"spades"},
+          {value:13,suit:"diamonds"}
+        ];
+        const players=Array.from({length:seats},(_,i)=>({
+          id:"seat-"+i,name:"Player "+i,isHuman:i===0,isBot:i!==0,
+          folded:false,allIn:false,holeCards:i===0?[
+            {value:14,suit:"spades"},{value:14,suit:"hearts"}
+          ]:null,
+          stack:20,streetBet:0,totalContribution:5,
+          hasActed:false,lastActedBet:0,amountToCall:0,
+          position:["BTN","SB","BB","CO","HJ","UTG"][i],
+          actionOptions:i===0?{
+            canFold:false,canCheck:true,canCall:false,
+            canBet:true,canRaise:false,
+            minimumBet:1,maximumBet:20
+          }:null
+        }));
+        const input={schemaVersion:1,history:[],state:{
+          street,board:ranks.slice(0,street==="flop"?3:5),handComplete:false,
+          pot:seats*5,currentBet:0,lastFullRaise:1,minimumRaiseTo:1,
+          blinds:{smallBlind:0.5,bigBlind:1},dealerIndex:0,
+          currentPlayerId:"seat-0",pendingPlayers:players.map((_,i)=>i),
+          players
+        }};
+        let requestId=9000;
+        const progress=[];
+        const invoke=(task,options)=>new Promise((resolve,reject)=>{
+          const id=++requestId;
+          const timer=setTimeout(()=>{
+            worker.terminate();reject(new Error(
+              "Timed out on "+seats+"-seat multiway "+task));
+          },60000);
+          const handler=event=>{
+            const data=event.data;
+            if(data?.id!==id)return;
+            if(data.progress!==undefined){
+              progress.push({
+                phase:data.phase,progress:data.progress,
+                provisional:data.provisional===true
+              });
+              return;
+            }
+            clearTimeout(timer);
+            worker.removeEventListener("message",handler);
+            if(data.ok)resolve(data.result);
+            else reject(new Error(String(data.error)));
+          };
+          worker.addEventListener("message",handler);
+          worker.postMessage({id,task,input,options});
+        });
+        try{
+          const equity=seats===3&&street==="river"
+            ?await invoke("equity",{iterations:300,seed:123}):null;
+          const start=performance.now();
+          const strategy=await invoke("strategy",{
+            iterations:16,samples:1,evaluationSamples:16,seed:123
+          });
+          scenarios.push({
+            seats,street,elapsedMs:performance.now()-start,
+            modeledStreets:strategy.modeledStreets,
+            preparedTopology:strategy.preparedTopology,
+            decisionNodes:strategy.decisionNodes,
+            requestedIterations:strategy.requestedIterations,
+            actions:strategy.actions,algorithm:strategy.algorithm,
+            quality:strategy.quality,nashConv:strategy.nashConv,
+            ev:strategy.heroEV,iterations:strategy.iterations,
+            abstraction:strategy.abstraction,
+            equity:equity?{
+              equity:equity.equity,
+              n:equity.iterations,
+              counts:equity.wins+equity.ties+equity.losses
+            }:null,
+            progress
+          });
+        }finally{worker.terminate();}
+      }
+      return scenarios;
+    });
+    for(const report of multiwaySmoke){
+      assert.equal(report.quality,"sampled_estimate");
+      assert.equal(report.nashConv,null);
+      assert.equal(report.preparedTopology,true,
+        "actual browser Worker should use persistent Rust multiway prepared topology");
+      assert.equal(report.iterations,16);
+      assert.ok(report.actions.length>=2);
+      assert.ok(Math.abs(report.actions.reduce((total,action)=>
+        total+action.frequency,0)-1)<1e-8);
+      assert.ok(Number.isFinite(report.ev));
+      if(report.street==="flop"){
+        assert.ok(report.modeledStreets>=2,
+          "3–6-seat flop scenarios must model a future betting street");
+        assert.match(report.abstraction,/cartes futures révélées progressivement/);
+      }else{
+        assert.equal(report.modeledStreets,1);
+        assert.match(report.abstraction,/1 street\(s\) de mises/);
+      }
+      assert.ok(report.decisionNodes>=1);
+      assert.ok(report.progress.some(item=>item.provisional&&
+        item.phase==="strategy_training"));
+      assert.ok(report.progress.some(item=>item.provisional&&
+        item.phase==="strategy_evaluation"));
+      assert.ok(report.progress.every(item=>
+        Number.isFinite(item.progress)&&item.progress>=0&&item.progress<=1));
+      if(report.equity){
+        assert.equal(report.equity.n,300);
+        assert.equal(report.equity.counts,300);
+        assert.ok(report.equity.equity>=0&&report.equity.equity<=1);
+      }
+      console.log("Typed Rust "+report.seats+"-seat multiway "+report.street+
+        " solve ("+report.modeledStreets+" modeled betting streets): "+
+        report.elapsedMs.toFixed(1)+"ms (non-gating, CI browser)");
+    }
 
     // Statistical parity and full-pipeline timing: the V1 and V2 solvers use
     // independent random streams, so this is intentionally not bit-for-bit parity.
@@ -547,8 +703,63 @@ async function run() {
         });
       }finally{worker.terminate();}
     });
-    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust"},
-      "Offline typed postflop Worker must bootstrap Rust/WASM");
+    assert.deepEqual(offlineBackend,{backend:"wasm",implementation:"typescript",cfrDefault:"rust",multiway:"rust-sampled"},
+      "Offline typed postflop Worker must bootstrap Rust/WASM and multiway CFR+");
+    const offlineMultiway=await page.evaluate(async()=>{
+      const worker=window.PokerLabV2.createTypedPostflopWorker();
+      const hand={schemaVersion:1,history:[],state:{
+        handNumber:333,street:"river",
+        board:[
+          {value:2,suit:"clubs"},{value:7,suit:"diamonds"},
+          {value:9,suit:"hearts"},{value:11,suit:"spades"},
+          {value:13,suit:"diamonds"}
+        ],
+        pot:15,currentBet:0,lastFullRaise:1,minimumRaiseTo:1,
+        blinds:{smallBlind:0.5,bigBlind:1},dealerIndex:0,
+        currentPlayerId:"hero",pendingPlayers:[0,1,2],handComplete:false,
+        players:[
+          {id:"hero",name:"Hero",isHuman:true,isBot:false,folded:false,
+            holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
+            stack:20,streetBet:0,totalContribution:5,amountToCall:0,
+            position:"BTN",actionOptions:{
+              canCheck:true,canBet:true,minimumBet:1,maximumBet:20
+            }},
+          {id:"bot1",name:"Bot 1",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:20,streetBet:0,totalContribution:5,
+            amountToCall:0,position:"SB"},
+          {id:"bot2",name:"Bot 2",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:20,streetBet:0,totalContribution:5,
+            amountToCall:0,position:"BB"}
+        ]
+      }};
+      try{
+        return await new Promise((resolve,reject)=>{
+          const timeout=setTimeout(()=>reject(new Error("Offline multiway CFR+ timeout")),30000);
+          worker.addEventListener("message",event=>{
+            if(event.data?.id!==3010||event.data.progress!==undefined)return;
+            clearTimeout(timeout);
+            if(event.data.ok)resolve({
+              quality:event.data.result.quality,
+              actions:event.data.result.actions,
+              iterations:event.data.result.iterations,
+              nashConv:event.data.result.nashConv
+            });
+            else reject(new Error(event.data.error||"Offline multiway CFR+ unavailable"));
+          });
+          worker.addEventListener("error",event=>reject(new Error(event.message)));
+          worker.postMessage({id:3010,task:"strategy",input:hand,
+            options:{iterations:16,samples:1,evaluationSamples:16,seed:333}});
+        });
+      }finally{worker.terminate();}
+    });
+    assert.equal(offlineMultiway.quality,"sampled_estimate");
+    assert.equal(offlineMultiway.nashConv,null);
+    assert.equal(offlineMultiway.iterations,16);
+    assert.ok(offlineMultiway.actions.length>=2);
+    assert.ok(Math.abs(offlineMultiway.actions.reduce((sum,item)=>
+      sum+item.frequency,0)-1)<1e-9,
+      "Actual multiway CFR+ must remain functional with all networking disabled");
+
     assert.equal(pageErrors.length,0,`Runtime errors: ${pageErrors.join("; ")}`);
     console.log("Browser smoke: UI, matrix, WASM Worker, PWA & offline passed");
   } finally {

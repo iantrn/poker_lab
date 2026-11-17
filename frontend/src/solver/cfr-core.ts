@@ -8,7 +8,13 @@ export interface CFRAction { child: CFRNode; action?: CFRActionDetails; type?:st
 export interface CFRActionDetails { type?:string; label?:string; id?:string; amount?:number; raiseTo?:number; }
 export interface CFRNode { terminal?:boolean; actor:number; actions:CFRAction[]; [attribute:string]:unknown; }
 export interface CFRDeal { root:CFRNode; deal:unknown; }
-export interface CFRCallbacks { informationKey(node:CFRNode,deal:unknown):string; utility(node:CFRNode,deal:unknown):number; }
+export interface CFRCallbacks {
+  informationKey(node:CFRNode,deal:unknown):string;
+  utility(node:CFRNode,deal:unknown):number;
+  /** Optional lossless split: prefix + suffix must equal informationKey. */
+  informationPrefix?(node:CFRNode,deal:unknown):string;
+  informationSuffix?(node:CFRNode,deal:unknown):string;
+}
 export interface CFRMaps { regrets:Map<string,Float64Array>; strategy:Map<string,Float64Array>; actionSignatures:Map<string,string>; }
 interface CFRWorkspace { strategies:Float64Array[];actionValues:Float64Array[]; }
 interface ResponseRecord {
@@ -449,7 +455,19 @@ function createCore() {
         createMaps
     };
 }
-export type CFRCoreApi = ReturnType<typeof createCore>;
+/** One completed chance sample: both CFR+ traversers must be applied in order. */
+export interface CFRBatchSample {
+  root:CFRNode;
+  deal:unknown;
+  callbacks:CFRCallbacks;
+  chanceWeight:number;
+  /** Explicit PokerLab payoff convention: fold winner + showdown net chip EV. */
+  compilePokerPayoffs?:true;
+}
+export type CFRCoreApi = ReturnType<typeof createCore> & {
+  /** Optional Rust accelerator; TypeScript keeps its established single-step path. */
+  runCfrBatch?:(samples:readonly CFRBatchSample[],maps:CFRMaps,averageWeightStart:number)=>void;
+};
 export function installCfrCore():CFRCoreApi {
   const target = window as Window & {PokerLabCFRCore?:CFRCoreApi};
   if (!target.PokerLabCFRCore) target.PokerLabCFRCore = createCore();

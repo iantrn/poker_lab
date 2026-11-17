@@ -3,7 +3,7 @@
  * This is an *abstracted* poker game, not a certified full-game GTO solver.
  */
 import type { SolverCard } from "./input-contract";
-import type { CFRNode,CFRCallbacks,CFRDeal,CFRCoreApi } from "./cfr-core";
+import type { CFRNode,CFRCallbacks,CFRDeal,CFRCoreApi,CFRBatchSample } from "./cfr-core";
 import { buildDecisionTree, rootActionSignature,
   type AbstractTreeNode, type AbstractTreeInput, type AbstractRootOptions
 } from "./decision-tree.ts";
@@ -134,18 +134,43 @@ function sampledBoardId(deal:ChanceDeal,length:number):string {
   }
   return key;
 }
+// For Rust's reusable serializer, intern the public information prefix once
+// per sampled deal, actor and board street (at most six distinct combinations).
+// Canonical string keys remain unchanged for TypeScript CFR and exploitability.
+const dealInformationPrefixes=new WeakMap<ChanceDeal,Map<number,string>>();
+function informationPrefix(node:Extract<AbstractTreeNode,{terminal:false}>,
+  deal:ChanceDeal|null,hero:SolverCard[],board:SolverCard[]):string {
+  if(!deal){
+    // Keep the exact legacy key semantics for external root-only reads.
+    const privateHand=node.actor===0?handId(hero):handId(deal!.villain);
+    return node.actor+"|"+privateHand+"|"+boardId(node.board||board);
+  }
+  let prefixes=dealInformationPrefixes.get(deal);
+  if(!prefixes){
+    prefixes=new Map<number,string>();
+    dealInformationPrefixes.set(deal,prefixes);
+  }
+  const index=node.board.length*2+node.actor;
+  let value=prefixes.get(index);
+  if(value===undefined){
+    const hand=sampledHandIds(deal)[node.actor===0?0:1];
+    value=node.actor+"|"+hand+"|"+sampledBoardId(deal,node.board.length);
+    prefixes.set(index,value);
+  }
+  return value;
+}
 function informationKey(node:AbstractTreeNode,deal:ChanceDeal|null,hero:SolverCard[],board:SolverCard[]):string {
   if(node.terminal)return "";
-  const privateHand=deal
-    ? sampledHandIds(deal)[node.actor===0?0:1]
-    : node.actor===0 ? handId(hero) : handId(deal!.villain);
-  return node.actor+"|"+privateHand+"|"+
-    (deal ? sampledBoardId(deal,node.board.length) : boardId(node.board||board))+
-    staticInformationSuffix(node);
+  return informationPrefix(node,deal,hero,board)+staticInformationSuffix(node);
 }
 function cfrCallbacks(hero:SolverCard[],board:SolverCard[],global:StrategyGlobal):CFRCallbacks {
   return {
     informationKey:(node,deal)=>informationKey(toAbstract(node),deal as ChanceDeal|null,hero,board),
+    informationPrefix:(node,deal)=>informationPrefix(
+      toAbstract(node) as Extract<AbstractTreeNode,{terminal:false}>,
+      deal as ChanceDeal|null,hero,board),
+    informationSuffix:node=>staticInformationSuffix(
+      toAbstract(node) as Extract<AbstractTreeNode,{terminal:false}>),
     utility:(node,deal)=>utility(toAbstract(node),deal as ChanceDeal,hero,board,global)
   };
 }
@@ -162,6 +187,16 @@ function averageStrategy(node:AbstractTreeNode,deal:ChanceDeal,maps:ReturnType<C
 function getRootStrategy(tree:AbstractTreeNode,maps:ReturnType<CFRCoreApi["createMaps"]>,hero:SolverCard[],board:SolverCard[],
   global:StrategyGlobal):Float64Array|[] {
   return global.PokerLabCFRCore.getStrategy(toCFR(tree),null,maps,cfrCallbacks(hero,board,global));
+}
+/** Progress never denotes a certified Nash equilibrium. Interim policies are
+ * sampled estimates from the current, still-learning abstract subgame.
+ */
+export interface StrategyProgress {
+  phase:"training"|"evaluation"|"diagnostics";
+  progress:number;
+  iterations:number;
+  provisional:true;
+  actions?:ReadonlyArray<{action:string;frequency:number}>;
 }
 export function createStrategy(global:StrategyGlobal){
     function validate(input:unknown):{hero:StrategyPlayer & {holeCards:SolverCard[]};opponent:StrategyPlayer} {
@@ -299,7 +334,7 @@ export function createStrategy(global:StrategyGlobal){
         return { hero:hero as StrategyPlayer & {holeCards:SolverCard[]}, opponent };
     }
 
-    async function solvePostflop(input:unknown,history:HistoryEvent[]=[],options:{iterations?:number;samples?:number;seed?:number;evaluationSamples?:number;exploitabilitySamples?:number}={}) {
+    async function solvePostflop(input:unknown,history:HistoryEvent[]=[],options:{iterations?:number;samples?:number;seed?:number;evaluationSamples?:number;exploitabilitySamples?:number;experimentalCompiledPayoffs?:boolean;onProgress?:(snapshot:StrategyProgress)=>void}={}) {
         const resolved = global.PokerLabPostflopSolver &&
             typeof global.PokerLabPostflopSolver.resolveInput === "function"
             ? global.PokerLabPostflopSolver.resolveInput(input, history)
@@ -386,6 +421,13 @@ export function createStrategy(global:StrategyGlobal){
             rangeInfo.rangeUsed !== false,random,heroRangeInfo.combos
         );
         const maps = global.PokerLabCFRCore.createMaps();
+        // Small, bounded checkpoints avoid exporting the entire strategy from
+        // Rust on every sample. The UI must label these frequencies provisional.
+        const report=(snapshot:StrategyProgress):void=>{
+            if(typeof options.onProgress!=="function")return;
+            options.onProgress(snapshot);
+        };
+        let lastTrainingCheckpoint=0;
         let rootTree:AbstractTreeNode|null=null;
         let expectedRootSignature:string|null=null;
         let averageNodeCount = 0;
@@ -400,6 +442,15 @@ export function createStrategy(global:StrategyGlobal){
         // A zero-delay timer per deal otherwise introduces an O(iterations)
         // wall-time scheduling penalty independent of the actual CFR work.
         let nextCooperativeYield = performance.now() + 12;
+        // Only the Rust adapter exposes runCfrBatch. Limit each unit of work to
+        // eight samples and flush before yielding to preserve responsiveness.
+        const trainingBatch:CFRBatchSample[]=[];
+        let trainingBatchStart=1;
+        const flushTrainingBatch=():void=>{
+            if(!trainingBatch.length)return;
+            global.PokerLabCFRCore.runCfrBatch!(trainingBatch,maps,trainingBatchStart);
+            trainingBatch.length=0;
+        };
         for (let iteration = 0; iteration < trainingIterations; iteration++) {
             const sampled = trainingSampler(1);
             const deal = sampled.deals[0]!;
@@ -423,15 +474,54 @@ export function createStrategy(global:StrategyGlobal){
             rootTree = built.tree;
             averageNodeCount += built.nodeCount;
 
-            // Une seule accumulation de stratégie moyenne par itération CFR+.
-            runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
-            runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
+            // Each sample still receives exactly two ordered CFR+ traversals.
+            // Sampling is independent of learned regrets, so batching cannot
+            // change RNG consumption or the order of regret updates.
+            if(global.PokerLabCFRCore.runCfrBatch){
+                if(trainingBatch.length===0)trainingBatchStart=iteration+1;
+                const importance=Number(deal.heroImportanceWeight);
+                trainingBatch.push({
+                    root:toCFR(built.tree),
+                    deal,
+                    callbacks:cfrCallbacks(deal.hero,state.board,global),
+                    chanceWeight:importance>0?importance:1,
+                    compilePokerPayoffs:options.experimentalCompiledPayoffs===true?true:undefined
+                });
+                if(trainingBatch.length===8)flushTrainingBatch();
+            }else{
+                runCfr(built.tree, deal, 0, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
+                runCfr(built.tree, deal, 1, [1, 1], maps, deal.hero, state.board, iteration + 1,global);
+            }
 
+            // Progress checkpoints are aligned to completed CFR batches so
+            // the exported policy never represents half an iteration.
+            const completed=iteration+1;
+            if(options.onProgress && (completed===trainingIterations ||
+                (completed-lastTrainingCheckpoint >= Math.max(8,Math.floor(trainingIterations/8)) &&
+                 completed%8===0))){
+                flushTrainingBatch();
+                lastTrainingCheckpoint=completed;
+                let preview:StrategyProgress["actions"];
+                // A strategy for the real hero hand is unknown until that hand
+                // has actually appeared in the sampled training distribution.
+                if(sampledActualHeroHand>0 && rootTree && !rootTree.terminal){
+                    const frequencies=getRootStrategy(rootTree,maps,hero.holeCards,state.board,global);
+                    preview=rootTree.actions.map((action,index)=>({
+                        action:action.action.label,
+                        frequency:frequencies[index]!
+                    }));
+                }
+                report({phase:"training",progress:0.75*completed/trainingIterations,
+                    iterations:completed,provisional:true,
+                    ...(preview?{actions:preview}:{})});
+            }
             if (performance.now() >= nextCooperativeYield) {
+                flushTrainingBatch();
                 await new Promise<void>(resolve => setTimeout(resolve, 0));
                 nextCooperativeYield = performance.now() + 12;
             }
         }
+        flushTrainingBatch();
 
         const requestedEvaluationSamples = Number.isInteger(options.evaluationSamples)
             ? Math.max(16, Math.min(512, options.evaluationSamples!))
@@ -482,9 +572,14 @@ export function createStrategy(global:StrategyGlobal){
             evaluatedDeals++;
 
             if ((sampleIndex + 1) % 8 === 0) {
+                report({phase:"evaluation",progress:0.75+
+                    0.15*(sampleIndex+1)/requestedEvaluationSamples,
+                    iterations:trainingIterations,provisional:true});
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
+        report({phase:"evaluation",progress:0.90,
+            iterations:trainingIterations,provisional:true});
 
         if (!evaluatedDeals) {
             throw new Error("Impossible d'évaluer la stratégie sur les échantillons indépendants.");
@@ -517,6 +612,9 @@ export function createStrategy(global:StrategyGlobal){
             }
             exploitabilityDeals.push({ root: toCFR(built.tree), deal });
             if ((sampleIndex + 1) % 4 === 0) {
+                report({phase:"diagnostics",progress:0.90+
+                    0.09*(sampleIndex+1)/requestedExploitabilitySamples,
+                    iterations:trainingIterations,provisional:true});
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
@@ -564,6 +662,10 @@ export function createStrategy(global:StrategyGlobal){
 
         return {
             algorithm: "CFR+ avec rééchantillonnage des chances",
+            quality: "sampled_estimate" as const,
+            provisional: false,
+            fullGameGtoCertified: false as const,
+            certificationScope: "none — sampled abstract heads-up game" as const,
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +

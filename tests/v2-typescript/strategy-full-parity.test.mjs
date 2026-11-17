@@ -77,14 +77,14 @@ function makeTyped(){
     else globalThis.window=old;
   }
 }
-function makeRustTyped(){
+function makeRustTyped(sessionFactory=()=>new wasm.CfrSession(),bridgeOptions={}){
   const old=globalThis.window;
   const target={PokerLabPostflopSolver:mockRanges()};
   globalThis.window=target;
   try {
     installEvaluator();
     const cfr=installCfrCore();
-    target.PokerLabCFRCore=createRustCfrStrategyCore(cfr,()=>new wasm.CfrSession());
+    target.PokerLabCFRCore=createRustCfrStrategyCore(cfr,sessionFactory,bridgeOptions);
     return createStrategy(target);
   }finally{
     if(old===undefined)delete globalThis.window;
@@ -200,4 +200,186 @@ test("persistent Rust CFR+ strategy matches full TypeScript flop, turn and river
   assertNumericallyEquivalent(accelerated,reference,street);
   assert.equal(accelerated.iterations,80);
  }
+});
+
+
+test("full PokerLab river solve uses compiled payoff batches without changing EV or NashConv",async()=>{
+ const calls={prepareTree:0,preparePayouts:0,compact:0,plain:0,single:0,samples:0};
+ const rust=makeRustTyped(()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree(...args){calls.prepareTree++;return engine.prepare_tree(...args);},
+     prepare_payoffs(...args){calls.preparePayouts++;return engine.prepare_payoffs(...args);},
+     step_prepared_outcome_batch(...args){
+       calls.compact++;calls.samples+=args[2].length;
+       return engine.step_prepared_outcome_batch(...args);
+     },
+     step_prepared_batch(...args){calls.plain++;return engine.step_prepared_batch(...args);},
+     step_prepared(...args){calls.single++;return engine.step_prepared(...args);},
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8,
+   experimentalCompiledPayoffs:true};
+ const baseline=makeTyped();
+ const original=simplify(await baseline.solvePostflop(state(),[],opts));
+ const optimized=simplify(await rust.solvePostflop(state(),[],opts));
+ assertNumericallyEquivalent(optimized,original,"compiled-river");
+ assert.equal(calls.prepareTree,1);
+ assert.equal(calls.preparePayouts,1);
+ assert.equal(calls.samples,80);
+ assert.ok(calls.compact>0,"the compact WASM path must be exercised");
+ assert.equal(calls.plain,0);
+ assert.equal(calls.single,0);
+});
+
+
+test("diagnostic full-solver benchmark compares compact and normal Rust batches on same seeded river",async()=>{
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ function vanillaRustFactory(){
+   const engine=new wasm.CfrSession();
+   // Deliberately hide the new payoff API to compare against the exact same
+   // prepared/batched Rust solver without the compact terminal model.
+   return {
+     prepare_tree:(...args)=>engine.prepare_tree(...args),
+     step_prepared_batch:(...args)=>engine.step_prepared_batch(...args),
+     step_prepared:(...args)=>engine.step_prepared(...args),
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ }
+ const results={plain:[],compact:[]};
+ let expected=null;
+ for(let attempt=0;attempt<3;attempt++){
+   const order=attempt%2===0?["plain","compact"]:["compact","plain"];
+   for(const mode of order){
+     const solver=mode==="compact"?makeRustTyped():makeRustTyped(vanillaRustFactory);
+     const t0=performance.now();
+     const result=simplify(await solver.solvePostflop(state(),[],mode==="compact"
+       ?{...opts,experimentalCompiledPayoffs:true}:opts));
+     results[mode].push(performance.now()-t0);
+     if(!expected)expected=result;
+     else assertNumericallyEquivalent(result,expected,mode+"-run-"+attempt);
+   }
+ }
+ const median=list=>[...list].sort((a,b)=>a-b)[1];
+ console.log("Full river Rust compact-payout diagnostic: "+JSON.stringify({
+   iterations:80,repetitions:3,
+   plainMs:results.plain.map(x=>+x.toFixed(2)),
+   compactMs:results.compact.map(x=>+x.toFixed(2)),
+   plainMedianMs:+median(results.plain).toFixed(2),
+   compactMedianMs:+median(results.compact).toFixed(2),
+   relativeP50:+(median(results.plain)/median(results.compact)).toFixed(3),
+   parity:"frequencies EV NashConv identical"
+ }));
+});
+
+
+test("default postflop Rust solver does not enable slower compiled payouts",async()=>{
+ const counters={compiled:0,plain:0,prepared:0};
+ const rust=makeRustTyped(()=>{
+   const engine=new wasm.CfrSession();
+   return {
+     prepare_tree:(...args)=>engine.prepare_tree(...args),
+     prepare_payoffs(...args){counters.prepared++;return engine.prepare_payoffs(...args);},
+     step_prepared_outcome_batch(...args){
+       counters.compiled++;return engine.step_prepared_outcome_batch(...args);
+     },
+     step_prepared_batch(...args){
+       counters.plain++;return engine.step_prepared_batch(...args);
+     },
+     step_prepared:(...args)=>engine.step_prepared(...args),
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ });
+ const result=await rust.solvePostflop(state(),[],{
+   iterations:10,samples:8,seed:20261117,evaluationSamples:16,exploitabilitySamples:8
+ });
+ assert.equal(result.iterations,80);
+ assert.ok(counters.plain>0,"default batching path must execute");
+ assert.equal(counters.compiled,0);
+ assert.equal(counters.prepared,0);
+});
+
+
+test("diagnostic numeric info-set index matches full HU solver on flop, turn and river",async()=>{
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ const samples={};
+ for(const [street,boardLength] of [["flop",3],["turn",4],["river",5]]){
+   const spot=state();
+   spot.street=street;
+   spot.board=spot.board.slice(0,boardLength);
+   for(const player of spot.players)player.stack=4;
+   spot.players[0].actionOptions.maximumRaiseTo=4;
+   const timings={canonical:[],numeric:[]};
+   let baseline=null;
+   for(let repeat=0;repeat<3;repeat++){
+     const order=repeat%2===0?["canonical","numeric"]:["numeric","canonical"];
+     for(const mode of order){
+       const solver=makeRustTyped(()=>new wasm.CfrSession(),
+         {numericInformationIndex:mode==="numeric"});
+       const t0=performance.now();
+       const result=simplify(await solver.solvePostflop(spot,[],opts));
+       timings[mode].push(performance.now()-t0);
+       if(!baseline)baseline=result;
+       else assertNumericallyEquivalent(result,baseline,street+"-"+mode);
+     }
+   }
+   const median=times=>[...times].sort((a,b)=>a-b)[1];
+   samples[street]={
+     canonicalMs:timings.canonical.map(t=>+t.toFixed(2)),
+     numericMs:timings.numeric.map(t=>+t.toFixed(2)),
+     canonicalP50Ms:+median(timings.canonical).toFixed(2),
+     numericP50Ms:+median(timings.numeric).toFixed(2),
+     speedupP50:+(median(timings.canonical)/median(timings.numeric)).toFixed(3),
+     parity:"frequency EV NashConv identical"
+   };
+ }
+ console.log("Full CFR+ numeric index diagnostic: "+JSON.stringify(samples));
+});
+
+
+test("CFR+ reports bounded provisional policies and monotonic phase progress without changing final strategy",async()=>{
+ const snapshots=[];
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ const baseline=makeTyped();
+ const original=simplify(await baseline.solvePostflop(state(),[],opts));
+ const traced=makeRustTyped();
+ const result=simplify(await traced.solvePostflop(state(),[],{
+   ...opts,onProgress:snapshot=>snapshots.push(snapshot)
+ }));
+ assertNumericallyEquivalent(result,original,"progress-final");
+ assert.ok(snapshots.length>=4,"expected staged progress snapshots");
+ assert.ok(snapshots.length<=32,"progress must remain bounded on mobile");
+ assert.ok(snapshots.some(s=>s.phase==="training"));
+ assert.ok(snapshots.some(s=>s.phase==="evaluation"));
+ assert.ok(snapshots.some(s=>s.phase==="diagnostics"));
+ for(let i=0;i<snapshots.length;i++){
+   const snapshot=snapshots[i];
+   assert.equal(snapshot.provisional,true);
+   assert.ok(snapshot.progress>=0&&snapshot.progress<=1);
+   if(i>0)assert.ok(snapshot.progress>=snapshots[i-1].progress);
+   if(snapshot.actions){
+     assert.equal(snapshot.phase,"training");
+     assert.equal(snapshot.actions.length,original.actions.length);
+     const sum=snapshot.actions.reduce((s,a)=>s+a.frequency,0);
+     assert.ok(Math.abs(sum-1)<1e-9);
+     for(const item of snapshot.actions){
+       assert.ok(item.frequency>=0&&item.frequency<=1);
+     }
+   }
+ }
+ assert.equal(snapshots.at(-1).phase,"diagnostics");
 });

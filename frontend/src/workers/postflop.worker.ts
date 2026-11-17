@@ -4,11 +4,15 @@
  */
 import { installEvaluator, type PokerLabHandEvaluatorApi } from "../core/evaluator";
 import { installBotProfiles } from "../bots/profiles";
-import { installPostflopSolver } from "../solver/postflop";
+import { installPostflopSolver, type PostflopSolverApi } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
-import { installStrategy, createStrategy } from "../solver/strategy";
+import { installStrategy, createStrategy, type StrategyProgress } from "../solver/strategy";
 import { createRustCfrStrategyCore, type RustCfrSession } from "../solver/rust-cfr-strategy-core";
-import type { SolverCard } from "../solver/input-contract";
+import {createSolverInput,resolveSolverInput,
+  type SolverCard, type SolverStateInput, type SolverInputSnapshot} from "../solver/input-contract";
+import { createStrategicGameState, type StrategicGameState } from "../solver/strategic-state";
+import {solveMultiway,analyzeMultiwayEquity,
+  type MultiwayCfrKernel,type MultiwayEnvironment} from "../solver/multiway";
 
 interface PostflopRequest {
   id: number;
@@ -22,6 +26,7 @@ interface WasmEvaluator {
   evaluate_score(cards: Uint8Array): Uint8Array;
   compare_showdown(cards: Uint8Array): number;
   CfrSession?: new () => RustCfrSession;
+  MultiwayCfrSession?: new (players:number) => MultiwayCfrKernel;
 }
 type PostflopScope = DedicatedWorkerGlobalScope & {
   window?: unknown;
@@ -35,6 +40,7 @@ const appBase = new URL(import.meta.env.BASE_URL, scope.location.origin);
 scope.PokerLabMatrixBaseUrl = new URL("data/ranges/preflop/matrix/", appBase).href;
 
 let rustSessionFactory: (() => RustCfrSession) | null = null;
+let multiwaySessionFactory: ((players:number) => MultiwayCfrKernel) | null = null;
 // Circuit breaker: one failed automatic Rust solve must not retry every hand.
 let autoRustDisabled = false;
 let initialization: Promise<"wasm" | "legacy"> | null = null;
@@ -54,6 +60,8 @@ async function init(): Promise<"wasm" | "legacy"> {
       const wasm = await import(/* @vite-ignore */ moduleUrl) as WasmEvaluator;
       await wasm.default(wasmUrl);
       if (typeof wasm.CfrSession === "function") rustSessionFactory = () => new wasm.CfrSession!();
+      if (typeof wasm.MultiwayCfrSession === "function")
+        multiwaySessionFactory = players => new wasm.MultiwayCfrSession!(players);
       const original = scope.PokerLabHandEvaluator!;
       const suits: Record<string,number> = { clubs:0, diamonds:1, hearts:2, spades:3 };
       scope.PokerLabHandEvaluator = {
@@ -111,6 +119,44 @@ async function init(): Promise<"wasm" | "legacy"> {
   })();
   return initialization;
 }
+function multiwayEnvironment(message:PostflopRequest):MultiwayEnvironment {
+  // JS card evaluation / equity must still function even when the multiway
+  // Rust kernel is unavailable; only strategic CFR+ requires the WASM class.
+  // Sanitization is applied again before range lookups: bot hole cards are
+  // forbidden, even when supplied in a crafted versioned snapshot.
+  const resolved=resolveSolverInput(message.input);
+  const safe=createSolverInput(resolved.state as SolverStateInput,resolved.history);
+  const solver=(scope as unknown as {PokerLabPostflopSolver:PostflopSolverApi}).PokerLabPostflopSolver;
+  const evaluator=scope.PokerLabHandEvaluator!;
+  return {
+    newSession:players=>{
+      if(!multiwaySessionFactory)
+        throw new Error("Le noyau Rust/WASM multiway est indisponible hors ligne.");
+      return multiwaySessionFactory(players);
+    },
+    async loadRange(playerId){
+      const opponent=safe.state.players.find(player=>player.id===playerId);
+      if(!opponent)throw new Error("Joueur adverse multiway introuvable.");
+      return solver.getOpponentRange(
+        safe.state as Parameters<PostflopSolverApi["getOpponentRange"]>[0],
+        safe.history as Parameters<PostflopSolverApi["getOpponentRange"]>[1],
+        opponent as Parameters<PostflopSolverApi["getOpponentRange"]>[2]
+      );
+    },
+    evaluate:cards=>evaluator.evaluate(cards).score,
+    compareScores:(a,b)=>evaluator.compareScores([...a],[...b])
+  };
+}
+function multiwayState(message:PostflopRequest):StrategicGameState {
+  const input=message.input as SolverStateInput|SolverInputSnapshot;
+  return createStrategicGameState(input,{stateVersion:Math.max(1,message.id)});
+}
+function isMultiwayRequest(message:PostflopRequest):boolean {
+  const resolved=resolveSolverInput(message.input);
+  const state=resolved.state as Partial<SolverStateInput>|null;
+  return Array.isArray(state?.players)&&
+    state.players.filter(player=>player&&!player.folded).length>=3;
+}
 scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
   const message=event.data;
   if(!Number.isSafeInteger(message?.id))return;
@@ -120,7 +166,8 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
       if(message.task==="backend") {
         scope.postMessage({id:message.id,ok:true,result:{
           backend,implementation:"typescript",
-          cfrDefault:rustSessionFactory&&!autoRustDisabled?"rust":"typescript"
+          cfrDefault:rustSessionFactory&&!autoRustDisabled?"rust":"typescript",
+          multiway:multiwaySessionFactory?"rust-sampled":"unavailable"
         }});
         return;
       }
@@ -131,9 +178,48 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         PokerLabPostflopStrategy: ReturnType<typeof installStrategy>;
       };
       if(message.task==="equity") {
-        result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
-          [],message.options);
+        if(isMultiwayRequest(message)){
+          const strategic=multiwayState(message);
+          if(strategic.capability.solver!=="multiway-cfr-plus")
+            throw new Error(strategic.capability.reason);
+          result=await analyzeMultiwayEquity(strategic,multiwayEnvironment(message),message.options);
+        }else{
+          // Preserve the established heads-up input contract and its error
+          // behavior; strict multiway pot accounting is intentionally scoped
+          // to the new 3–6 player engine.
+          result=await globals.PokerLabPostflopSolver.analyse(
+            message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
+            [],message.options);
+        }
       } else if(message.task==="strategy") {
+        // Defensive preflight shared by every backend. Reject unsupported or
+        // inconsistent public states before exposing any pseudo-GTO frequencies.
+        // This adapter never accesses unrevealed opponent cards.
+        const strategic=isMultiwayRequest(message)?multiwayState(message):null;
+        if(strategic&&strategic.capability.quality==="unavailable")
+          throw new Error(strategic.capability.reason);
+        const strategyOptions={
+          ...message.options,
+          onProgress:(update:StrategyProgress)=>{
+            // Updates are provisional and associated with this request ID.
+            // The parent terminates obsolete Workers, so old state versions
+            // cannot send a final strategy through an active Worker.
+            scope.postMessage({
+              id:message.id,progress:update.progress,
+              phase:"strategy_"+update.phase,
+              provisional:true,iterations:update.iterations,
+              ...(update.actions?{previewActions:update.actions}:{})
+            });
+          }
+        };
+        if(strategic?.capability.solver==="multiway-cfr-plus"){
+          if(message.experimentalRustCfr===false)
+            throw new Error("Mode TypeScript imposé : le moteur stratégique multiway nécessite Rust/WASM.");
+          result=await solveMultiway(strategic,multiwayEnvironment(message),strategyOptions);
+          scope.postMessage({id:message.id,progress:1,phase:"strategy_completed"});
+          scope.postMessage({id:message.id,ok:true,result});
+          return;
+        }
         const wantsRust=message.experimentalRustCfr===true ||
           (message.experimentalRustCfr===undefined &&
            Boolean(rustSessionFactory) && !autoRustDisabled);
@@ -150,7 +236,7 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
                 rustSessionFactory!
               )
             }) as Parameters<typeof createStrategy>[0];
-            result=await createStrategy(isolated).solvePostflop(message.input,[],message.options);
+            result=await createStrategy(isolated).solvePostflop(message.input,[],strategyOptions);
           }catch(error:unknown){
             // Explicit opt-in is a diagnostic tool: report the real failure.
             // Automatic production mode must keep the poker table usable
@@ -159,12 +245,12 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
             autoRustDisabled=true;
             console.warn("[PokerLab V2] Rust CFR+ auto fallback to TypeScript:",error);
             result=await globals.PokerLabPostflopStrategy.solvePostflop(
-              message.input,[],message.options
+              message.input,[],strategyOptions
             );
           }
         }else{
           result=await globals.PokerLabPostflopStrategy.solvePostflop(
-            message.input,[],message.options
+            message.input,[],strategyOptions
           );
         }
       } else throw new Error("Tâche de solveur inconnue.");

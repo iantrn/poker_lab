@@ -1,3 +1,5 @@
+import {createStrategicGameState,type StrategicGameState} from "./strategic-state.ts";
+
 /** Strict TypeScript port of the original solver precomputation orchestrator.
  * State eligibility, event names, LRU behavior, and Worker protocol remain unchanged.
  */
@@ -23,11 +25,20 @@ export interface PrecomputeResult {
   strategy: unknown;
   strategyError: string | null;
 }
+export interface PreviewAction {
+  action:string;
+  frequency:number;
+}
 export interface PrecomputeSnapshot {
   key: string;
   version: number;
   phase: "equity" | "strategy" | "error" | "cancelled" | "complete";
   progress?: number;
+  /** Provisional sampled policy, not certified GTO or a final solve. */
+  previewActions?: readonly PreviewAction[];
+  provisional?: boolean;
+  iterations?: number;
+  stage?: string;
   error?: string;
   result?: PrecomputeResult;
   cached?: boolean;
@@ -40,11 +51,17 @@ export interface PrecomputeApi {
   clearCache(): void;
   getCacheSize(): number;
   getActiveKey(): string | null;
+  /** Public immutable game snapshot; 2–6 seats supported even without a solver. */
+  getStrategicState(): StrategicGameState | null;
 }
 interface WorkerResult {
   id: number;
   ok?: boolean;
   progress?: number;
+  previewActions?: unknown;
+  provisional?: boolean;
+  iterations?: number;
+  phase?: string;
   result?: unknown;
   error?: string;
 }
@@ -90,7 +107,8 @@ export function installSolverPrecompute(): PrecomputeApi {
     const hero = state.players.find(player => player.isHuman);
     if (!hero || state.currentPlayerId !== hero.id ||
       !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) return false;
-    return state.players.filter(player => !player.folded).length === 2;
+    const active=state.players.filter(player=>!player.folded).length;
+    return active>=2&&active<=6;
   }
   function createContext(): Context | null {
     const training = global.PokerLabTraining;
@@ -149,7 +167,22 @@ export function installSolverPrecompute(): PrecomputeApi {
     if (!task || task.controller.signal.aborted ||
       message.id !== task.requestId || task.version !== stateVersion) return;
     if (message.progress !== undefined) {
-      notify({ key: task.key, version: task.version, phase: task.currentTask!, progress: message.progress });
+      // A progress notification is never cached or treated as a completed
+      // result; it belongs to exactly one active request and state version.
+      const actions=Array.isArray(message.previewActions)
+        ?message.previewActions.filter((action:unknown):action is PreviewAction=>{
+          if(!action||typeof action!=="object")return false;
+          const item=action as Partial<PreviewAction>;
+          return typeof item.action==="string" && Number.isFinite(item.frequency) &&
+            Number(item.frequency)>=0 && Number(item.frequency)<=1;
+        }).slice(0,5):undefined;
+      notify({
+        key:task.key,version:task.version,phase:task.currentTask!,
+        progress:Math.max(0,Math.min(1,Number(message.progress)||0)),
+        ...(actions?.length?{previewActions:actions,provisional:true}:{}),
+        ...(Number.isSafeInteger(message.iterations)?{iterations:message.iterations}:{}),
+        ...(typeof message.phase==="string"?{stage:message.phase}:{})
+      });
       return;
     }
     if (!message.ok) {
@@ -296,7 +329,7 @@ export function installSolverPrecompute(): PrecomputeApi {
   function getOrStart(): Promise<PrecomputeResult> {
     const context = createContext();
     if (!context) return Promise.reject(new Error(
-      "Le solveur est disponible uniquement dans une situation postflop heads-up où le joueur humain doit agir."
+      "Le solveur est disponible dans une situation postflop à 2–6 joueurs actifs où le héros doit agir."
     ));
     const cached = touchCache(context.key);
     if (cached) return Promise.resolve(cached);
@@ -312,7 +345,16 @@ export function installSolverPrecompute(): PrecomputeApi {
     onStateChange, getOrStart, subscribe, cancel,
     clearCache() { cache.clear(); },
     getCacheSize: () => cache.size,
-    getActiveKey: () => active ? active.key : null
+    getActiveKey: () => active ? active.key : null,
+    getStrategicState(){
+      const state=global.PokerLabTraining?.getGameState();
+      if(!state)return null;
+      return createStrategicGameState(
+        state as Parameters<typeof createStrategicGameState>[0],
+        {stateVersion:Math.max(1,stateVersion),
+          history:global.PokerLabTraining?.getHandHistory()??[]}
+      );
+    }
   };
   global.PokerLabSolverPrecompute = api;
   return api;
