@@ -11,6 +11,11 @@ import {createReusableRustTreeSerializer} from "./reusable-cfr-tree.ts";
 export interface RustCfrSession {
   step(actors:Int8Array,infos:Uint32Array,offsets:Uint32Array,counts:Uint8Array,
     children:Uint32Array,payoffs:Float64Array,chanceWeight:number):number;
+  /** Optional: old WASM bundles remain supported by step(). */
+  prepare_tree?(actors:Int8Array,offsets:Uint32Array,counts:Uint8Array,
+    children:Uint32Array):number;
+  step_prepared?(handle:number,infos:Uint32Array,payoffs:Float64Array,
+    chanceWeight:number):number;
   average_strategy():Float64Array | number[];
   iterations():number;
   information_set_count():number;
@@ -19,6 +24,7 @@ interface Session {
   engine:RustCfrSession;
   registry:CfrInformationRegistry;
   dirty:boolean;
+  prepared:WeakMap<AbstractTreeNode,number>;
 }
 export function createRustCfrStrategyCore(
   original:CFRCoreApi,
@@ -49,7 +55,8 @@ export function createRustCfrStrategyCore(
     ...original,
     createMaps(){
       const maps=original.createMaps();
-      sessions.set(maps,{engine:newSession(),registry:createCfrInformationRegistry(),dirty:false});
+      sessions.set(maps,{engine:newSession(),registry:createCfrInformationRegistry(),
+        dirty:false,prepared:new WeakMap<AbstractTreeNode,number>()});
       return maps;
     },
     runCfr(...args:Parameters<CFRCoreApi["runCfr"]>){
@@ -68,11 +75,27 @@ export function createRustCfrStrategyCore(
         terminalUtility:node=>callbacks.utility(node as unknown as CFRNode,deal)
       },session.registry);
       try {
-        session.engine.step(
-          request.actors,request.informationSets,request.childOffsets,
-          request.childCounts,request.children,request.terminalUtilities,
-          chanceWeight
-        );
+        const publicTree=root as unknown as AbstractTreeNode;
+        // Root identity is stable across deals for a cached public betting tree.
+        // Preserve the legacy step() path for older (already installed) WASM.
+        if(session.engine.prepare_tree && session.engine.step_prepared){
+          let handle=session.prepared.get(publicTree);
+          if(handle===undefined){
+            handle=session.engine.prepare_tree(
+              request.actors,request.childOffsets,request.childCounts,request.children
+            );
+            session.prepared.set(publicTree,handle);
+          }
+          session.engine.step_prepared(
+            handle,request.informationSets,request.terminalUtilities,chanceWeight
+          );
+        } else {
+          session.engine.step(
+            request.actors,request.informationSets,request.childOffsets,
+            request.childCounts,request.children,request.terminalUtilities,
+            chanceWeight
+          );
+        }
       }catch(error:unknown){
         request.rollback();
         throw error;
