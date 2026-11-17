@@ -210,3 +210,59 @@ test("non-gating WASM batch benchmark compares equal sample streams and strategi
     parity:"identical"
   }));
 });
+
+
+test("compiled Rust fold/showdown payouts match explicit per-deal utilities",()=>{
+  const explicit=new CfrSession(),compact=new CfrSession();
+  const handle1=explicit.prepare_tree(actors,offsets,counts,edges);
+  const handle2=compact.prepare_tree(actors,offsets,counts,edges);
+  const kinds=new Uint8Array([0,0,0,3,3,1,2]);
+  const pots=new Float64Array([0,0,0,10,22,25,17]);
+  const invested=new Float64Array([0,0,0,3,7,9,4]);
+  compact.prepare_payoffs(handle2,kinds,pots,invested);
+  for(let group=0;group<50;group++){
+    const flatIds=new Uint32Array(8*actors.length);
+    const flatPayoffs=new Float64Array(8*actors.length);
+    const outcomes=new Int8Array(8);
+    const weights=new Float64Array(8);
+    for(let i=0;i<8;i++){
+      const index=group*8+i;
+      const outcome=[1,0,-1][index%3];
+      const weight=index%7===0?2.5:0.75;
+      const payoff=(pot,invest)=>outcome>0?pot-invest:
+        outcome===0?pot/2-invest:-invest;
+      flatIds.set(ids[index%ids.length],i*actors.length);
+      flatPayoffs.set(new Float64Array([
+        0,0,0,payoff(10,3),payoff(22,7),25-9,-4
+      ]),i*actors.length);
+      outcomes[i]=outcome;
+      weights[i]=weight;
+    }
+    explicit.step_prepared_batch(handle1,flatIds,flatPayoffs,weights);
+    compact.step_prepared_outcome_batch(handle2,flatIds,outcomes,weights);
+    assert.deepEqual(Array.from(compact.average_strategy()),
+      Array.from(explicit.average_strategy()));
+  }
+  assert.equal(compact.iterations(),400);
+});
+test("compiled payout metadata rejects incompatible and invalid input transactionally",()=>{
+  const session=new CfrSession();
+  const handle=session.prepare_tree(actors,offsets,counts,edges);
+  const kinds=new Uint8Array([0,0,0,3,3,1,2]);
+  const pots=new Float64Array([0,0,0,10,22,25,17]);
+  const invested=new Float64Array([0,0,0,3,7,9,4]);
+  assert.throws(()=>session.prepare_payoffs(handle,
+    new Uint8Array([0,0,0,0,3,1,2]),pots,invested));
+  assert.throws(()=>session.prepare_payoffs(handle,kinds,
+    new Float64Array([0,0,0,NaN,22,25,17]),invested));
+  session.prepare_payoffs(handle,kinds,pots,invested);
+  session.step_prepared_outcome_batch(handle,ids[0],new Int8Array([1]),
+    new Float64Array([1]));
+  const before=Array.from(session.average_strategy());
+  assert.throws(()=>session.step_prepared_outcome_batch(handle,ids[0],
+    new Int8Array([2]),new Float64Array([1])));
+  assert.throws(()=>session.step_prepared_outcome_batch(handle,
+    new Uint32Array([0,3,3,0,0,0,0]),new Int8Array([1]),new Float64Array([1])));
+  assert.equal(session.iterations(),1);
+  assert.deepEqual(Array.from(session.average_strategy()),before);
+});
