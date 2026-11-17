@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {runInNewContext} from "node:vm";
-import {buildUniformRange,sampleDeals} from "../../frontend/src/solver/deal-sampler.ts";
+import {buildUniformRange,sampleDeals,createDealSampler} from "../../frontend/src/solver/deal-sampler.ts";
 
 const legacy={window:{},Uint32Array,Math,Set,Map,Promise,console};
 runInNewContext(readFileSync("js/modules/postflop-strategy.js","utf8"),legacy);
@@ -58,5 +58,27 @@ test("typed chance sampler never leaks blocked combos or repeats cards in a deal
   const keys=[...entry.hero,...entry.villain,...entry.finalBoard].map(c=>c.value+"_"+c.suit);
   assert.equal(new Set(keys).size,9);
   assert.ok(entry.heroImportanceWeight>0);
+ }
+});
+
+test("prepared chance sampler exactly matches repeated independent V1 calls and RNG order",()=>{
+ const river=[...board,card(6,"hearts"),card(8,"spades")];
+ const cases=[
+  {board,opponentRange:villainRange,heroRange,rangeUsedHint:true},
+  {board:river,opponentRange:villainRange,heroRange,rangeUsedHint:true},
+  {board,opponentRange:null,heroRange,rangeUsedHint:false},
+  {board,opponentRange:[{cards:actualHero,weight:2}],heroRange,rangeUsedHint:true},
+  {board,opponentRange:villainRange,heroRange:null,rangeUsedHint:true},
+ ];
+ for(let scenario=0;scenario<cases.length;scenario++){
+  const {board:community,opponentRange,heroRange:heroes,rangeUsedHint}=cases[scenario];
+  const before=rng(4001+scenario),after=rng(4001+scenario);
+  const sampler=createDealSampler(actualHero,community,opponentRange,rangeUsedHint,after,heroes);
+  for(const [step,count] of [1,4,1,7,0,2,15,1,10,3,1,2,17,1].entries()){
+   const expected=old.sampleDeals(actualHero,community,opponentRange,count,rangeUsedHint,before,heroes);
+   const actual=sampler(count);
+   assert.deepEqual(plain(actual),plain(expected),
+     "prepared/V1 divergence in scenario "+scenario+" step "+step);
+  }
  }
 });
