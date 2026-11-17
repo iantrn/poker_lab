@@ -1,0 +1,995 @@
+
+/* =========================================================
+   POKERLAB - TABLE COMPONENT
+   Design : Winamax inspired / Minimal
+   Version : 3.0.0
+   ========================================================= */
+
+"use strict";
+
+import type { PokerCard } from "../core/evaluator";
+interface TablePlayer {
+  id: string; name: string; stack: number; streetBet: number;
+  folded?: boolean; allIn?: boolean; isHuman?: boolean;
+  position?: string | null; holeCards: PokerCard[];
+}
+interface TablePot { amount:number;winnerIds?:string[]; }
+interface TableResult { type:string;winnerIds?:string[];pots?:TablePot[]; }
+interface TableState {
+  players:TablePlayer[];board:PokerCard[];pot:number;
+  handNumber?:number;dealerIndex?:number;currentPlayerId?:string|null;
+  handComplete?:boolean;result?:TableResult|null;
+}
+interface HandView {label:string;detail:string;category:number;score?:number[];bestFiveCards?:PokerCard[];}
+interface TableGlobals {
+  PokerLabCards?:{create(card:unknown,options:Record<string,unknown>):HTMLElement};
+  PokerLabHandEvaluator?:{evaluate(cards:PokerCard[]):{
+    description?:string;categoryLabel:string;category:number;score:number[];bestFiveCards:PokerCard[];
+  }};
+}
+function createTable() {
+    const globals = window as Window & TableGlobals;
+
+    let lastRenderedHandNumber: number | null = null;
+    let lastRenderedBoardCount = 0;
+    let lastRenderedHandComplete = false;
+
+    const HAND_LABELS = [
+        "Carte haute",
+        "Paire",
+        "Double paire",
+        "Brelan",
+        "Quinte",
+        "Couleur",
+        "Full",
+        "Carré",
+        "Quinte flush",
+        "Quinte flush royale"
+    ];
+
+    const RANKS: Record<number,string> = {
+        2: "2",
+        3: "3",
+        4: "4",
+        5: "5",
+        6: "6",
+        7: "7",
+        8: "8",
+        9: "9",
+        10: "10",
+        11: "Valet",
+        12: "Dame",
+        13: "Roi",
+        14: "As"
+    };
+
+    const SUITS: Record<string,string> = {
+        clubs: "♣",
+        diamonds: "♦",
+        hearts: "♥",
+        spades: "♠"
+    };
+
+
+    /* =====================================================
+       1. OUTILS
+       ===================================================== */
+
+    function formatAmount(value: unknown): string {
+
+        const amount = Number(value) || 0;
+
+        return amount.toLocaleString("fr-FR", {
+            maximumFractionDigits: 2
+        });
+
+    }
+
+
+    function getRank(value: number): string {
+
+        return RANKS[value] || String(value);
+
+    }
+
+
+    function getSuitSymbol(suit: string): string {
+
+        return SUITS[suit] || "";
+
+    }
+
+
+    function getPlayerSlot(index: number, count: number): readonly [number,number] {
+
+        const layouts: Record<number, Array<readonly [number, number]>> = {
+
+            2: [[50, 62], [50, 24]],
+            3: [[50, 62], [26, 24], [74, 24]],
+            4: [[50, 62], [21, 40], [50, 24], [79, 40]],
+            5: [[50, 62], [20, 54], [32, 24], [68, 24], [80, 54]],
+            6: [[50, 62], [16, 57], [16, 15], [50, 10], [84, 15], [84, 57]]
+
+        };
+
+        const layout = layouts[count] || layouts[6]!;
+
+        return layout[index] || [50, 50];
+
+    }
+
+
+    function createElement<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, content: unknown = ""): HTMLElementTagNameMap[K] {
+
+        const element = document.createElement(tag);
+
+        if (className) {
+            element.className = className;
+        }
+
+        if (content !== undefined && content !== null) {
+            element.textContent = String(content);
+        }
+
+        return element;
+
+    }
+
+
+    function appendCard(container: HTMLElement, card: PokerCard | null, options: {hidden?:boolean;compact?:boolean} = {}): void {
+
+        if (
+            globals.PokerLabCards &&
+            typeof globals.PokerLabCards.create === "function"
+        ) {
+
+            container.appendChild(
+                globals.PokerLabCards.create(
+                    card,
+                    options
+                )
+            );
+
+            return;
+
+        }
+
+        const fallback = createElement(
+            "div",
+            "pl-card-fallback",
+            options.hidden
+                ? "♠"
+                : `${getRank(card!.value)}${getSuitSymbol(card!.suit)}`
+        );
+
+        container.appendChild(fallback);
+
+    }
+
+
+    /* =====================================================
+       2. IDENTIFICATION DE LA MAIN PRÉFLOP
+       ===================================================== */
+
+    function evaluatePreflop(cards: unknown): HandView {
+
+        if (!Array.isArray(cards) || cards.length !== 2) {
+
+            return {
+                label: "En attente des cartes",
+                detail: "",
+                category: -1
+            };
+
+        }
+
+        const first = cards[0] as PokerCard | undefined;
+        const second = cards[1] as PokerCard | undefined;
+
+        if (
+            !first ||
+            !second ||
+            !Number.isInteger(first.value) ||
+            !Number.isInteger(second.value)
+        ) {
+
+            return {
+                label: "Main de départ",
+                detail: "",
+                category: -1
+            };
+
+        }
+
+        const high = Math.max(
+            first.value,
+            second.value
+        );
+
+        const low = Math.min(
+            first.value,
+            second.value
+        );
+
+        const isPair = high === low;
+
+        const isSuited =
+            first.suit === second.suit;
+
+        const gap = high - low;
+
+        if (isPair) {
+
+            return {
+                label: `Paire de ${getRank(high)}s`,
+                detail: "Paire servie",
+                category: 1
+            };
+
+        }
+
+        const connectors: Record<number,string> = {
+
+            1: "Connecteurs",
+
+            2: "One-gapper",
+
+            3: "Two-gapper"
+
+        };
+
+        const highName = getRank(high);
+        const lowName = getRank(low);
+
+        let detail = `${highName}-${lowName}`;
+
+        if (isSuited) {
+            detail += " assortis";
+        } else {
+            detail += " dépareillés";
+        }
+
+        if (gap === 1) {
+            detail += " · Connecteurs";
+        } else if (gap === 2) {
+            detail += " · One-gapper";
+        } else if (gap === 3) {
+            detail += " · Two-gapper";
+        }
+
+        let label;
+
+        if (high >= 11 && low >= 10) {
+            label = "Deux figures";
+        } else if (high === 14 && low >= 10) {
+            label = "As accompagné";
+        } else {
+            label = `Hauteur ${highName}`;
+        }
+
+        return {
+            label,
+            detail,
+            category: 0
+        };
+
+    }
+
+
+    /* =====================================================
+       3. ÉVALUATION POSTFLOP
+       ===================================================== */
+
+    function evaluateHeroHand(cards: unknown, board: unknown): HandView {
+
+        if (!Array.isArray(cards) || cards.length !== 2) {
+            return evaluatePreflop(cards);
+        }
+
+        if (!Array.isArray(board) || board.length < 3) {
+            return evaluatePreflop(cards);
+        }
+
+        if (!globals.PokerLabHandEvaluator) {
+
+            return {
+                label: "Évaluation indisponible",
+                detail: "",
+                category: -1
+            };
+
+        }
+
+        try {
+
+            const evaluation =
+                globals.PokerLabHandEvaluator.evaluate([
+                    ...cards,
+                    ...board
+                ]);
+
+            return {
+
+                label:
+                    evaluation.description ||
+                    evaluation.categoryLabel ||
+                    HAND_LABELS[evaluation.category],
+
+                detail:
+                    HAND_LABELS[evaluation.category] || "",
+
+                category: evaluation.category,
+
+                score: evaluation.score,
+
+                bestFiveCards:
+                    evaluation.bestFiveCards
+
+            };
+
+        } catch (error) {
+
+            console.error(
+                "[PokerLab] Erreur d'évaluation de la main :",
+                error
+            );
+
+            return {
+                label: "Évaluation indisponible",
+                detail: "",
+                category: -1
+            };
+
+        }
+
+    }
+
+
+    /* =====================================================
+       4. CARTES COMMUNES
+       ===================================================== */
+
+    function renderCommunityCards(board: unknown = []): HTMLDivElement {
+
+        const container = createElement(
+            "div",
+            "pl-board"
+        );
+
+        const cards = Array.isArray(board)
+            ? board.slice(0, 5)
+            : [];
+
+        for (let i = 0; i < 5; i++) {
+
+            const card = (cards[i] as PokerCard | undefined) || null;
+
+            appendCard(
+                container,
+                card,
+                {
+                    compact: false
+                }
+            );
+
+        }
+
+        return container;
+
+    }
+
+
+    /* =====================================================
+       5. CARTES PRIVATIVES
+       ===================================================== */
+
+    function renderPlayerCards(cards: unknown, visible = false): HTMLDivElement {
+
+        const container = createElement(
+            "div",
+            "pl-player-cards"
+        );
+
+        for (let i = 0; i < 2; i++) {
+
+            const card: PokerCard | null =
+                Array.isArray(cards)
+                    ? (cards[i] as PokerCard | undefined) ?? null
+                    : null;
+
+            appendCard(
+                container,
+                card,
+                {
+                    hidden: !visible || !card,
+                    compact: true
+                }
+            );
+
+        }
+
+        return container;
+
+    }
+
+
+    /* =====================================================
+       6. BADGES DU JOUEUR
+       ===================================================== */
+
+    function renderPlayerBadges(player: TablePlayer, isDealer: boolean, isActive: boolean): HTMLDivElement {
+
+        const container = createElement(
+            "div",
+            "pl-player-badges"
+        );
+
+        if (isDealer) {
+
+            container.appendChild(
+                createElement(
+                    "span",
+                    "pl-badge pl-badge-dealer",
+                    "D"
+                )
+            );
+
+        }
+
+        if (player.folded) {
+
+            container.appendChild(
+                createElement(
+                    "span",
+                    "pl-badge pl-badge-folded",
+                    "Fold"
+                )
+            );
+
+        } else if (player.allIn) {
+
+            container.appendChild(
+                createElement(
+                    "span",
+                    "pl-badge pl-badge-allin",
+                    "All-in"
+                )
+            );
+
+        } else if (isActive) {
+
+            container.appendChild(
+                createElement(
+                    "span",
+                    "pl-badge pl-badge-active",
+                    "À jouer"
+                )
+            );
+
+        }
+
+        return container;
+
+    }
+
+
+    /* =====================================================
+       7. SIÈGES DES JOUEURS
+       ===================================================== */
+
+    function renderSeats(players: TablePlayer[], dealerIndex: number, currentPlayerId: unknown, handComplete = false, revealCards = false): HTMLDivElement {
+
+        const container = createElement(
+            "div",
+            "pl-seats"
+        );
+
+        if (!Array.isArray(players)) {
+            return container;
+        }
+
+        const count = players.length;
+
+        players.forEach((player, index) => {
+
+            const [x, y] = getPlayerSlot(index, count);
+
+            const isDealer = index === dealerIndex;
+
+            const isActive =
+                player.id === currentPlayerId;
+
+            const isHuman = Boolean(player.isHuman);
+
+            const isFolded = Boolean(player.folded);
+
+            const isAllIn = Boolean(player.allIn);
+
+            // Les cartes des adversaires ne sont visibles qu'à l'abattage,
+            // et uniquement pour les joueurs qui n'ont pas passé.
+            const visibleCards =
+                (!handComplete && isHuman) || (revealCards && !isFolded);
+
+            const seat = createElement(
+                "div",
+                "pl-seat"
+            );
+
+            seat.classList.add(
+                `pl-seat-${index + 1}`
+            );
+
+            if (isHuman) {
+                seat.classList.add("pl-seat-hero");
+            }
+
+            if (isActive) {
+                seat.classList.add("is-active");
+            }
+
+            if (isFolded) {
+                seat.classList.add("is-folded");
+            }
+
+            if (isAllIn) {
+                seat.classList.add("is-allin");
+            }
+
+            seat.dataset.playerId = player.id;
+
+            seat.style.setProperty("--seat-x", `${x}%`);
+            seat.style.setProperty("--seat-y", `${y}%`);
+            seat.style.left = `${x}%`;
+            seat.style.top = `${y}%`;
+
+            // Informations du joueur.
+
+            const info = createElement(
+                "div",
+                "pl-player-info"
+            );
+
+            const name = createElement(
+                "span",
+                "pl-player-name",
+                player.name
+            );
+
+            const isEliminated = Number(player.stack) <= 0;
+            const positionLabel = isEliminated
+                ? "OUT"
+                : (player.position || (isDealer ? "BTN" : ""));
+
+            const position = createElement(
+                "span",
+                isEliminated
+                    ? "pl-player-position pl-position-out"
+                    : "pl-player-position",
+                positionLabel
+            );
+
+            if (positionLabel) {
+                position.dataset.position = positionLabel;
+            }
+
+            const stack = createElement(
+                "span",
+                "pl-player-stack",
+                `${formatAmount(player.stack)} BB`
+            );
+
+            const playerDetails = createElement(
+                "div",
+                "pl-player-details"
+            );
+
+            playerDetails.append(
+                name,
+                position
+            );
+
+            info.append(
+                playerDetails,
+                stack
+            );
+
+            // Cartes.
+
+            const cards = renderPlayerCards(
+                player.holeCards,
+                visibleCards
+            );
+
+            // Badges.
+
+            const badges = renderPlayerBadges(
+                player,
+                isDealer,
+                isActive
+            );
+
+            // Mise du joueur.
+
+            seat.append(
+                badges,
+                info,
+                cards
+            );
+
+            if (player.streetBet > 0) {
+
+                const bet = createElement(
+                    "div",
+                    "pl-player-bet",
+                    `${formatAmount(player.streetBet)}`
+                );
+
+                seat.appendChild(bet);
+
+            }
+
+            container.appendChild(seat);
+
+        });
+
+        return container;
+
+    }
+
+
+    /* =====================================================
+       8. INDICATEUR DE MAIN DU JOUEUR
+       ===================================================== */
+
+    function renderHandStrength(hero: TablePlayer | undefined, board: unknown): HTMLDivElement {
+
+        const container = createElement(
+            "div",
+            "pl-hand-strength"
+        );
+
+        if (!hero || !Array.isArray(hero.holeCards)) {
+            return container;
+        }
+
+        const evaluation = evaluateHeroHand(
+            hero.holeCards,
+            board
+        );
+
+        const label = createElement(
+            "span",
+            "pl-hand-strength-label",
+            "VOTRE MAIN"
+        );
+
+        const value = createElement(
+            "strong",
+            "pl-hand-strength-value",
+            evaluation.label
+        );
+
+        const detail = createElement(
+            "span",
+            "pl-hand-strength-detail",
+            evaluation.detail
+        );
+
+        container.append(
+            label,
+            value,
+            detail
+        );
+
+        if (
+            Number.isInteger(evaluation.category) &&
+            evaluation.category >= 0
+        ) {
+
+            container.dataset.category =
+                String(evaluation.category);
+
+        }
+
+        return container;
+
+    }
+
+
+    /* =====================================================
+       9. RÉSULTAT DE LA MAIN
+       ===================================================== */
+
+    function renderResult(result: TableResult | null | undefined, players: TablePlayer[] = []): HTMLDivElement | null {
+
+        if (!result) {
+            return null;
+        }
+
+        const container = createElement(
+            "div",
+            "pl-hand-result"
+        );
+
+        const title = createElement(
+            "strong",
+            "pl-hand-result-title",
+            result.type === "uncontested"
+                ? "Pot remporté"
+                : "Showdown"
+        );
+
+        const winnerIds: string[] = Array.isArray(result.winnerIds)
+            ? result.winnerIds
+            : [];
+
+        const winnerNames = winnerIds.map(id => {
+            const player = players.find(item => item.id === id);
+            return player ? player.name : id;
+        });
+
+        const description = createElement(
+            "span",
+            "pl-hand-result-description",
+            winnerNames.length > 0
+                ? `Gagnant${winnerNames.length > 1 ? "s" : ""} : ${winnerNames.join(", ")}`
+                : "Main terminée"
+        );
+
+        container.append(
+            title,
+            description
+        );
+
+        // Afficher le détail des pots uniquement lorsqu'il existe un side pot.
+        if (Array.isArray(result.pots) && result.pots.length > 1) {
+            const potDetails = createElement(
+                "div",
+                "pl-hand-result-pots"
+            );
+
+            result.pots.forEach((pot, index) => {
+                const potWinners = (pot.winnerIds || []).map(id => {
+                    const player = players.find(item => item.id === id);
+                    return player ? player.name : id;
+                });
+
+                const potLabel = index === 0
+                    ? "Pot principal"
+                    : `Pot secondaire ${index}`;
+                const winnersLabel = potWinners.length > 0
+                    ? ` — gagnant${potWinners.length > 1 ? "s" : ""} : ${potWinners.join(", ")}`
+                    : "";
+
+                potDetails.appendChild(
+                    createElement(
+                        "span",
+                        "pl-hand-result-pot",
+                        `${potLabel} : ${formatAmount(pot.amount)} BB${winnersLabel}`
+                    )
+                );
+            });
+
+            container.appendChild(potDetails);
+        }
+
+        return container;
+
+    }
+
+
+    /* =====================================================
+       10. RENDU COMPLET DE LA TABLE
+       ===================================================== */
+
+    function render(container: HTMLElement | null, gameState: TableState | null): void {
+
+        if (!container || !gameState) {
+            return;
+        }
+
+        const players: TablePlayer[] = Array.isArray(gameState.players)
+            ? gameState.players
+            : [];
+
+        const hero = players.find(
+            player => player.isHuman
+        );
+
+        const isHeadsUp = players.length === 2;
+
+        const table = createElement(
+            "div",
+            `pl-table-container ${isHeadsUp ? "pl-table-heads-up" : "pl-table-six-max"}`
+        );
+
+        // En-tête.
+
+        const header = createElement(
+            "div",
+            "pl-table-header"
+        );
+
+        const handNumber = createElement(
+            "span",
+            "pl-table-hand-number",
+            `MAIN #${gameState.handNumber || 1}`
+        );
+
+        const format = createElement(
+            "span",
+            "pl-table-format",
+            isHeadsUp
+                ? "HEADS-UP"
+                : `${players.length}-MAX`
+        );
+
+        const blinds = createElement(
+            "span",
+            "pl-table-blinds",
+            "0,5 / 1 BB"
+        );
+
+        header.append(
+            handNumber,
+            format,
+            blinds
+        );
+
+        // Tapis.
+
+        const felt = createElement(
+            "div",
+            "pl-felt"
+        );
+
+        const center = createElement(
+            "div",
+            "pl-table-center"
+        );
+
+        const pot = createElement(
+            "div",
+            "pl-pot-display"
+        );
+
+        const potLabel = createElement(
+            "span",
+            "pl-pot-label",
+            "POT"
+        );
+
+        const potAmount = createElement(
+            "strong",
+            "pl-pot-amount",
+            `${formatAmount(gameState.pot)} BB`
+        );
+
+        pot.append(
+            potLabel,
+            potAmount
+        );
+
+        const board = renderCommunityCards(
+            gameState.board
+        );
+
+        const handNumberValue = gameState.handNumber ?? null;
+        const sameHand = handNumberValue === lastRenderedHandNumber;
+        const previousBoardCount = sameHand ? lastRenderedBoardCount : 0;
+        const boardCount = Array.isArray(gameState.board) ? Math.min(gameState.board.length, 5) : 0;
+        const justReachedShowdown = Boolean(
+            gameState.handComplete &&
+            !(sameHand && lastRenderedHandComplete) &&
+            gameState.result &&
+            gameState.result.type === "showdown"
+        );
+
+        // Révélation du board : flop en cascade, puis turn et river.
+        if (boardCount > previousBoardCount) {
+            const newCards = board.querySelectorAll<HTMLElement>(":scope > *");
+            for (let index = previousBoardCount; index < boardCount; index++) {
+                const card = newCards[index];
+                if (!card) continue;
+                card.classList.add("pl-card-deal");
+                let delay = 0;
+                if (previousBoardCount === 0 && index < 3) delay = index * 145;
+                else if (previousBoardCount === 0 && index === 3) delay = 620;
+                else if (previousBoardCount === 0 && index === 4) delay = 900;
+                card.style.animationDelay = delay + "ms";
+            }
+        }
+
+        center.append(
+            pot,
+            board
+        );
+
+        felt.appendChild(center);
+
+        // Sièges.
+
+        const seats = renderSeats(
+            players,
+            gameState.dealerIndex ?? 0,
+            gameState.currentPlayerId,
+            Boolean(gameState.handComplete),
+            Boolean(gameState.handComplete && gameState.result && gameState.result.type === "showdown")
+        );
+
+        // Indicateur de main.
+
+        const handStrength = renderHandStrength(
+            hero,
+            gameState.board
+        );
+
+        // Résultat éventuel.
+
+        const result = gameState.handComplete
+            ? renderResult(gameState.result, players)
+            : null;
+
+        const actionMount = createElement("div", "pl-hero-actions-mount");
+
+        if (justReachedShowdown) {
+            table.classList.add("pl-showdown-entering");
+            const revealedCards = seats.querySelectorAll<HTMLElement>(".pl-seat .pl-player-cards > *");
+            revealedCards.forEach((card, index) => {
+                card.classList.add("pl-card-showdown-reveal");
+                card.style.animationDelay = (Math.floor(index / 2) * 90 + (index % 2) * 110) + "ms";
+            });
+        }
+
+        table.append(header, felt, seats);
+
+        if (handStrength.childNodes.length > 0) {
+            table.appendChild(handStrength);
+        }
+
+        if (result) {
+            table.appendChild(result);
+        }
+
+        table.appendChild(actionMount);
+
+        if (result && justReachedShowdown) {
+            result.classList.add("pl-showdown-result-enter");
+        }
+
+        container.replaceChildren(table);
+
+        lastRenderedHandNumber = handNumberValue;
+        lastRenderedBoardCount = boardCount;
+        lastRenderedHandComplete = Boolean(gameState.handComplete);
+
+    }
+
+
+    /* =====================================================
+       11. EXPORT
+       ===================================================== */
+
+    return {
+
+        render,
+
+        renderSeats,
+
+        renderCommunityCards,
+
+        renderPlayerCards,
+
+        evaluateHeroHand,
+
+        evaluatePreflop
+
+    };
+
+}
+export type TableApi = ReturnType<typeof createTable>;
+export function installTable(): TableApi {
+  const target = window as Window & { PokerLabTable?: TableApi };
+  if (!target.PokerLabTable) target.PokerLabTable = createTable();
+  return target.PokerLabTable;
+}

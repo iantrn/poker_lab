@@ -18,6 +18,7 @@ import { installPokerRules } from "../core/poker-rules";
 import { installGameEngine } from "../core/game-engine";
 import { installEvaluator } from "../core/evaluator";
 import { installCards } from "../components/cards";
+import { installTable } from "../components/table";
 
 // Keep exactly the script order from index.html in the validated V1 snapshot.
 const SCRIPTS = [
@@ -53,6 +54,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/core/evaluator.js") { installEvaluator(); continue; }
       if (file === "js/core/game-engine.js") { installGameEngine(); continue; }
       if (file === "js/components/cards.js") { installCards(); continue; }
+      if (file === "js/components/table.js") { installTable(); continue; }
       if (file === "js/bots/bot-profiles.js") { installBotProfiles(); continue; }
       if (file === "js/bots/bot-engine.js") { installBotEngine(); continue; }
       if (file === "js/components/navigation.js") { installNavigation(); continue; }
