@@ -1,4 +1,4 @@
-import type { NavigationApi } from "../navigation";
+import type { NavigationApi } from "./navigation";
 
 /** V1-compatible application orchestration in strict TypeScript.
  * LocalStorage stays authoritative; the IndexedDB mirror is installed separately.

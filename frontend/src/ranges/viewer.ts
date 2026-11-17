@@ -272,7 +272,7 @@ export function installRangesViewer(): RangesViewerApi {
     }
 
     function renderActions(): void {
-        const available = new Set(index.spots.filter(spot => spot.p === state.position).map(spot => spot.a));
+        const available = new Set(index!.spots.filter(spot => spot.p === state.position).map(spot => spot.a));
         ui.action.replaceChildren();
 
         const all = el("option", "", "Toutes les actions");
@@ -328,7 +328,7 @@ export function installRangesViewer(): RangesViewerApi {
         ui.search.addEventListener("input", () => {
             state.query = ui.search.value;
             const spots = renderList();
-            if (spots.length && !spots.some(spot => spot.id === state.spotId)) showSpot(spots[0].id);
+            if (spots.length && !spots.some(spot => spot.id === state.spotId)) showSpot(spots[0]!.id);
         });
 
         filters.append(ui.action, ui.search);
@@ -376,7 +376,7 @@ export function installRangesViewer(): RangesViewerApi {
         }
 
         loadPrefs();
-        if (!index.positions.includes(state.position)) state.position = index.positions[0];
+        if (!index!.positions.includes(state.position)) state.position = index!.positions[0] ?? state.position;
 
         buildUi();
         renderPositions();
