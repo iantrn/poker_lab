@@ -72,6 +72,17 @@ export function createReusableRustTreeSerializer() {
       index.byPrefix.clear();
       index.size=originalSize;
     }
+    // Rollbacks may originate from an older generic (unsplit-key) request.
+    // Drop any accelerated entries no longer present in the authoritative
+    // string registry. This slow recovery path executes only after rejection.
+    function pruneInvalidNumbers():void {
+      for(const [prefix,slots] of index.byPrefix){
+        for(const [suffix,entry] of slots){
+          if(registry.byKey.get(prefix+suffix)!==entry)slots.delete(suffix);
+        }
+        if(slots.size===0)index.byPrefix.delete(prefix);
+      }
+    }
     let shape=shapes.get(root);
     if (!shape) {
       // This validator checks cycles, depth, actions and utility range and
@@ -127,6 +138,7 @@ export function createReusableRustTreeSerializer() {
             if(slots?.size===0)index.byPrefix.delete(prefix);
           }
           for(const key of reserved)registry.byKey.delete(key);
+          pruneInvalidNumbers();
           index.size=registry.byKey.size;
           shapes.delete(root);
           throw error;
@@ -201,6 +213,7 @@ export function createReusableRustTreeSerializer() {
           if(slots?.size===0)index.byPrefix.delete(prefix);
         }
         for(const key of reserved)registry.byKey.delete(key);
+        pruneInvalidNumbers();
         index.size=registry.byKey.size;
         throw error;
       }
@@ -223,6 +236,7 @@ export function createReusableRustTreeSerializer() {
           if(slots?.size===0)index.byPrefix.delete(prefix);
         }
         for(const key of reserved)registry.byKey.delete(key);
+        pruneInvalidNumbers();
         index.size=registry.byKey.size;
       }
     };
