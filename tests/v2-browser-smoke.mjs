@@ -239,6 +239,27 @@ async function run() {
     });
     assert.equal(postflopBackend, "wasm", "The real postflop solver worker must activate Rust/WASM evaluation");
 
+    // Preview: the complete TypeScript main-thread postflop API in a dedicated
+    // ESM Worker, without importScripts. The old worker is still production fallback.
+    const typedBackend = await page.evaluate(async () => {
+      const worker = window.PokerLabV2.createTypedPostflopWorker();
+      try {
+        return await new Promise((resolve,reject)=>{
+          const timeout = setTimeout(()=>reject(new Error("Typed postflop Worker initialization timed out")),30000);
+          worker.addEventListener("message",event=>{
+            if(event.data.id!==979)return;
+            clearTimeout(timeout);
+            if(event.data.ok)resolve(event.data.result);
+            else reject(new Error(event.data.error));
+          });
+          worker.addEventListener("error",event=>reject(new Error(event.message)));
+          worker.postMessage({id:979,task:"backend"});
+        });
+      } finally {worker.terminate();}
+    });
+    assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript"});
+
+
     // Statistical parity and full-pipeline timing: the V1 and V2 solvers use
     // independent random streams, so this is intentionally not bit-for-bit parity.
     const postflopEquity = await page.evaluate(async () => {

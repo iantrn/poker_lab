@@ -1,6 +1,7 @@
 import { installRangeAdapter } from "./range-adapter";
 import { installStorageMirror } from "../storage/mirror";
 import { SolverScheduler } from "../solver/scheduler";
+import { createTypedPostflopWorker } from "../workers/postflop-client";
 import { installNavigation } from "../navigation";
 import { installRangesData } from "../ranges/data";
 import { installRangesViewer } from "../ranges/viewer";
@@ -77,8 +78,9 @@ export function loadLegacy(): Promise<void> {
 
     }
     installStorageMirror();
-    (window as Window & { PokerLabV2?: { solver: SolverScheduler } }).PokerLabV2 = {
-      solver: new SolverScheduler()
+    (window as Window & { PokerLabV2?: { solver: SolverScheduler; createTypedPostflopWorker: typeof createTypedPostflopWorker } }).PokerLabV2 = {
+      solver: new SolverScheduler(),
+      createTypedPostflopWorker
     };
   })();
   return loading;

@@ -54,7 +54,7 @@ function createPostflopSolver(global: PostflopGlobals) {
     const SUITS = ["clubs", "diamonds", "hearts", "spades"];
     const SUIT_CODES: Record<string,string> = { clubs: "c", diamonds: "d", hearts: "h", spades: "s" };
     const RANKS = "23456789TJQKA";
-    const MATRIX_URL = "./data/ranges/preflop/matrix/";
+    const MATRIX_URL = (global as PostflopGlobals & { PokerLabMatrixBaseUrl?: string }).PokerLabMatrixBaseUrl ?? "./data/ranges/preflop/matrix/";
     const DEFAULT_ITERATIONS = 1800;
     const randomBuffer = new Uint32Array(1);
     let matrixIndexPromise: Promise<MatrixIndex> | null = null;

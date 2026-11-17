@@ -1,137 +1,112 @@
 /// <reference lib="webworker" />
-/**
- * Module-Worker implementation of the V1 precompute protocol.
- *
- * Equity/range extraction and the complete chance-sampled CFR+ strategy now
- * execute from the strict TypeScript ports in an isolated Worker.
- * Rust/WASM is used for the repeated hand-scoring hot path when available.
- *
- * The legacy classic Worker is retained for rollback until full browser parity
- * (including Safari) has been established.
+/** Typed PokerLab postflop Worker preview; the V1/V2 classic Worker stays
+ * active until full range-vs-range parity and offline validation pass.
  */
-import { installEvaluator, type PokerCard, type PokerHandEvaluation } from "../core/evaluator";
+import { installEvaluator, type PokerLabHandEvaluatorApi } from "../core/evaluator";
 import { installBotProfiles } from "../bots/profiles";
 import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
 import { installStrategy } from "../solver/strategy";
 
-type SolverTask = "backend" | "equity" | "strategy";
-interface SolverRequest {
+interface PostflopRequest {
   id: number;
-  task: SolverTask;
+  task: "backend" | "equity" | "strategy";
   input?: unknown;
-  options?: {
-    iterations?: number; samples?: number; seed?: number;
-    evaluationSamples?: number; exploitabilitySamples?: number;
-  };
+  options?: { iterations?: number; samples?: number; seed?: number; evaluationSamples?: number; exploitabilitySamples?: number };
 }
 interface WasmEvaluator {
-  default(input: URL): Promise<unknown>;
+  default(input?: string | URL): Promise<unknown>;
   evaluate_score(cards: Uint8Array): Uint8Array;
 }
-interface WorkerAliases {
-  window: unknown;
-  PokerLabHandEvaluator?: ReturnType<typeof installEvaluator>;
-}
-const scope = self as DedicatedWorkerGlobalScope;
-const aliases = self as unknown as WorkerAliases;
-// V1 typed APIs intentionally read their dependencies via window; in a Worker
-// the same global namespace exists on self, not Window.
-aliases.window = self;
+type PostflopScope = DedicatedWorkerGlobalScope & {
+  window?: unknown;
+  PokerLabMatrixBaseUrl?: string;
+  PokerLabHandEvaluator?: PokerLabHandEvaluatorApi;
+};
+const scope = self as PostflopScope;
+(scope as {window?:unknown}).window = scope;
+const appBase = new URL(import.meta.env.BASE_URL, scope.location.origin);
+scope.PokerLabMatrixBaseUrl = new URL("data/ranges/preflop/matrix/", appBase).href;
 
-const referenceEvaluator = installEvaluator();
-installBotProfiles();
-const equityEngine = installPostflopSolver();
-installCfrCore();
-const strategyEngine = installStrategy();
+let initialization: Promise<"wasm" | "legacy"> | null = null;
+async function init(): Promise<"wasm" | "legacy"> {
+  if (initialization) return initialization;
+  initialization = (async () => {
+    installEvaluator();
+    installBotProfiles();
+    installPostflopSolver();
+    installCfrCore();
+    installStrategy();
 
-let evaluatorBackend: "wasm" | "typescript" = "typescript";
-let loading: Promise<void> | null = null;
-
-async function useRustEvaluator(): Promise<void> {
-  if (loading) return loading;
-  loading = (async () => {
+    // Rust is an optional accelerator, not a dependency for strategy correctness.
     try {
-      // Vite emits module worker bundles into /assets/. WASM pack resources are
-      // copied at the deployment root by the Vite legacy-assets plugin.
-      const appBase = new URL("../", scope.location.href);
-      const jsUrl = new URL("wasm/pokerlab_engine.js", appBase).href;
+      const moduleUrl = new URL("wasm/pokerlab_engine.js", appBase).href;
       const wasmUrl = new URL("wasm/pokerlab_engine_bg.wasm", appBase);
-      const wasm = await import(/* @vite-ignore */ jsUrl) as WasmEvaluator;
+      const wasm = await import(/* @vite-ignore */ moduleUrl) as WasmEvaluator;
       await wasm.default(wasmUrl);
-
-      const suits: Record<string, number> = {
-        clubs: 0, diamonds: 1, hearts: 2, spades: 3
-      };
-      const accelerated = {
-        ...referenceEvaluator,
-        evaluate(cards: PokerCard[]): PokerHandEvaluation {
-          if (!Array.isArray(cards) || cards.length < 5 || cards.length > 7) {
-            return referenceEvaluator.evaluate(cards);
-          }
+      const original = scope.PokerLabHandEvaluator!;
+      const suits: Record<string,number> = { clubs:0, diamonds:1, hearts:2, spades:3 };
+      scope.PokerLabHandEvaluator = {
+        ...original,
+        evaluate(cards) {
+          if (!Array.isArray(cards) || cards.length < 5 || cards.length > 7)
+            return original.evaluate(cards);
           const packed = new Uint8Array(cards.length);
-          for (let i = 0; i < cards.length; i++) {
-            const card = cards[i];
-            const suit = card ? suits[card.suit] : undefined;
-            if (!card || !Number.isInteger(card.value) || card.value < 2 ||
-                card.value > 14 || suit === undefined) {
-              return referenceEvaluator.evaluate(cards);
-            }
-            packed[i] = card.value | (suit << 4);
+          for (let index=0;index<cards.length;index++) {
+            const card=cards[index]!;
+            if (!card || !Number.isInteger(card.value) || card.value<2 || card.value>14 ||
+              !Object.prototype.hasOwnProperty.call(suits,card.suit))
+              return original.evaluate(cards);
+            packed[index]=card.value | (suits[card.suit]! << 4);
           }
           let score: number[];
-          try {
-            score = Array.from(wasm.evaluate_score(packed));
-          } catch {
-            // Invalid or duplicate card errors retain the V1 error contract.
-            return referenceEvaluator.evaluate(cards);
-          }
-          let full: PokerHandEvaluation | null = null;
-          const originalCards = [...cards];
-          const metadata = (): PokerHandEvaluation =>
-            full ?? (full = referenceEvaluator.evaluate(originalCards));
+          try { score=Array.from(wasm.evaluate_score(packed)); }
+          catch { return original.evaluate(cards); }
+          let metadata: ReturnType<typeof original.evaluate> | null = null;
+          const full=()=>metadata ?? (metadata=original.evaluate(cards.slice()));
           return {
-            category: score[0]!,
-            score,
-            get categoryKey() { return metadata().categoryKey; },
-            get categoryLabel() { return metadata().categoryLabel; },
-            get bestFiveCards() { return metadata().bestFiveCards; },
-            get description() { return metadata().description; }
+            category:score[0]!,score,
+            get categoryKey(){return full().categoryKey;},
+            get categoryLabel(){return full().categoryLabel;},
+            get bestFiveCards(){return full().bestFiveCards;},
+            get description(){return full().description;}
           };
         }
-      };
-      aliases.PokerLabHandEvaluator = accelerated;
-      evaluatorBackend = "wasm";
+      } as PokerLabHandEvaluatorApi;
+      return "wasm";
     } catch (error) {
-      console.warn("[PokerLab V2] Moteur Rust/WASM non disponible dans le Worker typé :", error);
-      evaluatorBackend = "typescript";
+      console.warn("[PokerLab V2] Rust unavailable in typed postflop Worker; using JS evaluator.",error);
+      return "legacy";
     }
   })();
-  return loading;
+  return initialization;
 }
-
-scope.addEventListener("message", (event: MessageEvent<SolverRequest>) => {
-  const message = event.data;
-  if (!message || !Number.isSafeInteger(message.id)) return;
-  void (async () => {
-    const { id, task, input, options } = message;
+scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
+  const message=event.data;
+  if(!Number.isSafeInteger(message?.id))return;
+  void (async()=>{
     try {
-      await useRustEvaluator();
-      if (task === "backend") {
-        scope.postMessage({ id, ok: true, result: { backend: evaluatorBackend, implementation: "typescript" } });
+      const backend=await init();
+      if(message.task==="backend") {
+        scope.postMessage({id:message.id,ok:true,result:{backend,implementation:"typescript"}});
         return;
       }
-      if (task !== "equity" && task !== "strategy") {
-        throw new Error("Tâche du solveur inconnue.");
-      }
-      scope.postMessage({ id, progress: 0, phase: task + "_started" });
-      const result = task === "equity"
-        ? await equityEngine.analyse(input)
-        : await strategyEngine.solvePostflop(input, [], options || {});
-      scope.postMessage({ id, progress: 1, phase: task + "_completed" });
-      scope.postMessage({ id, ok: true, result });
-    } catch (error: unknown) {
-      scope.postMessage({ id: message.id, ok: false, error: error instanceof Error ? error.message : String(error) });
+      scope.postMessage({id:message.id,progress:0,phase:message.task+"_started"});
+      let result: unknown;
+      const globals=scope as unknown as {
+        PokerLabPostflopSolver: ReturnType<typeof installPostflopSolver>;
+        PokerLabPostflopStrategy: ReturnType<typeof installStrategy>;
+      };
+      if(message.task==="equity") {
+        result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
+          [],message.options);
+      } else if(message.task==="strategy") {
+        result=await globals.PokerLabPostflopStrategy.solvePostflop(message.input,[],message.options);
+      } else throw new Error("Tâche de solveur inconnue.");
+      scope.postMessage({id:message.id,progress:1,phase:message.task+"_completed"});
+      scope.postMessage({id:message.id,ok:true,result});
+    } catch(error:unknown) {
+      scope.postMessage({id:message.id,ok:false,error:error instanceof Error?error.message:String(error)});
     }
   })();
 });
