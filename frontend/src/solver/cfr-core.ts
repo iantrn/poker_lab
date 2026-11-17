@@ -455,6 +455,8 @@ export interface CFRBatchSample {
   deal:unknown;
   callbacks:CFRCallbacks;
   chanceWeight:number;
+  /** Explicit PokerLab payoff convention: fold winner + showdown net chip EV. */
+  compilePokerPayoffs?:true;
 }
 export type CFRCoreApi = ReturnType<typeof createCore> & {
   /** Optional Rust accelerator; TypeScript keeps its established single-step path. */
