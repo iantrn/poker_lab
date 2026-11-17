@@ -1,0 +1,72 @@
+name: Temporary V1 removal audit and baseline (work branch only)
+# Investigation workflow; it is not a production deployment and will be removed
+# from this pull request before merging.
+on:
+  push:
+    branches: [chore/remove-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v1-removal-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Rust and wasm-pack
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
+      - name: Record complete V1 file inventory
+        run: |
+          printf '%s\n' '=== GIT-TRACKED ROOT / JS / CSS / TESTS / WORKFLOWS ==='
+          git ls-files | grep -E '^((js|css|tests|frontend/src/legacy|\\.github/workflows)/|index\\.html$|manifest\\.json$|service-worker\\.js$|pokerlab-solver-worker)' || true
+          printf '%s\n' '=== TOTAL TRACKED ==='
+          git ls-files | wc -l
+      - name: Record dependencies referencing V1 (full-tree grep)
+        run: |
+          printf '%s\n' '=== ALL REFERENCES TO WORKERS, V1 SERVICE WORKER, INDEX AND CSS ==='
+          rg -n --hidden --glob '!.git/**' --glob '!frontend/package-lock.json' --glob '!data/**'             '(pokerlab-solver-worker|service-worker\\.js|css/(style|utilities)\\.css|legacy-shell|index\\.html|js/core/evaluator\\.js|js/bots/bot-profiles\\.js|js/modules/(postflop-solver|cfr-core|postflop-strategy)\\.js)' . || true
+          printf '%s\n' '=== ALL REFS TO LEGACY ROOT OR BROAD IMPORT PATHS ==='
+          rg -n --hidden --glob '!.git/**' --glob '!frontend/package-lock.json' --glob '!data/**'             '(\.\./\.\./css/|\./js/|\bjs/|from .?\./\.\./|from .?\./\.\./\.\./|postflop-solver\.yml|tests/[^ ]*\.test\.js|index\.html)' frontend tests .github README.md V2_MIGRATION_CHECKPOINT.md || true
+      - name: Baseline Rust tests
+        run: cargo test --manifest-path engine/Cargo.toml
+      - name: Baseline Node V1, ranges, and other tests
+        run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
+      - name: Baseline TypeScript V1 parity tests
+        run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
+      - name: Build Rust browser and Node WASM
+        run: |
+          cd engine
+          wasm-pack build --release --target web --out-dir pkg
+          wasm-pack build --release --target nodejs --out-dir pkg-node
+      - name: Baseline npm ci and Vite build
+        run: |
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Baseline V2 dist inventory
+        run: |
+          printf '%s\n' '=== DIST FILES ==='
+          find dist -type f | sed -n '1,100p'
+          printf '%s\n' '=== DIST LEGACY ROOTS ==='
+          find dist -type f | grep -E '(pokerlab-solver-worker|/js/|/css/|service-worker\\.js)' || true
+          test -s dist/index.html
+          test -s dist/service-worker.js
+          test -s dist/wasm/pokerlab_engine_bg.wasm
+          test -s dist/data/ranges/preflop/matrix/ranges.json
