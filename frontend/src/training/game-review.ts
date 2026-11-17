@@ -144,7 +144,7 @@ function createReview() {
 
         }
 
-        if (!VALID_STREETS.includes(action.street)) {
+        if (!VALID_STREETS.includes(action.street ?? "")) {
             errors.push("Street invalide.");
         }
 
