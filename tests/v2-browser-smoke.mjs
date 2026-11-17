@@ -400,6 +400,7 @@ async function run() {
           timing:{typedDurationMs,rustDurationMs},
           rustProgress,
           rustQuality:rustStrategy.quality,
+          rustHeroActualSamples:rustStrategy.sampledActualHeroHand,
           equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
             losses:equity.losses,value:equity.equity},
           strategy:{iterations:strategy.iterations,actions:strategy.actions,
@@ -424,8 +425,12 @@ async function run() {
     assert.ok(typedPostflop.rustProgress.some(update=>
       update.provisional&&update.phase==="strategy_training"),
       "real Worker must distinguish un-converged strategy estimates");
-    assert.ok(typedPostflop.rustProgress.some(update=>update.actionCount>0),
-      "real Worker must send a provisional root policy when sampled hero is known");
+    if(typedPostflop.rustHeroActualSamples>0)
+      assert.ok(typedPostflop.rustProgress.some(update=>update.actionCount>0),
+        "real Worker must send a provisional root policy when sampled hero is known");
+    else
+      assert.ok(typedPostflop.rustProgress.every(update=>update.actionCount===0),
+        "never invent hero-hand frequencies before that hand was sampled");
     for(let step=1;step<typedPostflop.rustProgress.length;step++)
       assert.ok(typedPostflop.rustProgress[step].progress>=
         typedPostflop.rustProgress[step-1].progress,
