@@ -203,58 +203,98 @@ function infoKey(node:MultiwayDecision,deal:MultiwayDeal):string{
   const visibleBoard=deal.board.slice(0,node.boardLength).map(id).join(",");
   return node.actor+"|"+sortedHand(hole)+"|"+visibleBoard+"|"+node.history;
 }
+/** Immutable betting topology, compiled once per solve. Consecutive chance
+ * samples only refresh ids and utilities; typed vectors do not reallocate.
+ * The WASM call is synchronous, so reusing the buffers cannot race a step.
+ */
+interface FlatTopology{
+  nodes:readonly MultiwayNode[];
+  signatures:readonly (string|null)[];
+  actors:Int8Array;offsets:Uint32Array;counts:Uint8Array;
+  children:Uint32Array;
+  ids:Uint32Array;payoffs:Float64Array;
+}
+function compileTopology(game:MultiwayTree):FlatTopology{
+  const nodes:MultiwayNode[]=[];
+  const actors:number[]=[],offsets:number[]=[],counts:number[]=[];
+  const children:number[]=[],signatures:(string|null)[]=[];
+  function visit(node:MultiwayNode):number{
+    const index=nodes.length;
+    nodes.push(node);
+    actors.push(node.terminal?-1:node.actor);
+    offsets.push(children.length);
+    const count=node.terminal?0:node.actions.length;
+    counts.push(count);
+    signatures.push(node.terminal?null:node.actions.map(({action})=>
+      action.type+":"+action.target+":"+action.label).join("|"));
+    const start=children.length;
+    for(let i=0;i<count;i++)children.push(0);
+    if(!node.terminal)for(let i=0;i<count;i++)
+      children[start+i]=visit(node.actions[i]!.child);
+    return index;
+  }
+  visit(game.root);
+  if(nodes.length>12_000||nodes.length<2)
+    throw new RangeError("Topologie multi-street au-delà du budget mobile.");
+  return {
+    nodes,signatures,actors:Int8Array.from(actors),
+    offsets:Uint32Array.from(offsets),counts:Uint8Array.from(counts),
+    children:Uint32Array.from(children),
+    ids:new Uint32Array(nodes.length),
+    payoffs:new Float64Array(nodes.length*game.players)
+  };
+}
 function flatten(
-  game:MultiwayTree,deal:MultiwayDeal,
+  topology:FlatTopology,game:MultiwayTree,deal:MultiwayDeal,
   scores:ReadonlyArray<readonly number[]|null>,compare:CompareScores,
   registry:Registry
 ):FlatTree{
-  const actors:number[]=[],ids:number[]=[],offsets:number[]=[],counts:number[]=[];
-  const children:number[]=[],payoffs:number[]=[];
   const reserved:string[]=[];
-  let rootInfo=-1;
-  const players=game.players;
-  function visit(node:MultiwayNode):number {
-    const index=actors.length;
-    actors.push(-1);ids.push(0);offsets.push(0);counts.push(0);
-    for(let i=0;i<players;i++)payoffs.push(0);
-    if(node.terminal){
-      const net=multiwayTerminalPayoffs(node,scores,compare);
-      for(let i=0;i<players;i++)payoffs[index*players+i]=net[i]!;
-      return index;
+  topology.payoffs.fill(0);
+  const {nodes,ids,payoffs,signatures}=topology;
+  // The same hole pair is visible on every street to its owner, but a sampled
+  // fourth/fifth community card is hidden from all earlier infosets.
+  const handIds=deal.holes.map(hand=>hand?sortedHand(hand):null);
+  const boards=[
+    deal.board.slice(0,3).map(id).join(","),
+    deal.board.slice(0,4).map(id).join(","),
+    deal.board.slice(0,5).map(id).join(",")
+  ];
+  try{
+    for(let index=0;index<nodes.length;index++){
+      const node=nodes[index]!;
+      if(node.terminal){
+        const net=multiwayTerminalPayoffs(node,scores,compare);
+        for(let i=0;i<game.players;i++)payoffs[index*game.players+i]=net[i]!;
+        ids[index]=0;
+        continue;
+      }
+      const hand=handIds[node.actor];
+      if(!hand)throw new Error("Main privée multiway manquante.");
+      const board=boards[node.boardLength-3];
+      if(board===undefined)
+        throw new Error("Street future non connue pour cet information set.");
+      const key=node.actor+"|"+hand+"|"+board+"|"+node.history;
+      const signature=signatures[index]!;
+      const known=registry.get(key);
+      if(known&&(known.actions!==node.actions.length||known.signature!==signature))
+        throw new Error("Actions incompatibles pour une même information multiway.");
+      let entry=known;
+      if(!entry){
+        entry={id:registry.size,actions:node.actions.length,signature};
+        registry.set(key,entry);
+        reserved.push(key);
+      }
+      ids[index]=entry.id;
     }
-    actors[index]=node.actor;
-    const key=infoKey(node,deal);
-    const signature=node.actions.map(({action})=>
-      action.type+":"+action.target+":"+action.label).join("|");
-    const known=registry.get(key);
-    if(known && (known.actions!==node.actions.length||known.signature!==signature))
-      throw new Error("Actions incompatibles pour une même information multiway.");
-    let entry=known;
-    if(!entry){
-      entry={id:registry.size,actions:node.actions.length,signature};
-      registry.set(key,entry);
-      reserved.push(key);
-    }
-    ids[index]=entry.id;
-    if(index===0)rootInfo=entry.id;
-    offsets[index]=children.length;
-    counts[index]=node.actions.length;
-    const base=children.length;
-    for(let i=0;i<node.actions.length;i++)children.push(0);
-    for(let i=0;i<node.actions.length;i++)
-      children[base+i]=visit(node.actions[i]!.child);
-    return index;
-  }
-  try{visit(game.root);}
-  catch(error){
+  }catch(error){
     for(const key of reserved)registry.delete(key);
     throw error;
   }
   return {
-    actors:Int8Array.from(actors),ids:Uint32Array.from(ids),
-    offsets:Uint32Array.from(offsets),counts:Uint8Array.from(counts),
-    children:Uint32Array.from(children),payoffs:Float64Array.from(payoffs),
-    rootInfo,
+    actors:topology.actors,ids:topology.ids,offsets:topology.offsets,
+    counts:topology.counts,children:topology.children,payoffs:topology.payoffs,
+    rootInfo:topology.ids[0]!,
     rollback(){for(const key of reserved)registry.delete(key);}
   };
 }
@@ -336,6 +376,7 @@ export async function solveMultiway(
   // Topology is invariant to chance runouts, so build it only ONCE, with
   // its horizon adapted to the Rust 65k information-set and 12k node limits.
   const {tree:game,trainingSamples}=buildAdaptiveMultiwayTree(state,requested);
+  const topology=compileTopology(game);
   const seed=Number.isSafeInteger(options.seed)?options.seed!>>>0:0x2357127;
   const training=await createSampler(state,environment,seed);
   const registry:Registry=new Map();
@@ -351,7 +392,7 @@ export async function solveMultiway(
   for(let iteration=0;iteration<trainingSamples;iteration++){
     const deal=training.deal();
     const scores=scoresFor(state,deal,environment);
-    const packed=flatten(game,deal,scores,environment.compareScores,registry);
+    const packed=flatten(topology,game,deal,scores,environment.compareScores,registry);
     try{
       session.step(packed.actors,packed.ids,packed.offsets,packed.counts,
         packed.children,packed.payoffs,deal.importanceWeight);
