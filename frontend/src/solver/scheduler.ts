@@ -1,5 +1,7 @@
 import { pokerLabDb } from "../storage/db";
 import type { EngineRequest, WorkerRequest, WorkerResponse } from "../../../shared/models/solver";
+import type { PokerCard } from "../../../shared/types/poker";
+import { createRangeEquityRequest, type WeightedOpponentCombo } from "./range-equity";
 
 interface Job { controller: AbortController; worker: Worker; reject: (error: Error) => void; }
 const CACHE_SCHEMA_VERSION = 1;
@@ -20,6 +22,17 @@ export class SolverScheduler {
     active.controller.abort(reason);
     active.worker.terminate();
     active.reject(new DOMException(reason, "AbortError"));
+  }
+
+  /** Typed V1-range adapter to the Rust exact-river / flop-turn Monte Carlo solver. */
+  calculateRangeEquity(
+    hero: readonly PokerCard[],
+    board: readonly PokerCard[],
+    combos: readonly WeightedOpponentCombo[],
+    iterations = 2000,
+    seed = 1
+  ): Promise<number[]> {
+    return this.calculate(createRangeEquityRequest(hero, board, combos, iterations, seed));
   }
 
   async calculate(request: EngineRequest): Promise<number[]> {
