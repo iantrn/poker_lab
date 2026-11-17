@@ -235,3 +235,46 @@ test("full PokerLab river solve uses compiled payoff batches without changing EV
  assert.equal(calls.plain,0);
  assert.equal(calls.single,0);
 });
+
+
+test("diagnostic full-solver benchmark compares compact and normal Rust batches on same seeded river",async()=>{
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ function vanillaRustFactory(){
+   const engine=new wasm.CfrSession();
+   // Deliberately hide the new payoff API to compare against the exact same
+   // prepared/batched Rust solver without the compact terminal model.
+   return {
+     prepare_tree:(...args)=>engine.prepare_tree(...args),
+     step_prepared_batch:(...args)=>engine.step_prepared_batch(...args),
+     step_prepared:(...args)=>engine.step_prepared(...args),
+     step:(...args)=>engine.step(...args),
+     average_strategy:()=>engine.average_strategy(),
+     iterations:()=>engine.iterations(),
+     information_set_count:()=>engine.information_set_count()
+   };
+ }
+ const results={plain:[],compact:[]};
+ let expected=null;
+ for(let attempt=0;attempt<3;attempt++){
+   const order=attempt%2===0?["plain","compact"]:["compact","plain"];
+   for(const mode of order){
+     const solver=mode==="compact"?makeRustTyped():makeRustTyped(vanillaRustFactory);
+     const t0=performance.now();
+     const result=simplify(await solver.solvePostflop(state(),[],opts));
+     results[mode].push(performance.now()-t0);
+     if(!expected)expected=result;
+     else assertNumericallyEquivalent(result,expected,mode+"-run-"+attempt);
+   }
+ }
+ const median=list=>[...list].sort((a,b)=>a-b)[1];
+ console.log("Full river Rust compact-payout diagnostic: "+JSON.stringify({
+   iterations:80,repetitions:3,
+   plainMs:results.plain.map(x=>+x.toFixed(2)),
+   compactMs:results.compact.map(x=>+x.toFixed(2)),
+   plainMedianMs:+median(results.plain).toFixed(2),
+   compactMedianMs:+median(results.compact).toFixed(2),
+   relativeP50:+(median(results.plain)/median(results.compact)).toFixed(3),
+   parity:"frequencies EV NashConv identical"
+ }));
+});
