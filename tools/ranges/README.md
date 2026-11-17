@@ -40,6 +40,20 @@ node tools/ranges/import-directory.mjs \
 
 Le script crée `normalized/<position>/*.json` et `catalog/index.json`. Les entrées sont `pending-review` : elles ne sont pas sélectionnables par le runtime tant que les métadonnées du spot n'ont pas été vérifiées et passées à `ready`. `private-ranges/` doit rester hors du dépôt public.
 
+## Construire les matrices compactes pour la PWA
+
+```bash
+node tools/ranges/build-matrix.mjs --input-dir ./private-ranges/normalized --output-dir ./data/ranges/preflop/matrix
+```
+
+Le générateur écrit **seulement** `index.json` et `ranges.json`. Le bundle
+contient toutes les fréquences pour chacun des 2 606 identifiants `position/spot`.
+Les anciens `matrix/<position>/<spot>.json` dupliquaient les mêmes données et
+ont été retirés du dépôt, du bundle PWA et de la stratégie de repli V1.
+Le lecteur charge le bundle unique, conserve les erreurs explicites et
+réessaie un téléchargement qui aurait échoué. Les 2 606 spots ne sont pas
+supprimés ; leur structure de référence se trouve dans le couple index/bundle.
+
 ## Convertir un fichier
 
 ```bash

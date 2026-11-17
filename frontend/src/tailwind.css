@@ -1,0 +1,9 @@
+@tailwind utilities;
+
+/*
+ * Legacy utilities mark .hidden as !important.  Restore responsive header
+ * navigation on desktop without touching or re-ordering the V1 stylesheet.
+ */
+@media (min-width: 768px) {
+  .hidden.md\:flex { display: flex !important; }
+}

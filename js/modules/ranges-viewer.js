@@ -2,7 +2,7 @@
    POKERLAB - RANGES VIEWER
    Version : 1.0.0
    Description : Sélection d'un spot préflop et affichage de sa matrice 13 x 13
-   Données     : ./data/ranges/preflop/matrix/index.json + <position>/<spot>.json
+   Données     : ./data/ranges/preflop/matrix/index.json + ranges.json
    ========================================================= */
 
 "use strict";
@@ -114,19 +114,17 @@ window.PokerLabRangesViewer = (function () {
                             }
                             return bundle.ranges;
                         })
-                        .catch(() => null);
+                        .catch(error => {
+                            bundlePromise = null; // retry if the bundle fetch failed
+                            throw error;
+                        });
                 }
 
                 const bundledRanges = await bundlePromise;
-                if (bundledRanges) {
-                    if (!Object.prototype.hasOwnProperty.call(bundledRanges, id)) {
-                        throw new Error(`Range absente du bundle : ${id}`);
-                    }
-                    return bundledRanges[id];
+                if (!Object.prototype.hasOwnProperty.call(bundledRanges, id)) {
+                    throw new Error(`Range absente du bundle : ${id}`);
                 }
-
-                // Compatibilité avec les anciennes publications sans bundle.
-                return fetchJson(`${BASE_URL}${id}.json`);
+                return bundledRanges[id];
             })().catch(error => {
                 spotCache.delete(id);
                 throw error;

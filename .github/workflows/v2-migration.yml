@@ -1,0 +1,92 @@
+name: PokerLab V2 - React/TypeScript/Rust validation
+on:
+  push:
+    branches: [main, feat/v2-ts-rust-migration]
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'data/**'
+      - 'frontend/**'
+      - 'engine/**'
+      - 'shared/**'
+      - 'tests/v2-*.test.mjs'
+      - '.github/workflows/v2-migration.yml'
+permissions:
+  contents: read
+# Validate the latest commit on main and migration branches without duplicating expensive jobs.
+concurrency:
+  group: pokerlab-v2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  migration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'latest'
+      - name: Rust tests
+        run: cargo test --manifest-path engine/Cargo.toml
+      - name: Build browser and Node WASM
+        run: |
+          cd engine
+          wasm-pack build --release --target web --out-dir pkg
+          wasm-pack build --release --target nodejs --out-dir pkg-node
+      - name: Legacy baseline tests (126 tests)
+        run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
+      - name: TypeScript V1 parity for range data
+        run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
+      - name: WASM versus JavaScript parity tests
+        run: node --test tests/v2-wasm-parity.test.mjs
+      - name: Weighted river equity parity against legacy evaluator
+        run: node --test tests/v2-wasm-range-equity.test.mjs
+      - name: WASM extensive-form CFR+ tests
+        run: node --test tests/v2-wasm-tree.test.mjs
+      - name: State-persistent weighted CFR+ session parity
+        run: node --test tests/v2-wasm-session.test.mjs
+      - name: Comparative JavaScript versus optimized WASM benchmark
+        run: node --test tests/v2-wasm-benchmark.test.mjs
+      - name: Install frontend dependencies
+        run: npm install --prefix frontend --no-audit --no-fund
+      - name: TypeScript strict + Vite production build
+        run: npm run build --prefix frontend
+      - name: Inspect offline build artifacts
+        run: |
+          test -s dist/index.html
+          test -s dist/service-worker.js
+          test -s dist/wasm/pokerlab_engine_bg.wasm
+          test -s dist/data/ranges/preflop/matrix/ranges.json
+          test -s dist/pokerlab-solver-worker.js
+          test -s dist/pokerlab-solver-worker-v2.js
+          test -s dist/js/core/evaluator.js
+          test -s dist/js/bots/bot-profiles.js
+          test -s dist/js/modules/postflop-solver.js
+          test -s dist/js/modules/cfr-core.js
+          test -s dist/js/modules/postflop-strategy.js
+          test ! -e dist/js/app.js
+          test ! -e dist/css/style.css
+          test ! -d dist/data/ranges/preflop/matrix/bb
+          test -s dist/assets/icons/icon-192.png
+      - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
+        run: node tests/v2-browser-smoke.mjs
+      - name: Install Playwright WebKit and Linux browser dependencies
+        run: node frontend/node_modules/playwright-core/cli.js install --with-deps webkit
+      - name: WebKit browser smoke test (React, WASM, PWA offline and CFR+)
+        env:
+          PLAYWRIGHT_BROWSER: webkit
+        run: node tests/v2-browser-smoke.mjs
+      - name: IndexedDB V1 migration backfill and deletion (Chromium)
+        run: node tests/v2-browser-storage.mjs
+      - name: Upload V2 preview bundle (no production deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokerlab-v2-preview
+          path: dist/
+          if-no-files-found: error

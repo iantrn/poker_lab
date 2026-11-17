@@ -28,7 +28,7 @@ L'application ne charge pas les 1 326 combos de `normalized/` (environ 85 Mo). E
 
 - `matrix/index.json` : liste des spots (`id`, position du héros `p`, action `a`, séquence `s`, % de mains jouées `r`).
 - `matrix/ranges.json` : bundle unique contenant les matrices compactes de tous les spots, indexées par identifiant (`position/spot`). C'est ce fichier léger qui est précaché par le Service Worker pour garantir l'accès offline à toutes les ranges.
-- `matrix/<position>/<spot>.json` : fichiers individuels conservés pour compatibilité et dépannage ; pourcentages par classe de main (`{"AA": 100, "AKs": 62.5}`), les mains absentes valent 0.
+- Les matrices individuelles `matrix/<position>/<spot>.json` ont été supprimées : elles dupliquaient exactement les entrées de `ranges.json` et n'étaient pas nécessaires à l'exécution. Une entrée du bundle est directement consultable par identifiant `position/spot`. Les mains absentes valent 0.
 
 Régénération :
 
@@ -43,4 +43,4 @@ Le module `js/modules/ranges-viewer.js` affiche ces données dans l'onglet Appre
 
 2 606 spots ART/GTO (UTG 319, MP 348, CO 388, BU 556, SB 535, BB 460) sont disponibles dans `matrix/`. Le propriétaire du dépôt indique avoir l'accord de ART/GTO pour cet usage (voir `sources.json`). Les JSON complets `normalized/` restent dans `private-ranges/`, hors dépôt.
 
-Le catalogue `catalog/index.json` et les entrées `pending-review` concernent le format v2 complet ; le mapping vers l'historique des mains PokerLab reste à écrire. Le dossier `cash-6max/100bb/` contient encore les anciens squelettes v1 (placeholders).
+Le catalogue `catalog/index.json` et les entrées `pending-review` concernent le format v2 complet ; le mapping vers l'historique des mains PokerLab reste à écrire. Les anciens squelettes `cash-6max/100bb/`, vides et en attente de source, ont été supprimés. Aucun spot de la matrice validée n'a été retiré ; les 2 606 matrices sont présentes dans le bundle et son index.

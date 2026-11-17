@@ -3,3 +3,24 @@
 /private-ranges/
 /artgto-viewer.zip
 /ranges.zip
+
+# V2 generated artifacts and dependencies
+/frontend/node_modules/
+/dist/
+/engine/target/
+/engine/pkg/
+/engine/pkg-node/
+
+# Les matrices individuelles sont des sorties historiques redondantes :
+# seuls index.json et ranges.json sont versionnés et précachés.
+/data/ranges/preflop/matrix/*/*.json
+
+# Fichiers temporaires des tests et outils locaux
+*.log
+*.tmp
+*.bak
+*.orig
+.DS_Store
+/coverage/
+/playwright-report/
+/test-results/

@@ -1,195 +1,128 @@
 # PokerLab
 
-PokerLab est une application web progressive (PWA) de pratique et d'apprentissage du Texas Hold'em No-Limit. Le projet fonctionne côté navigateur, sans serveur applicatif ni base de données distante.
+**PokerLab** est une PWA d'entraînement au **Texas Hold'em No-Limit**, utilisable sans compte, sans argent réel, sans serveur applicatif et **hors connexion après installation et mise en cache initiales**.
 
-L'application permet de jouer contre des adversaires automatisés, de consulter des ranges préflop, de suivre un parcours pédagogique, de résoudre des exercices tactiques et de revoir les mains terminées localement.
+La version V2 est construite avec **React, TypeScript strict et Rust/WebAssembly**. La version JavaScript historique (V1) est conservée dans le dépôt pour la compatibilité, les tests de parité et la possibilité de revenir en arrière.
 
 ## Fonctionnalités
 
-- Parties de Texas Hold'em No-Limit contre des bots.
-- Formats 6-max et heads-up.
-- Profils de bots variés et niveaux de difficulté.
-- Gestion des blinds, des mises, des relances, des tapis et des pots secondaires, avec détail des pots au résultat.
-- Évaluation des mains et détermination des gagnants.
-- Historique des actions d'une main et sauvegarde locale automatique des mains terminées pour Game Review.
-- Parcours de six leçons en français, avec progression persistée localement.
-- Huit exercices tactiques avec filtres par catégorie et difficulté, correction et explication.
-- Consultation des 2 606 spots de ranges préflop depuis le module Apprentissage.
-- Analyse d'équité postflop Monte-Carlo en heads-up.
-- Analyse stratégique postflop expérimentale par CFR+ range-vs-range, avec fréquences, EV, intervalle de confiance, ESS et estimation du NashConv sur l'arbre abstrait.
-- Mise en cache des ressources, des icônes et du bundle complet des ranges pour une utilisation hors connexion.
-- Interface responsive pour ordinateur, tablette et mobile.
+- **Jouer :** parties 6-max et heads-up contre des bots aux profils et difficultés variés ; blinds, positions, relances, all-in, showdown et pots secondaires.
+- **Apprendre :** six leçons interactives en français, progression locale et **2 606 spots** de ranges préflop affichés dans une matrice 13 × 13.
+- **S'entraîner :** huit puzzles tactiques filtrables avec correction et explication.
+- **Revoir :** historique local des mains et module Game Review.
+- **Analyser :** calculs d'équité Monte-Carlo et solveur postflop heads-up **CFR+ range-vs-range** ; fréquences d'actions, valeurs espérées (EV) et diagnostics d'exploitabilité estimée (NashConv).
+- **Hors connexion :** interface, ressources, Workers, moteur WASM et bundle préflop précachés via le Service Worker pour les sessions ultérieures.
 
-## Technologies
+Le solveur représente un **arbre de mises abstrait** : ses résultats sont des estimations utiles pour progresser, pas une certification d'une stratégie GTO parfaite sur l'ensemble du poker.
 
-- HTML5
-- CSS3, avec une feuille de styles applicative et un ensemble de classes utilitaires
-- JavaScript natif, sans framework
-- Service Worker et Web App Manifest pour les fonctions PWA
-- API Web Storage pour les paramètres locaux
-- Node.js pour les outils de maintenance et les tests des données de ranges
+## Architecture V2
 
-Aucune installation de dépendances npm n'est nécessaire pour lancer l'application. Le dépôt ne contient pas de fichier `package.json`.
+| Couche | Technologie | Rôle |
+|---|---|---|
+| Interface | React 19, TypeScript strict, CSS / Tailwind | Navigation responsive, écran de jeu, matrice, cours et analyse |
+| Règles et entraînement | TypeScript | Moteur 2–6 joueurs, bots, actions, ranges, sessions et historique |
+| Analyse stratégique | TypeScript et Web Workers | Sampling pondéré, bloqueurs, CFR+ abstrait, EV et NashConv |
+| Calcul numérique | Rust → WebAssembly | Évaluation 5–7 cartes, showdown, Monte-Carlo, ranges et session CFR+ persistante |
+| Persistance | `localStorage` + Dexie/IndexedDB | Sauvegarde V1-compatible ; miroir IndexedDB non destructif |
+| PWA | Vite + Workbox | Build statique, manifeste installable et fonctionnement offline |
 
-## Lancer PokerLab en local
+Le **Worker postflop V2** utilise automatiquement la session **Rust CFR+** si WASM est disponible. Il revient au moteur TypeScript en cas d'erreur ; les Workers V1 sont conservés comme repli supplémentaire. Les composants React ne réévaluent pas la logique poker : les modules TypeScript continuent de gérer les événements fonctionnels.
 
-Le projet doit être servi par un serveur HTTP local. L'ouverture directe du fichier `index.html` avec le protocole `file://` ne permet pas d'utiliser correctement toutes les fonctions, notamment le Service Worker et le chargement des données.
-
-### Avec Python
-
-Depuis le dossier racine du dépôt :
-
-```powershell
-py -m http.server 8000
-```
-
-Ouvrir ensuite :
+### Organisation
 
 ```text
-http://localhost:8000
+frontend/                     Interface V2 React/Vite et modules TypeScript
+  src/ui/                     Pages et composants React
+  src/core/, src/bots/        Règles, évaluateur et adversaires
+  src/training/, src/ranges/  Entraînement, leçons et ranges
+  src/solver/, src/workers/   CFR+, équité et Workers
+  src/storage/                Réplication locale IndexedDB
+engine/                       Moteur Rust et code WebAssembly
+shared/                       Types et contrats partagés
+data/lessons/, data/puzzles/  Contenus pédagogiques
+data/ranges/preflop/matrix/   index.json et ranges.json (2 606 spots)
+assets/icons/                 Icônes PWA
+css/                          Styles sources intégrés au build Vite
+js/                           Sources V1 conservées pour parité/repli
+tests/                        Tests V1, V2, Rust/WASM et navigateurs
+tools/ranges/                  Import, validation et génération des ranges
+frontend/README.md            Détails techniques V2 et mécanisme de rollback
 ```
 
-Pour arrêter le serveur, utiliser `Ctrl+C` dans le terminal.
+Les 2 606 fichiers JSON de ranges individuels ont été **remplacés par le bundle unique `ranges.json`**, sans perte de spot. Les anciens modèles de ranges vides ont également été retirés.
 
-### Avec Visual Studio Code
+## Démarrage en local
 
-Il est également possible d'utiliser une extension de serveur statique, par exemple Live Server, puis d'ouvrir l'adresse locale fournie par l'extension.
+Prérequis pour la V2 : **Node.js 22+**, **Rust** avec la cible `wasm32-unknown-unknown` et **wasm-pack**. Après avoir cloné le dépôt :
 
-## Installation comme application PWA
-
-PokerLab peut être installé depuis un navigateur compatible lorsque le site est servi dans un contexte sécurisé :
-
-- en local via `localhost` ;
-- en production via HTTPS.
-
-Le fichier `manifest.json` décrit l'application et `service-worker.js` gère la mise en cache. Après le premier chargement réussi, les ressources précachées et le bundle de ranges permettent de continuer à utiliser les fonctions correspondantes hors connexion.
-
-Les trois icônes PNG sont fournies : `icon-192.png` (192×192), `icon-512.png` (512×512) et `apple-touch-icon.png` (180×180). Elles sont précachées avec le shell applicatif. Le Service Worker utilise le cache `pokerlab-cache-v59` ; à chaque changement de ressource publiée, sa version doit être incrémentée.
-
-## Organisation du dépôt
-
-```text
-.
-├── assets/
-│   └── icons/                 Icônes PWA PNG (192, 512 et 180 px)
-├── css/
-│   ├── style.css              Styles de l'application et de la table
-│   └── utilities.css          Classes utilitaires
-├── data/
-│   ├── lessons/               Données des leçons
-│   ├── puzzles/               Données des exercices
-│   └── ranges/
-│       └── preflop/           Catalogue, schémas et matrices préflop
-├── js/
-│   ├── app.js                 Initialisation et services de l'application
-│   ├── bots/                  Profils et logique des bots
-│   ├── components/            Table, cartes, navigation et matrice de ranges
-│   ├── core/                  Paquet de cartes, règles, évaluation et moteur
-│   └── modules/               Entraînement, ranges, leçons, puzzles et review
-├── tests/
-│   ├── ranges/                 Tests du pipeline et de l'intégrité des ranges
-│   └── *.test.js               Tests moteur, bots, solveur et modules pédagogiques
-├── tools/
-│   └── ranges/                Import, conversion, validation et génération
-├── index.html                 Point d'entrée de l'application
-├── manifest.json              Configuration PWA
-├── pokerlab-solver-worker.js   Worker de calcul du solveur postflop
-└── service-worker.js           Cache et fonctionnement hors connexion
+```sh
+rustup target add wasm32-unknown-unknown
+cd engine
+cargo test
+wasm-pack build --release --target web --out-dir pkg
+wasm-pack build --release --target nodejs --out-dir pkg-node
+cd ../frontend
+npm install --no-audit --no-fund
+npm run dev
 ```
 
-## Architecture applicative
+Ouvrir l'adresse locale indiquée par Vite (sous le préfixe `/poker_lab/` par défaut). Les ressources WASM doivent être construites **avant** de tester l'accélération Rust. Sans WASM, la stratégie TypeScript reste disponible.
 
-Les scripts sont chargés dans `index.html` dans un ordre défini afin de respecter leurs dépendances.
+Pour construire la version statique depuis `frontend/` :
 
-### Moteur de jeu
-
-Le moteur situé dans `js/core/game-engine.js` gère notamment :
-
-- la création des joueurs et la distribution des cartes ;
-- les positions et les blinds ;
-- le déroulement des tours d'enchères ;
-- les actions fold, check, call, bet, raise et all-in ;
-- le passage entre préflop, flop, turn et river ;
-- le calcul des pots principaux et secondaires ;
-- le showdown et la distribution des pots ;
-- l'historique et l'état public de la partie.
-
-### Bots
-
-Les profils sont définis dans `js/bots/bot-profiles.js`. La logique de décision se trouve dans `js/bots/bot-engine.js`. Le moteur de jeu orchestre les tours des bots et transmet le contexte nécessaire à leur décision.
-
-### Interface
-
-- `js/components/table.js` affiche la table, les joueurs, les cartes, le pot et le résultat.
-- `js/components/cards.js` construit les cartes HTML.
-- `js/modules/training.js` gère la configuration des parties, les actions du joueur et l'enchaînement des tours des bots. À la fin d'une main, il transmet à Game Review un instantané validé qui ne contient que les cartes autorisées par l'état public du moteur.
-- `js/components/navigation.js` gère la navigation entre les sections et déclenche l'initialisation différée des modules pédagogiques.
-- `js/modules/lessons.js` charge `data/lessons/lessons.json`, affiche le catalogue et les leçons et conserve la progression dans le stockage local.
-- `js/modules/puzzles.js` charge `data/puzzles/puzzles.json`, valide les exercices, applique les filtres et corrige les réponses.
-- `js/modules/game-review.js` conserve jusqu'à 500 mains dans le stockage local, affiche l'historique des actions et permet de sélectionner une main pour la revoir.
-- `js/modules/ranges-viewer.js` utilise l'index et le bundle de `data/ranges/preflop/matrix/` pour afficher les 2 606 spots préflop. `js/modules/ranges-data.js` expose séparément l'accès au catalogue normalisé.
-- `js/modules/postflop-solver.js` estime l'équité contre une range adverse, utilise les matrices préflop lorsqu'un spot exact est disponible et ajuste les poids à partir des actions postflop et de leurs sizings ; lorsque le profil et la difficulté du bot sont connus, il approxime la vraisemblance de ses décisions à partir de son modèle comportemental (bruit, erreurs, bluff et seuils d'action), sinon il conserve une heuristique générique. En l'absence du bundle, il conserve une range uniforme.
-- `js/modules/cfr-core.js` contient le noyau CFR+ générique : regret matching+, pondération de stratégie moyenne, traversées contrefactuelles et contrôle de la signature ordonnée (type, label et sizing) des actions de chaque information set. Il est testé séparément sur Kuhn Poker et Matching Pennies, deux jeux à information imparfaite dont les propriétés d'équilibre sont connues.
-- `js/modules/postflop-strategy.js` construit un arbre de décisions abstrait sur le flop, le turn et la river. Le moteur CFR+ échantillonne les ranges préflop des deux joueurs, conditionnées par leurs actions observées. La main réelle du héros est suréchantillonnée pour garantir l'apprentissage de son information set racine. Les ranges uniformes de secours restent indépendantes de sa main privée ; les bloqueurs sont appliqués après l'échantillonnage conjoint. Une pondération d'importance corrige ce biais et tient également compte du nombre pondéré de combinaisons adverses restantes après application des bloqueurs, afin de conserver la distribution jointe des deux ranges. L'effectif efficace des échantillons pondérés est reporté dans les détails du solveur. Les runouts sont rééchantillonnés à chaque itération. Le moteur valide la cohérence des montants, des contributions et des options d'action avec l'état de la partie, respecte les incréments de 0,5 jeton ainsi que la dernière relance complète. À la racine, il propose la relance minimale, un sizing de relance à 50 % du pot après call et le tapis effectif lorsque ces options sont légales ; les réponses futures conservent un sizing plus compact et jusqu'à quatre relances par street. Une seed optionnelle permet de reproduire exactement un calcul. Les EV sont évaluées sur un second jeu d'échantillons indépendants, avec erreur standard et intervalle de confiance à 95 % conditionnels à la stratégie apprise. Un troisième échantillon indépendant estime le NashConv par meilleures réponses sur l'arbre abstrait ; son effectif efficace pondéré (ESS) est affiché pour qualifier la qualité de l'échantillonnage. Cette mesure reste indicative et ne constitue pas une exploitabilité exacte du jeu complet.
-- `js/modules/postflop-solver-ui.js` construit un instantané versionné et expurgé des cartes adverses, transmis aux deux moteurs. La modale affiche les fréquences d'action et réserve les EV et les limites du modèle aux détails. L'historique transmet aussi les montants avant/après chaque action (pot, mise courante, contribution totale et stack), ainsi que les tailles exactes des mises et relances.
-- `pokerlab-solver-worker.js` charge les moteurs d'équité et CFR+ dans un Web Worker dédié. L'interface délègue les calculs lourds au Worker, annule les requêtes devenues obsolètes lorsqu'un changement d'état est détecté et conserve un fallback synchrone si les Web Workers ne sont pas disponibles.
-
-### Données de ranges
-
-Le runtime actuellement utilisé par le visualiseur et le solveur charge `data/ranges/preflop/matrix/index.json` et le bundle `data/ranges/preflop/matrix/ranges.json`, qui contiennent 2 606 spots. Le Service Worker traite désormais ces deux fichiers comme des ressources essentielles : une installation offline complète ne doit pas publier un cache dépourvu du bundle.
-
-Le catalogue normalisé `data/ranges/preflop/catalog/index.json` et le module `PokerLabRangesData` constituent un pipeline distinct. Le catalogue est encore en état `empty-awaiting-datasets` : aucune source normalisée n'est publiée comme jeu de données validé dans ce format. Les outils d'import et de conversion sont documentés dans [tools/ranges/README.md](tools/ranges/README.md). Les sources privées ou archives personnelles ne doivent pas être ajoutées au dépôt public.
-
-Les sources privées ou archives personnelles ne doivent pas être ajoutées au dépôt. Les règles d'exclusion sont définies dans `.gitignore`.
-
-## Tests et maintenance
-
-Node.js est nécessaire pour exécuter les tests et les outils de données.
-
-Lancer les tests du moteur, des bots, du solveur et des modules pédagogiques :
-
-```powershell
-node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js tests/learning-modules.test.js tests/pwa-assets.test.mjs tests/solver-worker.test.js
+```sh
+npm run build
+npm run preview
 ```
 
-Lancer les tests des outils et de l'intégrité des ranges :
+Le résultat se trouve dans `dist/` à la racine du dépôt. Il inclut l'interface V2, le Service Worker, les données et les ressources nécessaires au fonctionnement offline. Le préfixe de déploiement est `/poker_lab/` par défaut ; il se configure via `POKERLAB_BASE`.
 
-```powershell
-node --test tests/ranges/*.test.mjs
+**Distinction importante :** le fichier `index.html` à la racine est conservé comme point d'entrée V1 et référence de tests. La **V2 est construite depuis `frontend/index.html`**. Fusionner le code dans `main` ne suffit pas à remplacer automatiquement la page GitHub Pages existante par `dist/` : le déploiement statique V2 est une étape distincte.
+
+## Tests et qualité
+
+Le workflow `.github/workflows/v2-migration.yml` vérifie les tests Rust, les parités V1 ↔ TypeScript et Rust/WASM, TypeScript strict, le build Vite, les ranges, le stockage local, les scénarios de jeu et les navigateurs **Chromium et WebKit Linux**, y compris le mode hors connexion.
+
+Depuis la racine (une fois le build WASM réalisé et les dépendances installées) :
+
+```sh
+node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
+node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
+node --test tests/v2-wasm-parity.test.mjs tests/v2-wasm-range-equity.test.mjs tests/v2-wasm-tree.test.mjs tests/v2-wasm-session.test.mjs
+npm run build --prefix frontend
 ```
 
-Valider un fichier de range :
+Les tests navigateurs s'exécutent dans GitHub Actions avec Playwright et les ressources Vite compilées. Un passage sur **un véritable iPhone/Safari**, notamment pour les contraintes de mémoire et les mises à jour d'une PWA déjà installée, reste une validation de production à réaliser : WebKit Linux ne le remplace pas.
 
-```powershell
-node tools/ranges/validate-range.mjs chemin/vers/un-fichier.json
+## Données personnelles, sauvegardes et fonctionnement offline
+
+Les paramètres, la progression et l'historique sont conservés **dans le navigateur**. `localStorage` reste la source de vérité compatible avec la V1 et Dexie/IndexedDB maintient un miroir ; aucun backend ni compte n'est requis. Supprimer les données du site peut entraîner la perte des sauvegardes.
+
+Après un premier chargement HTTPS réussi et l'installation du Service Worker, PokerLab peut fonctionner en mode avion. Les modifications de version nécessitent une reconnexion pour télécharger les nouveaux assets.
+
+## Repli du solveur CFR+
+
+Sur une V2, pour forcer le solveur TypeScript via la console du navigateur :
+
+```js
+localStorage.setItem("pokerlab_v2_cfr_backend", "typescript");
+location.reload();
 ```
 
-Générer le bundle compact des matrices :
+Pour rétablir la sélection automatique Rust/WASM avec repli TypeScript :
 
-```powershell
-node tools/ranges/build-matrix.mjs --input-dir chemin/vers/les-ranges-normalisees --output-dir ./data/ranges/preflop/matrix
+```js
+localStorage.removeItem("pokerlab_v2_cfr_backend");
+location.reload();
 ```
 
-Les commandes d'import et de conversion, leurs paramètres et les conventions de données sont détaillés dans [tools/ranges/README.md](tools/ranges/README.md).
+La valeur `"rust"` force Rust sans fallback applicatif et doit rester réservée aux diagnostics.
 
-Les tests couvrent le moteur de jeu, les décisions et l'intégration des bots, les pots principal et secondaires, la conservation des jetons, le contrat d'entrée du solveur, l'isolation des cartes adverses, le fallback hors ligne, les contraintes de mises, l'échantillonnage range-vs-range avec poids de bloqueurs, les signatures d'information sets, les meilleures réponses, les modules pédagogiques et la cohérence entre l'index des 2 606 spots et leur bundle. Le noyau CFR+ est également testé sur Kuhn Poker, Matching Pennies et un spot river à EV exacte.
+## Documentation complémentaire
 
-Lancer les tests du solveur postflop :
+- [Architecture, commandes et rollback V2](frontend/README.md)
+- [Schémas et structure des ranges](data/ranges/preflop/README.md)
+- [Outils d'import des ranges](tools/ranges/README.md)
+- [Checkpoint de la migration V2](V2_MIGRATION_CHECKPOINT.md)
 
-```powershell
-node --test tests/game-engine.test.js tests/bot-engine.test.js tests/postflop-solver.test.js tests/postflop-strategy.test.js tests/cfr-core.test.js
-```
-
-La suite stratégique vérifie notamment les actions légales de l'arbre, les contraintes de tapis, les mises non couvertes, les transitions flop-turn-river, la normalisation des fréquences CFR+, la cohérence des signatures d'actions, les meilleures réponses et la convergence du noyau sur Kuhn Poker et Matching Pennies.
-
-## Données locales et confidentialité
-
-Les paramètres de l'application sont conservés dans le stockage local du navigateur. Les parties ne nécessitent pas de compte utilisateur ni de service distant.
-
-Les cartes privatives des adversaires ne doivent pas être exposées à l'état public de la partie avant un showdown valide. Les cartes des joueurs ayant passé restent masquées.
-
-## État du projet
-
-Les sections Apprentissage, Tactiques et Game Review sont intégrées à la navigation. Les contenus pédagogiques et tactiques sont fournis en français ; la Game Review enregistre les mains terminées pendant les sessions d'entraînement et les conserve uniquement dans le stockage local du navigateur. Elle présente l'historique et les informations disponibles, mais ne prétend pas fournir une évaluation GTO certifiée de chaque décision.
-
-Le module SOLVE est intégré à l'application : le bouton ouvre une boîte de dialogue native refermable, et les calculs sont exécutés dans un Web Worker lorsque le navigateur le permet. Son moteur stratégique reste expérimental : heads-up uniquement, tailles de mises abstraites (33 % et 75 % du pot, relance à 50 % du pot et tapis effectif), jusqu'à quatre relances dans les réponses modélisées par street (la racine respecte les droits réels du moteur) et nombre limité d'itérations/scénarios échantillonnés. Il ne calcule pas encore un équilibre GTO certifié ; le NashConv affiché est une estimation sur un échantillon de deals et l'arbre abstrait, pas une mesure certifiée de l'exploitabilité globale. Les résultats doivent être interprétés comme une approximation d'entraînement, pas comme une stratégie optimale garantie. La validation manuelle dans un navigateur et sur une session réelle reste nécessaire.
+PokerLab est un logiciel pédagogique : les résultats stratégiques sont indicatifs et ne constituent pas un conseil de jeu d'argent.
