@@ -36,6 +36,20 @@ export function HomePage() {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {DESTINATIONS.map(({page,icon,title,description})=>
         <a href={"#"+page} data-page={page} key={page}
+          onClick={event => {
+            // Native links loaded after Navigation.init() do not receive its
+            // original per-element listener. Route synchronously via the same
+            // validated navigation API; avoid duplicate dispatch when a
+            // native listener has already handled this click.
+            if (event.defaultPrevented) return;
+            const navigation = (window as Window & {
+              PokerLabNavigation?: {navigateTo(page:string):boolean}
+            }).PokerLabNavigation;
+            if (navigation) {
+              event.preventDefault();
+              navigation.navigateTo(page);
+            }
+          }}
           className="bg-surface rounded-2xl p-5 border border-white/5 hover:border-primary transition">
           <div className="text-3xl mb-4">{icon}</div>
           <h3 className="font-bold text-lg mb-2">{title}</h3>
