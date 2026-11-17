@@ -84,6 +84,16 @@ async function run() {
     await page.locator('#home a[data-page="training"]').click();
     assert.equal(await page.locator("#training").isVisible(), true);
     assert.equal(await page.locator("#training-mode").inputValue(), "6max");
+    // React owns training configuration but the typed session module must
+    // still receive the exact native form change events and sync every input.
+    assert.equal(await page.locator('#training #training-configuration').count(),1);
+    assert.equal(await page.locator('#training #training-table').count(),1);
+    assert.equal(await page.locator('#training #training-actions').count(),1);
+    await page.locator("#training-mode").selectOption("heads-up");
+    assert.equal(await page.locator("#training-player-count").inputValue(),"2");
+    await page.locator("#training-mode").selectOption("6max");
+    assert.equal(await page.locator("#training-player-count").inputValue(),"6");
+
 
     // A complete V2 game session must render six seats and preserve the V1 action mount.
     const gameStarted = await page.evaluate(() => window.PokerLabTraining.createSession());
@@ -95,7 +105,9 @@ async function run() {
     const gameState = await page.evaluate(() => window.PokerLabTraining.getGameState());
     assert.equal(gameState.players.length, 6);
     assert.equal(gameState.street, "preflop");
-    assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
+    await page.locator('button[data-training-action="stop"]').click();
+    assert.equal(await page.evaluate(() => window.PokerLabTraining.isSessionActive()),false);
+    assert.equal(await page.locator("#training-configuration").isVisible(),true);
 
     // Heads-up special position/action order also requires an actual rendered game.
     const headsUp = await page.evaluate(() => {
