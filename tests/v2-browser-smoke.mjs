@@ -213,6 +213,53 @@ async function run() {
     });
     assert.equal(postflopBackend, "wasm", "The real postflop solver worker must activate Rust/WASM evaluation");
 
+    // Statistical parity and full-pipeline timing: the V1 and V2 solvers use
+    // independent random streams, so this is intentionally not bit-for-bit parity.
+    const postflopEquity = await page.evaluate(async () => {
+      const state = {
+        street: "flop",
+        board: [{value:2,suit:"clubs"},{value:7,suit:"diamonds"},{value:9,suit:"hearts"}],
+        pot:10,currentPlayerId:"hero",handComplete:false,
+        players: [
+          {id:"hero",isHuman:true,folded:false,holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
+            stack:90,amountToCall:0,actionOptions:{canBet:true}},
+          {id:"villain",isHuman:false,isBot:true,folded:false,holeCards:null,stack:90,position:"BB"}
+        ]
+      };
+      async function measure(url) {
+        const worker = new Worker(url);
+        const begin = performance.now();
+        try {
+          const result = await new Promise((resolve,reject)=>{
+            const timeout=setTimeout(()=>reject(new Error("Postflop equity worker timed out")),30000);
+            worker.addEventListener("message",event=>{
+              if(event.data.id !== 77 || event.data.progress !== undefined) return;
+              clearTimeout(timeout);
+              if(event.data.ok) resolve(event.data.result);
+              else reject(new Error(event.data.error));
+            });
+            worker.addEventListener("error",event=>reject(new Error(event.message)));
+            worker.postMessage({id:77,task:"equity",input:state});
+          });
+          return {result,elapsed:performance.now()-begin};
+        } finally {worker.terminate();}
+      }
+      return {legacy:await measure("./pokerlab-solver-worker.js"),
+        accelerated:await measure("./pokerlab-solver-worker-v2.js")};
+    });
+    const legacyEquity = postflopEquity.legacy.result;
+    const rustEquity = postflopEquity.accelerated.result;
+    for (const result of [legacyEquity,rustEquity]) {
+      assert.equal(result.iterations,1800);
+      assert.equal(result.wins+result.ties+result.losses,result.iterations);
+      assert.ok(result.equity>=0 && result.equity<=1);
+    }
+    assert.ok(Math.abs(legacyEquity.equity-rustEquity.equity)<0.12,
+      "Legacy and WASM-accelerated solver equities must agree within Monte Carlo tolerance");
+    console.log("Postflop worker end-to-end equity: V1 "+
+      postflopEquity.legacy.elapsed.toFixed(1)+"ms, WASM V2 "+
+      postflopEquity.accelerated.elapsed.toFixed(1)+"ms (including cold initialization and range loading)");
+
     const registration = await page.evaluate(async () => {
       const worker = await navigator.serviceWorker.ready;
       return Boolean(worker.active);
