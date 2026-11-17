@@ -115,3 +115,28 @@ test("fully typed chance-sampled postflop strategy reproduces V1 deterministic r
   assert.equal(actual.actions.length,expected.actions.length);
   assert.deepEqual(actual,expected);
 });
+
+
+test("typed CFR+ range-vs-range strategy preserves seeded turn and flop frequencies, EV and NashConv",async()=>{
+  const opts={iterations:10,samples:8,seed:17052026,
+    evaluationSamples:16,exploitabilitySamples:8};
+  for(const street of ["turn","flop"]) {
+    const spot=state();
+    spot.street=street;
+    spot.board=spot.board.slice(0,street==="turn"?4:3);
+    // Short effective stacks keep the abstract tree small, with genuine
+    // remaining runout chance sampling and a legal postflop betting branch.
+    for(const player of spot.players)player.stack=4;
+    spot.players[0].actionOptions.maximumRaiseTo=4;
+    const old=makeLegacy();
+    const migrated=makeTyped();
+    const reference=simplify(await old.solvePostflop(spot,[],opts));
+    const result=simplify(await migrated.solvePostflop(spot,[],opts));
+    assert.deepEqual(result,reference,
+      "typed full-street strategy diverged on "+street);
+    assert.equal(result.iterations,80);
+    assert.ok(Number.isFinite(result.heroEV));
+    assert.ok(Number.isFinite(result.nashConv));
+    assert.ok(Math.abs(result.actions.reduce((sum,action)=>sum+action.frequency,0)-1)<1e-9);
+  }
+});
