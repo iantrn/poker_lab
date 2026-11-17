@@ -68,14 +68,9 @@ jobs:
           test -s dist/service-worker.js
           test -s dist/wasm/pokerlab_engine_bg.wasm
           test -s dist/data/ranges/preflop/matrix/ranges.json
-          test -s dist/pokerlab-solver-worker.js
-          test -s dist/pokerlab-solver-worker-v2.js
-          test -s dist/js/core/evaluator.js
-          test -s dist/js/bots/bot-profiles.js
-          test -s dist/js/modules/postflop-solver.js
-          test -s dist/js/modules/cfr-core.js
-          test -s dist/js/modules/postflop-strategy.js
-          test ! -e dist/js/app.js
+          test ! -e dist/pokerlab-solver-worker.js
+          test ! -e dist/pokerlab-solver-worker-v2.js
+          test ! -d dist/js
           test ! -e dist/css/style.css
           test ! -d dist/data/ranges/preflop/matrix/bb
           test -s dist/assets/icons/icon-192.png

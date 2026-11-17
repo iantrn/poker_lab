@@ -72,5 +72,8 @@ jobs:
           find dist -type f | grep -E '(pokerlab-solver-worker|/js/|/css/|service-worker\\.js)' || true
           test -s dist/index.html
           test -s dist/service-worker.js
+          test ! -e dist/pokerlab-solver-worker.js
+          test ! -e dist/pokerlab-solver-worker-v2.js
+          test ! -d dist/js
           test -s dist/wasm/pokerlab_engine_bg.wasm
           test -s dist/data/ranges/preflop/matrix/ranges.json
