@@ -44,6 +44,17 @@ async function run() {
         animations: "disabled"
       });
     };
+    const captureGameElement = async (name, selector) => {
+      if (process.env.POKERLAB_CAPTURE_UI !== "1") return;
+      const directory = path.join(root, "ui-preview");
+      mkdirSync(directory, { recursive: true });
+      const engine = isWebKit ? "webkit" : "chromium";
+      await page.locator(selector).screenshot({
+        path: path.join(directory, engine + "-" + name + ".png"),
+        animations: "disabled",
+        timeout: 20000
+      });
+    };
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     page.on("framenavigated", frame => {
@@ -162,6 +173,7 @@ async function run() {
     const gameState = await page.evaluate(() => window.PokerLabTraining.getGameState());
     assert.equal(gameState.players.length, 6);
     assert.equal(gameState.street, "preflop");
+    await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
     await page.locator('button[data-training-action="stop"]').click();
     assert.equal(await page.evaluate(() => window.PokerLabTraining.isSessionActive()),false);
     assert.equal(await page.locator("#training-configuration").isVisible(),true);
@@ -323,6 +335,7 @@ async function run() {
     };
     await verifyPhoneActions(390);
     await captureUi("gameplay-mobile-390");
+    await captureGameElement("table-headsup-complete-mobile", "#training-game");
     await verifyPhoneActions(320);
     // Measure visible label boxes, not just document overflow: narrow labels
     // may overlap one another without increasing the document width.

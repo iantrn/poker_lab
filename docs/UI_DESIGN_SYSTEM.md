@@ -114,3 +114,12 @@ logo image (`naturalWidth > 0`), and validates the SVG content type.
 The build stage also checks that `dist/assets/icons/pokerlab-mark.svg` exists.
 
 - Keyboard/screen-reader usability: the quick ranges shortcut now focuses the named `#preflop-ranges-section` landmark (`tabIndex=-1`) after scrolling, so subsequent keyboard navigation enters the range explorer instead of proceeding through every lesson card.
+
+## Full-table screenshots for design review
+
+The visual regression workflow now also captures uncropped **element screenshots**
+of the entire 6-max desktop table and the entire heads-up mobile training
+section. They are named `{browser}-table-6max-complete-desktop.png` and
+`{browser}-table-headsup-complete-mobile.png` in the `pokerlab-ui-review`
+artifact. Unlike viewport screenshots, these include content extending beyond
+the initial fold, and do not alter table graphics, game logic or cards.
