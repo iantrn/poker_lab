@@ -351,6 +351,14 @@ async function run() {
       "Hand strength must remain on one line at 320px");
     assert.ok(narrowHeader.badgeTop>=narrowHeader.handBottom-2,
       "Centre top-seat badges must not cover the hand pill at 320px");
+    const heroBadges = await page.evaluate(() => {
+      const hero = document.querySelector("#training-table .pl-seat-hero");
+      const pill = hero.querySelector(".pl-player-info").getBoundingClientRect();
+      const badges = hero.querySelector(".pl-player-badges").getBoundingClientRect();
+      return {pillTop:pill.top,badgesBottom:badges.bottom};
+    });
+    assert.ok(heroBadges.badgesBottom<=heroBadges.pillTop+3,
+      "Dealer and turn badges must float above, not obscure, the hero name");
     await captureGameElement("table-6max-complete-mobile-320", "#training-game");
     await page.setViewportSize({ width: 1365, height: 768 });
     await page.locator('button[data-training-action="stop"]').click();

@@ -236,3 +236,7 @@ six-max screenshot alongside the existing 390px and WebKit views.
 - The 320px header uses tighter type and a no-wrap hand pill, preserving a
   single-line “VOTRE MAIN / Hauteur…” with adjacent Solver; folded/active
   seat badges are kept below this header to avoid visual overlap.
+
+- On 320–600px six-max, the dealer and current-turn badges now sit above
+  the hero pill instead of covering the “Vous” label. Browser geometry
+  tests assert that their bottom edge stays above the hero-name capsule.

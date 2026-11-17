@@ -863,6 +863,11 @@
     /* Keep folded/turn badges below the centred hand-info header. */
     top: 1px;
   }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-badges {
+    /* Dealer / turn badges float above the pill, never over “Vous”. */
+    top: -18px;
+    right: -6px;
+  }
   #app #training-game #training-table .pl-table-six-max .pl-player-name {
     font-size: .61rem;
   }
