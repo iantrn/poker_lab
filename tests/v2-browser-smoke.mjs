@@ -84,7 +84,8 @@ async function run() {
       .map(match=>match[1]+"="+match[2]));
     const originalNavigation=count([...originalShell.matchAll(/href="#([^"]+)"/g)].map(match=>match[1]));
     const mounted=await page.evaluate(()=>{
-      const all=[...document.querySelectorAll("#app *")];
+      const mount=document.getElementById("app");
+      const all=mount?[mount,...mount.querySelectorAll("*")]:[];
       return {
         ids:all.filter(el=>el.id).map(el=>el.id),
         hooks:all.flatMap(el=>[...el.attributes].filter(attr=>attr.name.startsWith("data-"))
