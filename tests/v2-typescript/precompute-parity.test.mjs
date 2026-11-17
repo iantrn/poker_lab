@@ -143,3 +143,36 @@ test("typed Worker provisional frequencies are versioned and discarded on new ga
  assert.ok(!JSON.stringify(final).includes("obsolete"));
  assert.equal(api.getCacheSize(),1);
 });
+
+
+test("live controller exposes privacy-preserving strategic snapshots across table versions",()=>{
+ const h=harness(true);
+ const card=(value,suit)=>({value,suit});
+ const board=[card(2,"clubs"),card(7,"diamonds"),card(9,"hearts")];
+ const current={
+   ...state(1),board,street:"flop",pot:6,currentBet:0,lastFullRaise:1,
+   minimumRaiseTo:1,blinds:{smallBlind:0.5,bigBlind:1},dealerIndex:0,
+   players:[
+     {...state(1).players[0],name:"Hero",stack:40,streetBet:0,totalContribution:3,
+       amountToCall:0,actionOptions:{canCheck:true,canBet:true,minimumBet:1,maximumBet:40}},
+     {...state(1).players[1],name:"Opponent",stack:40,streetBet:0,totalContribution:3,
+       holeCards:[card(10,"spades"),card(10,"clubs")]}
+   ]
+ };
+ h.setState(current);
+ const first=h.api.getStrategicState();
+ assert.equal(first.capability.quality,"sampled_estimate");
+ assert.equal(first.players[1].knownPrivateCards,null);
+ assert.equal(first.board.length,3);
+ assert.ok(!JSON.stringify(first).includes('"value":10,"suit":"spades"'));
+ h.api.onStateChange();
+ const versioned=h.api.getStrategicState();
+ assert.ok(versioned.stateVersion>first.stateVersion);
+ assert.equal(versioned.fingerprint,first.fingerprint);
+ h.setState({...current,handNumber:2,board:[...board,card(11,"spades")],street:"turn"});
+ const changed=h.api.getStrategicState();
+ assert.equal(changed.street,"turn");
+ assert.notEqual(changed.fingerprint,first.fingerprint);
+ assert.equal(changed.handId,"pokerlab-local:2");
+ h.api.cancel();
+});
