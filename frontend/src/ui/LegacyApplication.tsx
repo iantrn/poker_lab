@@ -22,12 +22,15 @@ export function LegacyApplication() {
     setPageMounts(nodes);
   }, []);
   useEffect(() => {
+    // Attach V1-compatible native handlers only when React-owned page
+    // content is committed, or the handler registration can miss links.
+    if (!pageMounts.home || !pageMounts.tactics || !pageMounts.review) return;
     let mounted = true;
     void loadLegacy().catch((error: unknown) => {
       if (mounted) setFailure(error instanceof Error ? error.message : String(error));
     });
     return () => { mounted = false; };
-  }, []);
+  }, [pageMounts]);
   return <>
     <div dangerouslySetInnerHTML={{ __html: shell }} />
     {pageMounts.home && createPortal(<HomePage />, pageMounts.home)}
