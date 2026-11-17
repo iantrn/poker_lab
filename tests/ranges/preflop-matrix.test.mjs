@@ -52,3 +52,15 @@ test("les métadonnées des spots sont cohérentes avec les positions publiées"
         assert.ok(Number.isFinite(spot.r) && spot.r >= 0 && spot.r <= 100);
     }
 });
+
+test("les 2 606 ranges sont uniquement conservées dans le bundle, sans copies individuelles", () => {
+    for (const position of ["bb", "bu", "co", "mp", "sb", "utg"]) {
+        const generatedFolder = path.join(matrixDirectory, position);
+        assert.equal(fs.existsSync(generatedFolder), false,
+            `Copies individuelles redondantes dans ${generatedFolder}`);
+    }
+    assert.equal(index.spots.length, Object.keys(bundle.ranges).length);
+    for (const spot of index.spots)
+        assert.ok(Object.hasOwn(bundle.ranges, spot.id),
+            `Spot absent du bundle : ${spot.id}`);
+});
