@@ -36,6 +36,9 @@ interface NumericIndex {
   byPrefix:Map<string,Map<string,CfrInformationSet>>;
   size:number;
 }
+// The canonical registry already owns all info sets. This acceleration cache
+// must not grow without bound on thousands of distinct sampled public boards.
+const MAX_NUMERIC_PREFIXES=512;
 function visitNodes(node: AbstractTreeNode, result: AbstractTreeNode[]): void {
   result.push(node);
   if (!node.terminal) {
@@ -73,6 +76,18 @@ export function createReusableRustTreeSerializer() {
       index.size=originalSize;
     }
     const activeIndex:NumericIndex=index;
+    function ensurePrefix(prefix:string):Map<string,CfrInformationSet> {
+      let slots=activeIndex.byPrefix.get(prefix);
+      if(slots)return slots;
+      if(activeIndex.byPrefix.size>=MAX_NUMERIC_PREFIXES){
+        // FIFO eviction affects lookup speed only, never stable numeric IDs.
+        const oldest=activeIndex.byPrefix.keys().next().value;
+        if(oldest!==undefined)activeIndex.byPrefix.delete(oldest);
+      }
+      slots=new Map<string,CfrInformationSet>();
+      activeIndex.byPrefix.set(prefix,slots);
+      return slots;
+    }
     // Rollbacks may originate from an older generic (unsplit-key) request.
     // Drop any accelerated entries no longer present in the authoritative
     // string registry. This slow recovery path executes only after rejection.
@@ -122,11 +137,7 @@ export function createReusableRustTreeSerializer() {
               throw new RangeError("Identité numérique CFR+ incompatible avec la clé canonique.");
             const entry=registry.byKey.get(prefix+suffix);
             if(!entry)throw new Error("Identité CFR+ absente du registre canonique.");
-            let slots=index.byPrefix.get(prefix);
-            if(!slots){
-              slots=new Map<string,CfrInformationSet>();
-              index.byPrefix.set(prefix,slots);
-            }
+            const slots=ensurePrefix(prefix);
             if(!slots.has(suffix)){
               slots.set(suffix,entry);
               if(entry.id>=originalSize)reservedParts.push([prefix,suffix]);
@@ -184,11 +195,7 @@ export function createReusableRustTreeSerializer() {
                 reserved.push(key);
                 reservedParts.push([prefix,suffix]);
               }
-              let slots=matches;
-              if(!slots){
-                slots=new Map<string,CfrInformationSet>();
-                index.byPrefix.set(prefix,slots);
-              }
+              const slots=matches??ensurePrefix(prefix);
               slots.set(suffix,current);
             }
           }else{
