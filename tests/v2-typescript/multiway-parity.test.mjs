@@ -289,6 +289,9 @@ test("importance correction removes sequential card-blocker bias in the multiway
  assert.equal(solve.quality,"sampled_estimate");
  assert.ok(solve.evaluationEffectiveSampleSize>90);
  assert.ok(solve.evaluationEffectiveSampleSize<128);
+ assert.ok(solve.heroRangeEffectiveSampleSize>0);
+ assert.ok(solve.heroRangeEffectiveSampleSize<=solve.iterations);
+ assert.ok(solve.heroRangeEffectiveSampleSize<solve.iterations);
  assert.ok(Number.isFinite(solve.heroEV));
  assert.ok(solve.heroEVLower95<=solve.heroEV);
  assert.ok(solve.heroEV<=solve.heroEVUpper95);
@@ -303,5 +306,6 @@ test("disjoint fixed multiway ranges retain unit importance weights and exact si
    iterations:32,samples:1,evaluationSamples:32,seed:7
  });
  assert.equal(solution.evaluationEffectiveSampleSize,32);
+ assert.equal(solution.heroRangeEffectiveSampleSize,32);
  assert.equal(solution.iterations,32);
 });
