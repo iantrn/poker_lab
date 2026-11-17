@@ -1,10 +1,10 @@
 # PokerLab V2 — jalon de migration du code · 17 novembre 2026
 
-> **Branche :** `feat/v2-ts-rust-migration`.
-> **État : migration technique React/TypeScript/Rust-WASM intégrée sur la branche.**
-> Cela ne vaut **ni certification GTO, ni validation de production iOS, ni
-> autorisation de fusion/déploiement dans `main`**. La branche `main` doit
-> rester inchangée jusqu'à validation explicite.
+> **Historique :** migration technique React/TypeScript/Rust-WASM finalisée
+> sur `feat/v2-ts-rust-migration`, puis proposée pour intégration dans `main`.
+> Le merge de code est distinct du déploiement de `dist/` sur GitHub Pages.
+> Ces validations ne constituent ni une certification GTO, ni une validation
+> de la PWA sur un véritable iPhone/Safari.
 
 ## Architecture et fonctionnalités migrées
 
@@ -110,7 +110,8 @@ sur iPhone n'est revendiquée**.
 
 ## Restauration et branche principale
 
-La branche V1 `main` n'est pas modifiée. Sur la V2, forcer
+Les sources V1 et le fichier `index.html` d'origine restent conservés dans
+Git comme oracle de tests et possibilité de repli. Sur la V2, forcer
 temporairement le backend TypeScript :
 
 ```js
@@ -125,7 +126,7 @@ localStorage.removeItem("pokerlab_v2_cfr_backend");
 location.reload();
 ```
 
-## Garde-fous avant fusion ou déploiement
+## Garde-fous avant déploiement public V2
 
 Ces points sont des **validations de production** hors migration
 technique du code et ne sont pas présentés comme déjà réalisés :
@@ -137,7 +138,10 @@ technique du code et ne sont pas présentés comme déjà réalisés :
 - Mesures de stabilité, vitesse et mémoire avec budgets élevés,
   ranges plus larges et plusieurs appareils, puis décision de
   mise en production.
-- Validation explicite de fusion `main` et de publication GitHub Pages.
+- Publication GitHub Pages du bundle V2 uniquement après choix explicite
+  du workflow de déploiement et vérification de la compatibilité des
+  PWA installées. L'intégration de sources dans `main` ne remplace pas
+  automatiquement la page statique existante.
 
 **Limite du modèle :** le CFR+ concerne une abstraction des mises ;
 il ne prouve pas un GTO du poker sans limite complet. Le livrable V2
