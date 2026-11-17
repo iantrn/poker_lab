@@ -1,49 +1,25 @@
-import { useEffect, useLayoutEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { HomePage } from "./HomePage";
-import { TacticsPage } from "./TacticsPage";
-import { ReviewPage } from "./ReviewPage";
-import { LessonsPage } from "./LessonsPage";
-import { SettingsPage } from "./SettingsPage";
-import { TrainingPage } from "./TrainingPage";
-import shell from "./legacy-shell.html?raw";
+import { useEffect, useState } from "react";
+import { AppShell } from "./AppShell";
 import { loadLegacy } from "../legacy/loader";
 
+/** Entrypoint now renders the complete page structure through React.
+ * LegacyApplication is retained as a stable import name during the migration.
+ * The validated TypeScript game/training/solver modules bind after the initial
+ * React commit, rather than requiring an HTML-injection/portal bootstrap.
+ */
 export function LegacyApplication() {
   const [failure, setFailure] = useState<string | null>(null);
-  const [pageMounts, setPageMounts] = useState<Partial<Record<"home" | "tactics" | "review" | "lessons" | "settings" | "training", HTMLElement>>>({});
-  // Keep the six stable section elements owned by typed navigation; React only
-  // replaces static interior content before V1-compatible modules attach.
-  useLayoutEffect(() => {
-    const nodes: Partial<Record<"home" | "tactics" | "review" | "lessons" | "settings" | "training", HTMLElement>> = {};
-    for (const id of ["home", "tactics", "review", "lessons", "settings", "training"] as const) {
-      const node = document.querySelector<HTMLElement>(`#${id}[data-module="${id}"]`);
-      if (!node) continue;
-      node.replaceChildren();
-      nodes[id] = node;
-    }
-    setPageMounts(nodes);
-  }, []);
   useEffect(() => {
-    // Attach V1-compatible native handlers only when React-owned page
-    // content is committed, or the handler registration can miss links.
-    if (!pageMounts.home || !pageMounts.tactics || !pageMounts.review ||
-        !pageMounts.lessons || !pageMounts.settings || !pageMounts.training) return;
     let mounted = true;
     void loadLegacy().catch((error: unknown) => {
       if (mounted) setFailure(error instanceof Error ? error.message : String(error));
     });
     return () => { mounted = false; };
-  }, [pageMounts]);
+  }, []);
   return <>
-    <div dangerouslySetInnerHTML={{ __html: shell }} />
-    {pageMounts.home && createPortal(<HomePage />, pageMounts.home)}
-    {pageMounts.tactics && createPortal(<TacticsPage />, pageMounts.tactics)}
-    {pageMounts.review && createPortal(<ReviewPage />, pageMounts.review)}
-    {pageMounts.lessons && createPortal(<LessonsPage />, pageMounts.lessons)}
-    {pageMounts.settings && createPortal(<SettingsPage />, pageMounts.settings)}
-    {pageMounts.training && createPortal(<TrainingPage />, pageMounts.training)}
-    {failure && <div role="alert" className="tw-fixed tw-bottom-4 tw-left-4 tw-z-[9999] tw-rounded-xl tw-bg-red-950 tw-p-4 tw-text-white">
+    <AppShell />
+    {failure && <div role="alert"
+      className="tw-fixed tw-bottom-4 tw-left-4 tw-z-[9999] tw-rounded-xl tw-bg-red-950 tw-p-4 tw-text-white">
       Initialisation impossible : {failure}
     </div>}
   </>;
