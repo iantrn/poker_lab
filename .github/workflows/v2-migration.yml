@@ -41,6 +41,8 @@ jobs:
         run: node --test tests/v2-wasm-parity.test.mjs
       - name: Weighted river equity parity against legacy evaluator
         run: node --test tests/v2-wasm-range-equity.test.mjs
+      - name: WASM extensive-form CFR+ tests
+        run: node --test tests/v2-wasm-tree.test.mjs
       - name: Comparative JavaScript versus optimized WASM benchmark
         run: node --test tests/v2-wasm-benchmark.test.mjs
       - name: Install frontend dependencies

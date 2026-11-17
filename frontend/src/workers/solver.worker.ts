@@ -8,6 +8,7 @@ interface WasmEngine {
   range_category_histogram(cards: Uint8Array, weights: Float64Array, width: number): Float64Array;
   equity_range_monte_carlo(hero: Uint8Array, board: Uint8Array, villainPairs: Uint8Array, weights: Float64Array, iterations: number, seed: bigint): Float64Array;
   cfr_plus_matrix(payoffs: Float64Array, rows: number, cols: number, iterations: number): Float64Array;
+  cfr_plus_tree(actors: Int8Array, infoIds: Uint32Array, offsets: Uint32Array, counts: Uint8Array, children: Uint32Array, utilities: Float64Array, iterations: number): Float64Array;
 }
 let loading: Promise<WasmEngine> | null = null;
 async function engine(baseUrl: string): Promise<WasmEngine> {
@@ -40,6 +41,11 @@ scope.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
           new Uint8Array(request.cards), new Float64Array(request.weights), request.width)); break;
         case "cfr": result = Array.from(wasm.cfr_plus_matrix(
           new Float64Array(request.payoffs), request.rows, request.cols, request.iterations)); break;
+        case "cfrTree": result = Array.from(wasm.cfr_plus_tree(
+          new Int8Array(request.actors),new Uint32Array(request.informationSets),
+          new Uint32Array(request.childOffsets),new Uint8Array(request.childCounts),
+          new Uint32Array(request.children),new Float64Array(request.terminalUtilities),
+          request.iterations)); break;
       }
       scope.postMessage({ id, ok: true, result } satisfies WorkerResponse);
     } catch (error: unknown) {
