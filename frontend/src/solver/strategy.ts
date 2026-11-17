@@ -316,6 +316,29 @@ function createStrategy(global:StrategyGlobal){
             players: [hero, opponent],
             postflopFirstActorId
         };
+        // Decision topology is public and depends on the runout, not the
+        // sampled private hands. Rebuilds were especially expensive on river,
+        // where every sample uses the identical empty runout.
+        // Bound memory on flop/turn: there can be thousands of distinct runouts.
+        const publicTreeCache = new Map<string, ReturnType<typeof buildDecisionTree>>();
+        const MAX_PUBLIC_TREES = 32;
+        const buildForRunout = (runout: SolverCard[]): ReturnType<typeof buildDecisionTree> => {
+            const key = runout.map(cardId).join("|"); // turn/river ordering matters
+            const hit = publicTreeCache.get(key);
+            if (hit) {
+                publicTreeCache.delete(key);
+                publicTreeCache.set(key, hit);
+                return hit;
+            }
+            const built = buildDecisionTree(
+                normalizedState, hero.actionOptions || {},
+                priorHistory, runout, rootChecks, rootRaises
+            );
+            publicTreeCache.set(key, built);
+            if (publicTreeCache.size > MAX_PUBLIC_TREES)
+                publicTreeCache.delete(publicTreeCache.keys().next().value!);
+            return built;
+        };
         const random = Number.isInteger(options.seed)
             ? createRandom(options.seed!)
             : Math.random;
@@ -354,14 +377,7 @@ function createStrategy(global:StrategyGlobal){
                 global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
             );
-            const built = buildDecisionTree(
-                normalizedState,
-                hero.actionOptions || {},
-                priorHistory,
-                deal.runout,
-                rootChecks,
-                rootRaises
-            );
+            const built = buildForRunout(deal.runout);
             if (built.tree.terminal || !built.tree.actions.length) {
                 throw new Error("Aucune décision stratégique disponible dans cette situation.");
             }
@@ -409,14 +425,7 @@ function createStrategy(global:StrategyGlobal){
                 global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
             );
-            const built = buildDecisionTree(
-                normalizedState,
-                hero.actionOptions || {},
-                priorHistory,
-                deal.runout,
-                rootChecks,
-                rootRaises
-            );
+            const built = buildForRunout(deal.runout);
             if (rootActionSignature(built.tree) !== expectedRootSignature) {
                 throw new Error("L'arbre d'évaluation ne correspond pas aux actions légales apprises.");
             }
@@ -477,14 +486,7 @@ function createStrategy(global:StrategyGlobal){
                 global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
             );
-            const built = buildDecisionTree(
-                normalizedState,
-                hero.actionOptions || {},
-                priorHistory,
-                deal.runout,
-                rootChecks,
-                rootRaises
-            );
+            const built = buildForRunout(deal.runout);
             if (rootActionSignature(built.tree) !== expectedRootSignature) {
                 throw new Error("L'arbre de meilleure réponse ne correspond pas aux actions légales apprises.");
             }
