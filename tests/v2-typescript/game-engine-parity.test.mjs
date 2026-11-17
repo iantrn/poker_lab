@@ -144,3 +144,35 @@ test("five consecutive heads-up and six-max hands preserve V1 blind rotation, ch
     "V1/V2 multi-hand divergence with "+seats+" players");
  }
 });
+
+
+test("folded opponents never have their private cards revealed across rotating heads-up hands",()=>{
+ const players=[
+  {id:"hero",name:"Hero",isHuman:true,stack:100},
+  {id:"villain",name:"Villain",isHuman:false,stack:100}
+ ];
+ function run(Engine){
+  const engine=new Engine({players,dealerIndex:0});
+  const history=[];
+  for(let hand=0;hand<6;hand++){
+   if(hand===0)engine.startHand();else engine.nextHand();
+   const before=plain(engine.getState());
+   assert.equal(before.players[1].holeCards,null);
+   assert.equal(before.currentPlayerId,engine.players[engine.dealerIndex].id,
+    "heads-up button must act first preflop");
+   const actor=before.currentPlayerId;
+   assert.equal(engine.getPlayerActionOptions(actor).canFold,true);
+   engine.act("fold",null,actor);
+   const after=plain(engine.getState());
+   assert.equal(after.handComplete,true);
+   assert.equal(after.result?.type,"uncontested");
+   assert.equal(after.players[1].holeCards,null,
+    "even a completed uncontested pot may not reveal a bot's cards");
+   assert.equal(after.players[0].holeCards?.length,2);
+   assert.equal(engine.players.reduce((total,p)=>total+p.stack,0),200);
+   history.push({before,after});
+  }
+  return history;
+ }
+ assert.deepEqual(plain(run(migrated)),plain(run(Legacy)));
+});
