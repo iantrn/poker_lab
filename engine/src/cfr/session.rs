@@ -183,6 +183,16 @@ impl CfrSession {
         self.step_prepared_outcome_batch_internal(handle,ids,outcomes,weights)
             .map_err(JsValue::from_str)
     }
+    /// Read one averaged information set without transferring the whole
+    /// CFR+ strategy table to JS. Used by progressive root recommendations.
+    pub fn strategy_for_info_set(&self,id:u32)->Result<Vec<f64>,JsValue>{
+        let info=self.infos.get(id as usize)
+            .ok_or_else(||JsValue::from_str("Unknown CFR+ information set"))?;
+        let total:f64=info.sum[..info.len].iter().sum();
+        Ok((0..info.len).map(|i|
+            if total>0. {info.sum[i]/total}else{1./info.len as f64}
+        ).collect())
+    }
     pub fn average_strategy(&self)->Vec<f64>{
         let mut result=Vec::new();
         for info in &self.infos {
@@ -688,6 +698,23 @@ mod tests {
         assert!(session.step_prepared_outcome_batch_internal(h,&[0,3,3,0,0,0,0],&[1],&[1.]).is_err());
         assert_eq!(session.iterations(),1);
         assert_eq!(session.average_strategy(),before);
+    }
+
+    #[test]
+    fn strategy_subset_matches_flattened_average_without_mutating_regrets(){
+        let mut session=CfrSession::new();
+        for index in 0..250 {
+            let sample=if index%2==0 {[1.,-1.,-1.,1.]}else{[-1.,1.,1.,-1.]};
+            super::tests::sample(&mut session,sample,if index%4==0 {2.}else{1.});
+        }
+        let expected=session.average_strategy();
+        let iterations=session.iterations();
+        let infos=session.information_set_count();
+        assert_eq!(session.strategy_for_info_set(0).unwrap(),expected[..2]);
+        assert_eq!(session.strategy_for_info_set(1).unwrap(),expected[2..4]);
+        assert!(session.strategy_for_info_set(2).is_err());
+        assert_eq!(session.iterations(),iterations);
+        assert_eq!(session.information_set_count(),infos);
     }
 
     #[test]
