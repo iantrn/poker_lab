@@ -206,3 +206,13 @@ test("Final table review: two horizontal seat rails, numeric ranks, centred hand
   assert.match(css, /\.pl-seat \.pl-player-cards > \*/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Keep the existing blue card backs");
 });
+
+test("Folded players preserve unmodified navy card backs and tiny phones fit seats", () => {
+  const css = read("frontend/src/styles/poker-table.css");
+  assert.match(css, /\.pl-seat\.is-folded \.pl-player-cards\s*\{\s*opacity: 1/);
+  assert.match(css, /\.pl-seat\.is-folded \.pl-player-info\s*\{\s*opacity: \.58/);
+  assert.match(css, /@media \(max-width: 600px\)/);
+  assert.match(css, /\.pl-table-six-max \.pl-seat-hero/);
+  assert.match(css, /\.pl-table-six-max \.pl-seat-3/);
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "No card-back graphic changes");
+});

@@ -301,6 +301,41 @@ async function run() {
     assert.ok(mobileNames.every(item => item.actualWidth <= item.visibleWidth + 1),
       "Bot names must not be clipped by the position badge on 390px 6-max");
     assert.equal(await page.locator("#training-table .pl-seat .pl-player-avatar svg").count(), 6);
+    // Folded seat styling should never tint the original blue card backs.
+    const foldedAppearance = await page.evaluate(() =>
+      [...document.querySelectorAll("#training-table .pl-seat.is-folded")].map(seat => ({
+        seatOpacity: Number(getComputedStyle(seat).opacity),
+        infoOpacity: Number(getComputedStyle(seat.querySelector(".pl-player-info")).opacity),
+        cardsOpacity: Number(getComputedStyle(seat.querySelector(".pl-player-cards")).opacity)
+      })));
+    assert.ok(foldedAppearance.every(s => s.seatOpacity===1 && s.infoOpacity<1 &&
+      s.cardsOpacity===1), "Only folded identities, not their card backs, should be muted");
+    await page.setViewportSize({ width: 320, height: 844 });
+    const narrowSeats = await page.evaluate(() => {
+      const bounds = el => {
+        const r=el.getBoundingClientRect();
+        return { left:r.left, right:r.right };
+      };
+      const rows = ["upper","lower"].map(rail =>
+        [...document.querySelectorAll("#training-table .pl-seat-" + rail)]
+          .map(seat => ({
+            capsule:bounds(seat.querySelector(".pl-player-info")),
+            avatar:bounds(seat.querySelector(".pl-player-avatar"))
+          }))
+          .sort((a,b)=>a.capsule.left-b.capsule.left));
+      return {rows,overflow:document.documentElement.scrollWidth-innerWidth};
+    });
+    for (const row of narrowSeats.rows) {
+      assert.equal(row.length,3);
+      for (let index=0;index<row.length-1;index++) {
+        assert.ok(row[index].capsule.right <= row[index+1].capsule.left + 2,
+          "Player capsules must not overlap at 320px");
+        assert.ok(row[index].capsule.right <= row[index+1].avatar.left + 3,
+          "Player icons must not cover another player's text at 320px");
+      }
+    }
+    assert.ok(narrowSeats.overflow<=1);
+    await captureGameElement("table-6max-complete-mobile-320", "#training-game");
     await page.setViewportSize({ width: 1365, height: 768 });
     await page.locator('button[data-training-action="stop"]').click();
     assert.equal(await page.evaluate(() => window.PokerLabTraining.isSessionActive()),false);

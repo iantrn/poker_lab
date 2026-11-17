@@ -218,3 +218,17 @@ coordinates were correct. The new style explicitly resets this overlay
 to `inset:0` at higher specificity, making top and bottom rail offsets
 truly relative to the full table canvas; browser geometry tests verify
 capsules stay outside the red felt.
+
+### 320px six-max and navy card-back correction
+
+The first successful geometry build revealed real screenshot defects on the
+390px six-max view that were not detectable from the original CSS: adjacent
+avatar circles intruded into other players' name capsules, and folded players'
+navy card backs appeared violet because `opacity:.53` was applied to their
+*entire* seat (blending blue cards over the red felt).
+At <=600px, the six-max capsule and avatar sizing is now compact enough for
+three players per long edge, with the correct positional labels retained.
+Folded players' **identity** is muted, but the card area remains fully opaque
+and uses the unchanged original navy-blue card-back style.
+CI now checks 320px capsule / avatar separations and captures a 320px
+six-max screenshot alongside the existing 390px and WebKit views.

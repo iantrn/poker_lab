@@ -165,9 +165,22 @@
   width: clamp(164px,18vw,216px) !important;
   z-index: 25 !important;
 }
+/* Dim the folded player's identity only. Opacity on the entire seat
+   blended the navy card backs with the red felt into unwanted purple. */
 #app #training-game #training-table .pl-seat.is-folded {
-  opacity: .53;
-  filter: grayscale(.4);
+  opacity: 1;
+  filter: none;
+}
+#app #training-game #training-table .pl-seat.is-folded .pl-player-info {
+  opacity: .58;
+  filter: grayscale(.28);
+}
+#app #training-game #training-table .pl-seat.is-folded .pl-player-badges {
+  opacity: .78;
+}
+#app #training-game #training-table .pl-seat.is-folded .pl-player-cards {
+  opacity: 1;
+  filter: none;
 }
 #app #training-game #training-table .pl-player-info {
   position: relative;
@@ -256,7 +269,7 @@
 }
 #app #training-game #training-table .pl-player-badges {
   z-index: 30;
-  top: -12px;
+  top: 0;
   right: -7px;
   gap: 4px;
 }
@@ -819,6 +832,53 @@
     right: 4px;
   }
 }
+/* At 320–600px, three 6-max capsules need a genuinely compact layout.
+   Preserve every name/stack/position while eliminating overlapping avatars. */
+@media (max-width: 600px) {
+  #app #training-game #training-table .pl-table-six-max .pl-seat {
+    width: clamp(86px, 26vw, 98px) !important;
+    height: 40px;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero {
+    width: clamp(101px, 30vw, 118px) !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-info {
+    height: 40px;
+    padding: 3px 4px 3px 32px;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-avatar {
+    width: 36px;
+    height: 36px;
+    left: -7px;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-avatar {
+    left: -2px;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-name {
+    font-size: .61rem;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-stack {
+    font-size: .61rem;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-position {
+    bottom: -9px;
+    font-size: .42rem;
+    right: 3px;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-3 {
+    left: 18% !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-5 {
+    left: 82% !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-upper .pl-player-cards {
+    top: calc(100% + 20px);
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 64px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #app #training-game .pl-table-solver-dock > .pl-solve-button { transition: none !important; }
 }
