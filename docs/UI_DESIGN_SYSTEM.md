@@ -123,3 +123,34 @@ section. They are named `{browser}-table-6max-complete-desktop.png` and
 `{browser}-table-headsup-complete-mobile.png` in the `pokerlab-ui-review`
 artifact. Unlike viewport screenshots, these include content extending beyond
 the initial fold, and do not alter table graphics, game logic or cards.
+
+## Approved table design — Red Rail, 2026-11
+
+The reference image approved by the product owner is implemented as a real
+responsive table design, not as a flat background image.
+
+- Deep red **rounded rectangle** felt, charcoal surround and discreet gold
+  rail, with real pot/community cards and current table state.
+- Circular person silhouette avatars (hand-authored inline SVG) and compact
+  pill-shaped name/stack labels for all 2–6 players.
+- Floating existing dealer, active, folded and all-in indicators, retained
+  game-state-dependent card visibility and betting chips.
+- Dedicated charcoal action bar **below the table** on desktop and phone,
+  with neutral Fold, brand-red Call, green Raise, gold-selected bet presets,
+  native number input and a touch-friendly slider.
+- A compact genuine **Solver** button sits to the **right of the table**.
+  Before an eligible postflop hero turn it stays visible but disabled with
+  explanatory title. On legal postflop turns it opens the existing, now
+  persistently mounted native modal in `#training-solver-dock`. No solver
+  algorithms, CFR diagnostics or GTO certification statements are changed.
+- `#training-actions` is a single, controller-owned DOM element. It is
+  reparented after `.pl-live-table-stage` on every viewport so no actions
+  cover the hero's cards. Table redraws do not destroy the Solver modal.
+- Card markup, card graphics, face/suit colors and dealing animations are
+  unchanged. Only player positions and seat information hierarchy evolve.
+- New CSS lives in `frontend/src/styles/poker-table.css`, imported last,
+  preserving the original style layer for rollback.
+
+The approved mockup is a **visual reference**, not a hard-coded example of
+a possible deal. Gameplay labels, pot, player chips and action availability
+continue to reflect the live engine state.

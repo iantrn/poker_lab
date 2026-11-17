@@ -75,8 +75,12 @@ export function TrainingPage() {
         <button type="button" data-training-action="stop"
           className="pl-button pl-button--secondary">Quitter la partie</button>
       </div>
-      <div id="training-table" className="w-full" />
-      <div id="training-actions" className="mt-6" />
+      <div className="pl-live-table-stage">
+        <div id="training-table" className="w-full" />
+        <div id="training-solver-dock" className="pl-table-solver-dock"
+          aria-label="Outils d'analyse de la table" />
+      </div>
+      <div id="training-actions" className="pl-table-action-bar" />
     </div>
   </PagePanel>;
 }

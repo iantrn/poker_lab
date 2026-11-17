@@ -102,13 +102,15 @@ function createTable() {
 
     function getPlayerSlot(index: number, count: number): readonly [number,number] {
 
+        // Three seats at the far edge, two at the near corners, hero below.
+        // Positioning only: no game/betting rules or playing cards change.
         const layouts: Record<number, Array<readonly [number, number]>> = {
 
-            2: [[50, 62], [50, 24]],
-            3: [[50, 62], [26, 24], [74, 24]],
-            4: [[50, 62], [21, 40], [50, 24], [79, 40]],
-            5: [[50, 62], [20, 54], [32, 24], [68, 24], [80, 54]],
-            6: [[50, 62], [16, 57], [16, 15], [50, 10], [84, 15], [84, 57]]
+            2: [[50, 82], [50, 14]],
+            3: [[50, 82], [21, 19], [79, 19]],
+            4: [[50, 82], [18, 70], [50, 14], [82, 70]],
+            5: [[50, 82], [18, 70], [22, 15], [78, 15], [82, 70]],
+            6: [[50, 82], [18, 70], [18, 15], [50, 12], [82, 15], [82, 70]]
 
         };
 
@@ -477,6 +479,28 @@ function createTable() {
        7. SIÈGES DES JOUEURS
        ===================================================== */
 
+    /** Original monochrome human avatar; completely separate from cards. */
+    function renderPlayerAvatar(): HTMLSpanElement {
+        const avatar = createElement("span", "pl-player-avatar");
+        avatar.setAttribute("aria-hidden", "true");
+        const ns = "http://www.w3.org/2000/svg";
+        const graphic = document.createElementNS(ns, "svg");
+        graphic.setAttribute("viewBox", "0 0 48 48");
+        graphic.setAttribute("fill", "none");
+        graphic.setAttribute("focusable", "false");
+        const head = document.createElementNS(ns, "circle");
+        head.setAttribute("cx", "24");
+        head.setAttribute("cy", "17");
+        head.setAttribute("r", "8");
+        head.setAttribute("fill", "currentColor");
+        const torso = document.createElementNS(ns, "path");
+        torso.setAttribute("d", "M8 39c.8-9.3 6.5-14 16-14s15.2 4.7 16 14c-9.2 4.2-22.8 4.2-32 0Z");
+        torso.setAttribute("fill", "currentColor");
+        graphic.append(head, torso);
+        avatar.appendChild(graphic);
+        return avatar;
+    }
+
     function renderSeats(players: TablePlayer[], dealerIndex: number, currentPlayerId: unknown, handComplete = false, revealCards = false): HTMLDivElement {
 
         const container = createElement(
@@ -522,6 +546,7 @@ function createTable() {
             if (isHuman) {
                 seat.classList.add("pl-seat-hero");
             }
+            seat.classList.add(y < 50 ? "pl-seat-upper" : "pl-seat-lower");
 
             if (isActive) {
                 seat.classList.add("is-active");
@@ -588,10 +613,9 @@ function createTable() {
                 position
             );
 
-            info.append(
-                playerDetails,
-                stack
-            );
+            const caption = createElement("div", "pl-player-caption");
+            caption.append(playerDetails, stack);
+            info.append(renderPlayerAvatar(), caption);
 
             // Cartes.
 

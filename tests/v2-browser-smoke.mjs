@@ -168,11 +168,24 @@ async function run() {
     assert.equal(gameStarted.success, true, JSON.stringify(gameStarted.errors ?? []));
     await page.waitForFunction(() =>
       document.querySelectorAll("#training-table .pl-seat").length === 6 &&
-      Boolean(document.querySelector("#training-table .pl-hero-actions-mount #training-actions")),
+      Boolean(document.querySelector("#training-game > #training-actions.pl-action-panel")),
       null, { timeout: 30000 });
     const gameState = await page.evaluate(() => window.PokerLabTraining.getGameState());
     assert.equal(gameState.players.length, 6);
     assert.equal(gameState.street, "preflop");
+    assert.equal(await page.locator("#training-table .pl-player-avatar").count(), 6);
+    assert.equal(await page.locator("#training-table .pl-player-avatar svg").count(), 6);
+    assert.equal(await page.locator("#training-table .pl-seat-hero").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-dialog").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").isDisabled(), true);
+    assert.equal(await page.locator("#training-actions [data-postflop-solve]").count(), 0);
+    const feltDimensions = await page.locator("#training-table .pl-felt").evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    assert.ok(feltDimensions.width / feltDimensions.height > 2,
+      "New desktop poker felt must be more rectangular than oval");
     await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
     await page.locator('button[data-training-action="stop"]').click();
     assert.equal(await page.evaluate(() => window.PokerLabTraining.isSessionActive()),false);
@@ -335,6 +348,8 @@ async function run() {
     };
     await verifyPhoneActions(390);
     await captureUi("gameplay-mobile-390");
+    assert.equal(await page.locator("#training-table .pl-player-avatar").count(), 2);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
     await captureGameElement("table-headsup-complete-mobile", "#training-game");
     await verifyPhoneActions(320);
     // Measure visible label boxes, not just document overflow: narrow labels
@@ -356,8 +371,9 @@ async function run() {
     await captureUi("gameplay-mobile-320");
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForFunction(() => Boolean(document.querySelector(
-      ".pl-hero-actions-mount > #training-actions")));
+      "#training-game > #training-actions.pl-action-panel")));
     assert.equal(await page.locator("#training-actions").count(), 1);
+    assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
     await page.setViewportSize({ width: 390, height: 844 });
     await verifyPhoneActions(390);
     assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);

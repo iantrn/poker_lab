@@ -117,8 +117,8 @@ test("Phase 4 moves only gameplay controls out of the mobile table", () => {
   const training = read("frontend/src/training/session.ts");
   const css = read("frontend/src/styles/design-system.css");
   assert.match(training, /function synchronizeActionPanelPlacement\(\): void/);
-  assert.match(training, /globals\.innerWidth <= 767/);
-  assert.match(training, /tableElement\.insertAdjacentElement\("afterend", actionsElement\)/);
+  assert.match(training, /closest<HTMLElement>\("\.pl-live-table-stage"\)/);
+  assert.match(training, /anchor\.insertAdjacentElement\("afterend", actionsElement\)/);
   assert.match(training, /globals\.addEventListener\("resize", synchronizeActionPanelPlacement\)/);
   assert.match(css, /#training-game > #training-actions\.pl-action-panel/);
   assert.match(css, /min-height:\s*48px !important/);
@@ -164,4 +164,29 @@ test("Preview server serves SVG as an image so visual captures are faithful", ()
   assert.match(smoke, /"\.svg":"image\/svg\+xml"/);
   assert.match(smoke, /mark\.naturalWidth > 0/);
   assert.match(workflow, /test -s dist\/assets\/icons\/pokerlab-mark\.svg/);
+});
+
+test("Approved table design retains native playing cards and solver outputs", () => {
+  const table = read("frontend/src/components/table.ts");
+  const page = read("frontend/src/ui/TrainingPage.tsx");
+  const session = read("frontend/src/training/session.ts");
+  const solver = read("frontend/src/ui/postflop-solver.ts");
+  const css = read("frontend/src/styles/poker-table.css");
+  const main = read("frontend/src/main.tsx");
+  assert.match(main, /import "\.\/styles\/poker-table\.css"/);
+  assert.match(css, /#app #training-game #training-table \.pl-table-container > \.pl-felt/);
+  assert.match(css, /border-radius: clamp\(52px,7vw,104px\)/);
+  assert.match(table, /function renderPlayerAvatar\(\)/);
+  assert.match(table, /document\.createElementNS\(ns, "svg"\)/);
+  assert.match(table, /info\.append\(renderPlayerAvatar\(\), caption\)/);
+  assert.match(table, /seat\.classList\.add\(y < 50/);
+  assert.match(page, /id="training-solver-dock"/);
+  assert.match(solver, /document\.getElementById\("training-solver-dock"\) \?\? actions/);
+  assert.match(solver, /host\.append\(button, dialog\)/);
+  assert.match(solver, /button\.disabled = !canAnalyse/);
+  assert.match(session, /anchor\.insertAdjacentElement\("afterend", actionsElement\)/);
+  assert.match(css, /\.pl-action-btn-raise/);
+  assert.doesNotMatch(css, /\.pl-card(?:\b|--|__)/,
+    "Playing card graphics are protected and cannot be restyled");
+  assert.match(solver, /GTO intégral non certifié/);
 });

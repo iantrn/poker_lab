@@ -768,17 +768,12 @@ function createTraining(globals: TrainingGlobals): TrainingApi {
      */
     function synchronizeActionPanelPlacement(): void {
         if (!tableElement || !actionsElement) return;
-
-        if (globals.innerWidth <= 767) {
-            if (actionsElement.previousElementSibling !== tableElement) {
-                tableElement.insertAdjacentElement("afterend", actionsElement);
-            }
-            return;
-        }
-
-        const mount = tableElement.querySelector<HTMLElement>(".pl-hero-actions-mount");
-        if (mount && actionsElement.parentElement !== mount) {
-            mount.appendChild(actionsElement);
+        // Keep the single controller-owned action bar below the table on all
+        // widths. Solver dock and actions are never recreated when rendering.
+        const stage = tableElement.closest<HTMLElement>(".pl-live-table-stage");
+        const anchor = stage ?? tableElement;
+        if (actionsElement.previousElementSibling !== anchor) {
+            anchor.insertAdjacentElement("afterend", actionsElement);
         }
     }
 
@@ -796,9 +791,7 @@ function renderGame(state: GameState | null = null): void {
 
     globals.PokerLabTable!.render(tableElement, gameState);
 
-    // Presentation-only responsive placement: keep actions in the existing
-    // table mount on desktop, but BELOW the table on phones. The original
-    // #training-actions node and its attached listeners never get recreated.
+    // Dedicated action bar remains directly below the table at every width.
     synchronizeActionPanelPlacement();
 
     renderGameActions(gameState);
