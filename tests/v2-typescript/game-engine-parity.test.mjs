@@ -47,3 +47,38 @@ test("strict TS game engine has exact V1 public state and actions over 120 full 
   }
  }
 });
+
+
+test("three-way unequal-stack all-in produces identical V1/V2 side pots and conserves chips",()=>{
+  const options={
+    players:[
+      {id:"p0",name:"Hero",isHuman:true,stack:4},
+      {id:"p1",name:"Short",isHuman:false,stack:2},
+      {id:"p2",name:"Deep",isHuman:false,stack:12}
+    ],
+    dealerIndex:0
+  };
+  function play(Engine){
+    const engine=new Engine(options);
+    const initial=engine.players.reduce((sum,player)=>sum+player.stack,0);
+    const steps=[];
+    engine.startHand();
+    for(const [playerId,action] of [
+      ["p0","all-in"],["p1","all-in"],["p2","call"]
+    ]){
+      assert.equal(engine.currentPlayerId,playerId,
+        "unexpected first-to-act or short all-in betting sequence");
+      steps.push({before:plain(engine.getState()),action,result:plain(engine.act(action,null,playerId))});
+    }
+    const state=plain(engine.getState());
+    assert.equal(state.handComplete,true,"three-way all-in must resolve showdown");
+    assert.equal(state.result?.type,"showdown");
+    assert.ok(state.result.pots.length>=2,"unequal contributions create a side pot");
+    assert.equal(state.result.totalPot,10);
+    assert.deepEqual(state.result.pots.map(pot=>pot.amount),[6,4]);
+    const final=engine.players.reduce((sum,player)=>sum+player.stack,0);
+    assert.equal(final,initial,"no chips can be created or lost during payout");
+    return {steps,state,history:plain(engine.getHandHistory()),initial,final};
+  }
+  assert.deepEqual(play(migrated),play(Legacy));
+});
