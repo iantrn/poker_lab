@@ -255,3 +255,14 @@ test("Showdown modal uses real engine distributions, native dialog and one next-
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/,
     "Keep existing card art and card backs unchanged");
 });
+
+test("Showdown dialog scroll/focus and actual win-flow are browser-regression tested", () => {
+  const table = read("frontend/src/components/table.ts");
+  const smoke = read("tests/v2-browser-smoke.mjs");
+  assert.match(table, /result\.focus\(\)/);
+  assert.match(table, /result\.scrollTop = 0/);
+  assert.match(smoke, /multiPotFixture\.gains/);
+  assert.match(smoke, /showdown-split-pot-dialog-desktop/);
+  assert.match(smoke, /showdown-uncontested-dialog-desktop/);
+  assert.match(smoke, /The modal's primary CTA must call the actual engine nextHand/);
+});

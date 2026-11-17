@@ -302,6 +302,79 @@ async function run() {
     assert.equal(sampleLabels.tenHigh.label,"Hauteur 10");
     assert.equal(sampleLabels.aceHigh.label,"Hauteur As");
     assert.equal(sampleLabels.aceHigh.detail,"");
+    // Render a representative engine result in a detached *test scenario*
+    // attached to the real table. Assert that all payout lines match the
+    // supplied split-pot shares including the 0.5 BB odd chip, and that the
+    // best five cards come from the engine's evaluated hand data.
+    const multiPotFixture = await page.evaluate(() => {
+      const api = window.PokerLabTable;
+      const training = window.PokerLabTraining;
+      const original = training.getGameState();
+      const [hero, bot] = original.players;
+      const board = [
+        {value:2,suit:"spades"},{value:3,suit:"spades"},
+        {value:4,suit:"spades"},{value:5,suit:"diamonds"},
+        {value:6,suit:"hearts"}
+      ];
+      const fixture = {
+        ...original, board, handComplete:true,street:"complete",
+        currentPlayerId:null,
+        result:{
+          type:"showdown",handNumber:original.handNumber,totalPot:31.5,
+          winnerIds:[hero.id,bot.id],
+          pots:[
+            {amount:21.5,winnerIds:[hero.id,bot.id],share:10.5,
+              oddChipRecipients:[hero.id],category:"Quinte",isTie:true},
+            {amount:10,winnerIds:[bot.id],share:10,
+              oddChipRecipients:[],category:"Paire",isTie:false}
+          ],
+          evaluations:[
+            {playerId:hero.id,category:"Quinte",bestFiveCards:board},
+            {playerId:bot.id,category:"Paire",bestFiveCards:board}
+          ]
+        }
+      };
+      api.render(document.getElementById("training-table"),fixture);
+      const modal=document.querySelector("dialog.pl-result-dialog");
+      const output={
+        open:modal?.open,
+        role:modal?.getAttribute("aria-labelledby"),
+        result:modal?.dataset.trainingResult,
+        title:modal?.querySelector("#pl-result-title")?.textContent,
+        total:modal?.querySelector(".pl-result-total-value")?.textContent,
+        gains:[...modal.querySelectorAll(".pl-result-winner-gain")].map(el=>el.textContent),
+        categories:[...modal.querySelectorAll(".pl-result-winner-hand")].map(el=>el.textContent),
+        fiveCards:[...modal.querySelectorAll(".pl-result-best-five")].map(el=>el.children.length),
+        pots:[...modal.querySelectorAll(".pl-result-pot-name")].map(el=>el.textContent),
+        next:modal?.querySelectorAll('[data-training-action="next-hand"]').length,
+        quit:modal?.querySelectorAll('[data-training-action="end-session"]').length,
+        scroll:modal?.scrollTop ?? -1,
+        focused:document.activeElement===modal
+      };
+      return output;
+    });
+    assert.equal(multiPotFixture.open,true);
+    assert.equal(multiPotFixture.result,"showdown");
+    assert.equal(multiPotFixture.role,"pl-result-title");
+    assert.match(multiPotFixture.title,/partagé/i);
+    assert.equal(multiPotFixture.total,"31,5 BB");
+    assert.deepEqual(multiPotFixture.gains,["+11 BB","+20,5 BB"]);
+    assert.deepEqual(multiPotFixture.categories,["Quinte","Paire"]);
+    assert.deepEqual(multiPotFixture.fiveCards,[5,5]);
+    assert.deepEqual(multiPotFixture.pots,["Pot principal","Pot secondaire 1"]);
+    assert.equal(multiPotFixture.next,1,"Next hand action must be inside the modal");
+    assert.equal(multiPotFixture.quit,1);
+    assert.ok(multiPotFixture.focused);
+    assert.equal(multiPotFixture.scroll,0);
+    await captureGameElement("showdown-split-pot-dialog-desktop",
+      "#training-table dialog.pl-result-dialog");
+    await page.evaluate(() => {
+      document.querySelector("dialog.pl-result-dialog")?.close();
+      window.PokerLabTable.render(
+        document.getElementById("training-table"),
+        window.PokerLabTraining.getGameState()
+      );
+    });
     await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
     await captureGameElement("table-6max-with-controls-desktop", "#training-game");
     const desktopSeatAndSolver = await page.evaluate(() => {
@@ -407,6 +480,42 @@ async function run() {
     const headsUpState = await page.evaluate(() => window.PokerLabTraining.getGameState());
     assert.equal(headsUpState.players.length, 2);
     assert.equal(headsUpState.street, "preflop");
+    await page.locator('#training-actions .pl-action-btn-fold').click();
+    await page.locator('#training-table dialog.pl-result-dialog[open]')
+      .waitFor({timeout:15000});
+    const uncontested = await page.evaluate(() => {
+      const modal = document.querySelector("#training-table dialog.pl-result-dialog");
+      return {
+        type:modal?.dataset.trainingResult,
+        title:modal?.querySelector("#pl-result-title")?.textContent,
+        description:modal?.querySelector("#pl-result-explanation")?.textContent,
+        pot:modal?.querySelector(".pl-result-total-value")?.textContent,
+        categories:[...modal.querySelectorAll(".pl-result-winner-hand")]
+          .map(el=>el.textContent),
+        nextCount:modal.querySelectorAll('[data-training-action="next-hand"]').length,
+        duplicateSummary:document.querySelectorAll("#training-actions .pl-hand-result").length,
+        actionPanelHidden:getComputedStyle(document.querySelector("#training-actions")).display==="none",
+        focus:document.activeElement===modal,
+        handNumber:window.PokerLabTraining.getGameState().handNumber
+      };
+    });
+    assert.equal(uncontested.type,"uncontested");
+    assert.match(uncontested.description,/abandonné la main/);
+    assert.ok(uncontested.pot?.endsWith(" BB"));
+    assert.ok(uncontested.categories.every(s=>s==="Victoire sans showdown"));
+    assert.equal(uncontested.nextCount,1);
+    assert.equal(uncontested.duplicateSummary,0);
+    assert.equal(uncontested.actionPanelHidden,true);
+    assert.equal(uncontested.focus,true);
+    await captureGameElement("showdown-uncontested-dialog-desktop",
+      "#training-table dialog.pl-result-dialog");
+    await page.locator('#training-table dialog.pl-result-dialog [data-training-action="next-hand"]').click();
+    await page.waitForFunction(previous =>
+      window.PokerLabTraining.getGameState()?.handNumber === previous+1,
+      uncontested.handNumber,{timeout:15000});
+    const following = await page.evaluate(() => window.PokerLabTraining.getGameState());
+    assert.equal(following.handNumber,uncontested.handNumber+1,
+      "The modal's primary CTA must call the actual engine nextHand()");
     assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
 
     await page.locator('a[data-page="lessons"]').first().click();

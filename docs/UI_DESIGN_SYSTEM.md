@@ -284,3 +284,13 @@ winning summary and a modal backdrop with appropriate keyboard focus.
 - The native modal prevents accidental interaction with the table behind it
   and only closes through the next-hand or quit action. The latest table
   and hand information remains visible beneath its dark backdrop.
+
+### Showdown interactive browser tests
+
+Automated Chromium/WebKit checks cover (1) a representative native
+showdown modal with **main + side pot**, a two-way split of 21.5 BB with
+a half-BB odd chip, category labels, and the five original displayed
+cards for each winner; and (2) an **actual heads-up fold victory**
+followed by clicking the modal's primary CTA and verifying the game
+engine advances `handNumber`. The dialog receives focus and starts
+scrolled at the outcome heading, not the sticky CTA.

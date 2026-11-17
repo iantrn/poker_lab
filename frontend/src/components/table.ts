@@ -709,6 +709,7 @@ function createTable() {
         dialog.setAttribute("aria-labelledby", "pl-result-title");
         dialog.setAttribute("aria-describedby", "pl-result-explanation");
         dialog.setAttribute("data-training-result", result.type);
+        dialog.tabIndex = -1;
         dialog.addEventListener("cancel", event => event.preventDefault());
 
         const pots = Array.isArray(result.pots) ? result.pots : [];
@@ -1064,6 +1065,11 @@ function createTable() {
         // result block below the table.
         if (result && !result.open) {
             result.showModal();
+            // The first interactive descendant is at the bottom: focus the
+            // dialog itself so users first see the outcome rather than being
+            // auto-scrolled past the winner and pot summary.
+            result.focus();
+            result.scrollTop = 0;
         }
 
         lastRenderedHandNumber = handNumberValue;
