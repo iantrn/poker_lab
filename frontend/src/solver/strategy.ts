@@ -442,7 +442,8 @@ export function createStrategy(global:StrategyGlobal){
                     root:toCFR(built.tree),
                     deal,
                     callbacks:cfrCallbacks(deal.hero,state.board,global),
-                    chanceWeight:importance>0?importance:1
+                    chanceWeight:importance>0?importance:1,
+                    compilePokerPayoffs:true
                 });
                 if(trainingBatch.length===8)flushTrainingBatch();
             }else{
