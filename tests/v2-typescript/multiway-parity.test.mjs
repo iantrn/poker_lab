@@ -415,3 +415,55 @@ test("river planning never invents another street and invalid horizons fail clos
    assert.throws(()=>buildMultiwayTree(state,{maxStreets:2}),RangeError);
  }
 });
+
+
+test("prepared Rust multiway topology produces exactly the same seeded full result as legacy per-sample validation",async()=>{
+ for(const [seats,street] of [[3,"flop"],[6,"flop"],[3,"river"]]){
+   const state=createStrategicGameState(makeInput(seats,street));
+   let compiled=0,fastSteps=0,legacySteps=0;
+   const preparedEnv={
+     ...env(),
+     newSession:players=>{
+       const session=new MultiwayCfrSession(players);
+       return {
+         prepare_tree(...args){compiled++;return session.prepare_tree(...args);},
+         step_prepared(...args){fastSteps++;return session.step_prepared(...args);},
+         step(...args){throw new Error("Legacy multiway step should not run when prepared topology is present");},
+         average_strategy:()=>session.average_strategy(),
+         strategy_for_info_set:id=>session.strategy_for_info_set(id),
+         information_set_count:()=>session.information_set_count(),
+         iterations:()=>session.iterations()
+       };
+     }
+   };
+   const legacyEnv={
+     ...env(),
+     newSession:players=>{
+       const session=new MultiwayCfrSession(players);
+       return {
+         step(...args){legacySteps++;return session.step(...args);},
+         average_strategy:()=>session.average_strategy(),
+         strategy_for_info_set:id=>session.strategy_for_info_set(id),
+         information_set_count:()=>session.information_set_count(),
+         iterations:()=>session.iterations()
+       };
+     }
+   };
+   const opts={iterations:32,samples:1,evaluationSamples:16,seed:20261117};
+   const fast=await solveMultiway(state,preparedEnv,opts);
+   const slow=await solveMultiway(state,legacyEnv,opts);
+   assert.equal(fast.preparedTopology,true);
+   assert.equal(slow.preparedTopology,false);
+   assert.equal(compiled,1);
+   assert.equal(fastSteps,fast.iterations);
+   assert.equal(legacySteps,slow.iterations);
+   assert.deepEqual(fast.actions,slow.actions);
+   assert.equal(fast.heroEV,slow.heroEV);
+   assert.equal(fast.heroEVLower95,slow.heroEVLower95);
+   assert.equal(fast.heroEVUpper95,slow.heroEVUpper95);
+   assert.equal(fast.evaluationEffectiveSampleSize,slow.evaluationEffectiveSampleSize);
+   assert.equal(fast.modeledStreets,slow.modeledStreets);
+   assert.equal(fast.decisionNodes,slow.decisionNodes);
+   assert.equal(fast.treeNodes,slow.treeNodes);
+ }
+});
