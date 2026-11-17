@@ -2,7 +2,7 @@
    POKERLAB - RANGES VIEWER
    Version : 1.0.0
    Description : Sélection d'un spot préflop et affichage de sa matrice 13 x 13
-   Données     : ./data/ranges/preflop/matrix/index.json + <position>/<spot>.json
+   Données     : ./data/ranges/preflop/matrix/index.json + ranges.json
    ========================================================= */
 
 "use strict";
@@ -50,7 +50,7 @@ export function installRangesViewer(): RangesViewerApi {
     let root: HTMLElement | null = null;
     let matrixHandle: RangeMatrixHandle | null = null;
     const spotCache = new Map<string, Promise<HandRange>>();
-    let bundlePromise: Promise<Record<string, HandRange> | null> | null = null;
+    let bundlePromise: Promise<Record<string, HandRange>> | null = null;
 
     const state: ViewerState = {
         position: "BB",
@@ -134,19 +134,17 @@ export function installRangesViewer(): RangesViewerApi {
                             }
                             return bundle.ranges;
                         })
-                        .catch(() => null);
+                        .catch(error => {
+                            bundlePromise = null; // retry a transient failure on the next attempt
+                            throw error;
+                        });
                 }
 
                 const bundledRanges = await bundlePromise;
-                if (bundledRanges) {
-                    if (!Object.prototype.hasOwnProperty.call(bundledRanges, id)) {
-                        throw new Error(`Range absente du bundle : ${id}`);
-                    }
-                    return bundledRanges[id]!;
+                if (!Object.prototype.hasOwnProperty.call(bundledRanges, id)) {
+                    throw new Error(`Range absente du bundle : ${id}`);
                 }
-
-                // Compatibilité avec les anciennes publications sans bundle.
-                return await fetchJson(`${BASE_URL}${id}.json`) as HandRange;
+                return bundledRanges[id]!;
             })().catch(error => {
                 spotCache.delete(id);
                 throw error;
