@@ -107,7 +107,8 @@ export function installSolverPrecompute(): PrecomputeApi {
     const hero = state.players.find(player => player.isHuman);
     if (!hero || state.currentPlayerId !== hero.id ||
       !Array.isArray(hero.holeCards) || hero.holeCards.length !== 2) return false;
-    return state.players.filter(player => !player.folded).length === 2;
+    const active=state.players.filter(player=>!player.folded).length;
+    return active>=2&&active<=6;
   }
   function createContext(): Context | null {
     const training = global.PokerLabTraining;
@@ -328,7 +329,7 @@ export function installSolverPrecompute(): PrecomputeApi {
   function getOrStart(): Promise<PrecomputeResult> {
     const context = createContext();
     if (!context) return Promise.reject(new Error(
-      "Le solveur est disponible uniquement dans une situation postflop heads-up où le joueur humain doit agir."
+      "Le solveur est disponible dans une situation postflop à 2–6 joueurs actifs où le héros doit agir."
     ));
     const cached = touchCache(context.key);
     if (cached) return Promise.resolve(cached);
