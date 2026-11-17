@@ -26,6 +26,8 @@ Le solveur représente un **arbre de mises abstrait** : ses résultats sont des 
 | Persistance | `localStorage` + Dexie/IndexedDB | Sauvegarde V1-compatible ; miroir IndexedDB non destructif |
 | PWA | Vite + Workbox | Build statique, manifeste installable et fonctionnement offline |
 
+Le solveur CFR+ Rust peut préparer et valider une topologie publique une seule fois par session, puis mettre à jour les informations sets et utilités terminales à chaque échantillon. Le cache de topologies est borné pour respecter les contraintes mémoire ; la méthode historique `step()` reste disponible et constitue un repli en cas de budget dépassé ou d'ancienne version WASM. Les tests de parité et le benchmark non bloquant sont exécutés par `tests/v2-wasm-prepared-tree.test.mjs`. Aucun gain général de performance n'est présumé sans résultats mesurés.
+
 Le **Worker postflop V2** utilise automatiquement la session **Rust CFR+** si WASM est disponible. Il revient au moteur TypeScript en cas d'erreur ; les Workers V1 sont conservés comme repli supplémentaire. Les composants React ne réévaluent pas la logique poker : les modules TypeScript continuent de gérer les événements fonctionnels.
 
 ### Organisation
