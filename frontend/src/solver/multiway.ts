@@ -394,8 +394,21 @@ export async function analyzeMultiwayEquity(
   const iterations=Math.max(300,Math.min(3_000,options.iterations??1_200));
   const hero=state.players.find(p=>p.isHuman)!;
   let wins=0,losses=0,ties=0,equitySum=0;
+  const baseTerminal:MultiwayTerminal={
+    terminal:true,
+    contributions:state.players.map(player=>player.totalContribution),
+    folded:state.players.map(player=>player.folded)
+  };
   for(let i=0;i<iterations;i++){
     const deal=sample.deal(),scores=scoresFor(state,deal,environment);
+    const shares=multiwayTerminalPayoffs(
+      baseTerminal,scores,environment.compareScores
+    );
+    const gross=shares[hero.seat]!+hero.totalContribution;
+    // Money-equity is the share of ALL chips in the pot, including layers
+    // from which the hero is ineligible. Showdown win/tie counts are only
+    // descriptive of hand ranking, not side-pot payouts.
+    equitySum+=gross/state.pot;
     const heroScore=scores[hero.seat];
     if(!heroScore)throw new Error("Score héro manquant pour le multiway.");
     let top=heroScore,winners=1,heroBest=true;
@@ -409,7 +422,6 @@ export async function analyzeMultiwayEquity(
       else if(comparison===0)winners++;
     }
     if(heroBest){
-      equitySum+=1/winners;
       if(winners===1)wins++;else ties++;
     }else losses++;
     if((i+1)%128===0)await new Promise<void>(resolve=>setTimeout(resolve,0));
@@ -425,6 +437,6 @@ export async function analyzeMultiwayEquity(
       potOdds,action:"Équité indicative multiway",
       explanation:"L'équité de showdown n'est pas une stratégie de mise. La réalisation de l'équité, les side pots et les mises futures changent les décisions."
     },
-    note:"Simulation des cartes sans partage de cartes privées ; ranges adverses conditionnées approximativement. Les mises futures ne sont pas modélisées dans cette équité."
+    note:"Équité = fraction moyenne du pot attribuée au héros, pots secondaires et bloqueurs inclus (mises futures non modélisées). Victoires/égalités/défaites décrivent uniquement le classement des mains, pas le partage des side pots."
   };
 }
