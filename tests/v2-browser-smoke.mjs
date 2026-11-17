@@ -470,6 +470,112 @@ async function run() {
 
 
 
+    // Integration gate: actual 3- and 6-seat postflop decisions run in the
+    // production typed Rust Worker (not merely in Node test mocks).
+    // Opponent cards remain hidden; the worker must sample valid blockers.
+    const multiwaySmoke=await page.evaluate(async()=>{
+      const scenarios=[];
+      for(const seats of [3,6]){
+        const worker=window.PokerLabV2.createTypedPostflopWorker();
+        const ranks=[
+          {value:2,suit:"clubs"},{value:7,suit:"diamonds"},
+          {value:9,suit:"hearts"},{value:11,suit:"spades"},
+          {value:13,suit:"diamonds"}
+        ];
+        const players=Array.from({length:seats},(_,i)=>({
+          id:"seat-"+i,name:"Player "+i,isHuman:i===0,isBot:i!==0,
+          folded:false,allIn:false,holeCards:i===0?[
+            {value:14,suit:"spades"},{value:14,suit:"hearts"}
+          ]:null,
+          stack:20,streetBet:0,totalContribution:5,
+          hasActed:false,lastActedBet:0,amountToCall:0,
+          position:["BTN","SB","BB","CO","HJ","UTG"][i],
+          actionOptions:i===0?{
+            canFold:false,canCheck:true,canCall:false,
+            canBet:true,canRaise:false,
+            minimumBet:1,maximumBet:20
+          }:null
+        }));
+        const input={schemaVersion:1,history:[],state:{
+          street:"river",board:ranks,handComplete:false,
+          pot:seats*5,currentBet:0,lastFullRaise:1,minimumRaiseTo:1,
+          blinds:{smallBlind:0.5,bigBlind:1},dealerIndex:0,
+          currentPlayerId:"seat-0",pendingPlayers:players.map((_,i)=>i),
+          players
+        }};
+        let requestId=9000;
+        const progress=[];
+        const invoke=(task,options)=>new Promise((resolve,reject)=>{
+          const id=++requestId;
+          const timer=setTimeout(()=>{
+            worker.terminate();reject(new Error(
+              "Timed out on "+seats+"-seat multiway "+task));
+          },60000);
+          const handler=event=>{
+            const data=event.data;
+            if(data?.id!==id)return;
+            if(data.progress!==undefined){
+              progress.push({
+                phase:data.phase,progress:data.progress,
+                provisional:data.provisional===true
+              });
+              return;
+            }
+            clearTimeout(timer);
+            worker.removeEventListener("message",handler);
+            if(data.ok)resolve(data.result);
+            else reject(new Error(String(data.error)));
+          };
+          worker.addEventListener("message",handler);
+          worker.postMessage({id,task,input,options});
+        });
+        try{
+          const equity=seats===3?await invoke("equity",{iterations:300,seed:123}):null;
+          const start=performance.now();
+          const strategy=await invoke("strategy",{
+            iterations:16,samples:1,evaluationSamples:16,seed:123
+          });
+          scenarios.push({
+            seats,elapsedMs:performance.now()-start,
+            actions:strategy.actions,algorithm:strategy.algorithm,
+            quality:strategy.quality,nashConv:strategy.nashConv,
+            ev:strategy.heroEV,iterations:strategy.iterations,
+            abstraction:strategy.abstraction,
+            equity:equity?{
+              equity:equity.equity,
+              n:equity.iterations,
+              counts:equity.wins+equity.ties+equity.losses
+            }:null,
+            progress
+          });
+        }finally{worker.terminate();}
+      }
+      return scenarios;
+    });
+    for(const report of multiwaySmoke){
+      assert.equal(report.quality,"sampled_estimate");
+      assert.equal(report.nashConv,null);
+      assert.equal(report.iterations,16);
+      assert.ok(report.actions.length>=2);
+      assert.ok(Math.abs(report.actions.reduce((total,action)=>
+        total+action.frequency,0)-1)<1e-8);
+      assert.ok(Number.isFinite(report.ev));
+      assert.ok(report.abstraction.includes("une seule street"));
+      assert.ok(report.progress.some(item=>item.provisional&&
+        item.phase==="strategy_training"));
+      assert.ok(report.progress.some(item=>item.provisional&&
+        item.phase==="strategy_evaluation"));
+      assert.ok(report.progress.every(item=>
+        Number.isFinite(item.progress)&&item.progress>=0&&item.progress<=1));
+      if(report.equity){
+        assert.equal(report.equity.n,300);
+        assert.equal(report.equity.counts,300);
+        assert.ok(report.equity.equity>=0&&report.equity.equity<=1);
+      }
+      console.log("Typed Rust "+report.seats+"-seat multiway river solve: "+
+        report.elapsedMs.toFixed(1)+"ms (non-gating, CI browser)");
+    }
+
     // Statistical parity and full-pipeline timing: the V1 and V2 solvers use
     // independent random streams, so this is intentionally not bit-for-bit parity.
     const postflopEquity = await page.evaluate(async () => {
