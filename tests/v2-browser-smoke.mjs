@@ -80,7 +80,14 @@ async function run() {
     // Contract uses the untouched V1 HTML fixture, NOT the React component
     // implementation. This fails if a migrated page loses a functional ID,
     // data-* hook, nav link or input expected by typed imperatively bound code.
-    const originalShell=readFileSync(path.resolve(root,"..","frontend","src","ui","legacy-shell.html"),"utf8");
+    // Compare the React DOM directly to the authoritative V1 root document.
+    // A second copied HTML fixture was redundant and could drift out of sync.
+    const originalIndex=readFileSync(path.resolve(root,"..","index.html"),"utf8");
+    const originalStart=originalIndex.indexOf('<div id="app"');
+    const originalEnd=originalIndex.indexOf('<!-- JAVASCRIPT');
+    assert.ok(originalStart>=0 && originalEnd>originalStart,
+      "Original V1 app fragment must be present");
+    const originalShell=originalIndex.slice(originalStart,originalEnd);
     const count=(values)=>values.reduce((acc,value)=>(acc.set(value,(acc.get(value)||0)+1),acc),new Map());
     const originalIds=count([...originalShell.matchAll(/\sid="([^"]+)"/g)].map(match=>match[1]));
     const originalHooks=count([...originalShell.matchAll(/\s(data-[\w-]+)="([^"]+)"/g)]
