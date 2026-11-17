@@ -36,3 +36,14 @@ pub fn equity_range_monte_carlo(
     equity::monte_carlo_vs_range(hero, board, villain_pairs, weights, iterations, seed)
         .map_err(JsValue::from_str)
 }
+
+
+#[wasm_bindgen]
+pub fn cfr_plus_tree(
+    actors:&[i8],info_ids:&[u32],offsets:&[u32],counts:&[u8],
+    children:&[u32],terminal_utilities:&[f64],iterations:u32
+)->Result<Vec<f64>,JsValue>{
+    cfr::tree::solve_tree(
+        actors,info_ids,offsets,counts,children,terminal_utilities,iterations
+    ).map_err(JsValue::from_str)
+}

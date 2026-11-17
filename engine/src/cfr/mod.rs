@@ -1,3 +1,4 @@
+pub mod tree;
 //! CFR+ regret-matching core for a zero-sum matrix (a restricted game tree).
 //! The full PokerLab postflop tree stays on the proven legacy worker until parity.
 
