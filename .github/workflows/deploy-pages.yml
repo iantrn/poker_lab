@@ -1,0 +1,103 @@
+name: Deploy PokerLab V2 to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A second release must not interrupt an in-progress Pages publication.
+concurrency:
+  group: pokerlab-pages-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and validate the V2 Pages artifact
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Rust and browser WASM target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'latest'
+      - name: Test Rust engine
+        run: cargo test --manifest-path engine/Cargo.toml
+      - name: Build browser WASM
+        run: wasm-pack build --release --target web --out-dir pkg --manifest-path engine/Cargo.toml
+      - name: Install pinned frontend dependencies
+        run: npm ci --prefix frontend --no-audit --no-fund
+      - name: Build strict TypeScript and Vite PWA
+        env:
+          POKERLAB_BASE: /poker_lab/
+        run: npm run build --prefix frontend
+      - name: Verify project-site assets and offline bundle
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/manifest.webmanifest
+          test -s dist/service-worker.js
+          test -s dist/wasm/pokerlab_engine.js
+          test -s dist/wasm/pokerlab_engine_bg.wasm
+          test -s dist/data/ranges/preflop/matrix/index.json
+          test -s dist/data/ranges/preflop/matrix/ranges.json
+          test -s dist/assets/icons/icon-192.png
+          test -s dist/assets/icons/icon-512.png
+          test -s dist/assets/icons/apple-touch-icon.png
+          test -s dist/pokerlab-solver-worker.js
+          test -s dist/pokerlab-solver-worker-v2.js
+          test ! -e dist/js/app.js
+          test ! -e dist/css/style.css
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const html = readFileSync('dist/index.html', 'utf8');
+          const manifest = JSON.parse(readFileSync('dist/manifest.webmanifest', 'utf8'));
+          const sw = readFileSync('dist/service-worker.js', 'utf8');
+          if (!html.includes('/poker_lab/assets/') || !html.includes('/poker_lab/manifest.webmanifest')) {
+            throw new Error('Vite output paths do not target /poker_lab/');
+          }
+          if (manifest.scope !== './' || manifest.start_url !== './') {
+            throw new Error('PWA scope/start_url do not match the project site');
+          }
+          if (!sw.includes('data/ranges/preflop/matrix/ranges.json') ||
+              !sw.includes('wasm/pokerlab_engine_bg.wasm')) {
+            throw new Error('Workbox is missing offline ranges or browser WASM');
+          }
+          NODE
+      - name: Run Chromium V2/PWA/Worker/offline smoke test
+        run: node tests/v2-browser-smoke.mjs
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload only the V2 Vite dist directory
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/
+
+  deploy:
+    name: Publish V2 to GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
