@@ -5,6 +5,7 @@
  * Sampling uses the caller's RNG verbatim, preserving deterministic fixtures.
  */
 import type { SolverCard } from "./input-contract";
+import { createWeightedPicker } from "./weighted-picker.ts";
 
 export interface HandCombo {
   cards: SolverCard[];
@@ -65,20 +66,6 @@ function validCombos(range: unknown, blocked: Set<string>): HandCombo[] {
     ).map((item: HandCombo) => ({...item,weight:Number(item.weight)}))
     : [];
 }
-function weightedSampleEntry<T extends {weight:number}>(items: T[],random:PokerRandom):T {
-  const total=items.reduce((sum,item)=>sum+item.weight,0);
-  if (!(total>0)) return items[Math.floor(random()*items.length)]!;
-  let cursor=random()*total;
-  for (const item of items) {
-    cursor-=item.weight;
-    if(cursor<=0) return item;
-  }
-  return items[items.length-1]!;
-}
-function weightedSample(items:HandCombo[],random:PokerRandom):SolverCard[] {
-  return weightedSampleEntry(items,random).cards;
-}
-
 export function createDealSampler(
   actualHero:SolverCard[],
   board:SolverCard[],
@@ -130,13 +117,15 @@ export function createDealSampler(
   // Preserve the range proposal and the bounded opponent cache for the whole solve.
   // The RNG is still consumed exactly once per weighted choice and per shuffle step.
   const suits=["clubs","diamonds","hearts","spades"];
+  const pickHero=createWeightedPicker(proposal,random);
   const villainCache=new Map<string,HandCombo[]>();
+  const villainPickers=new Map<string,()=>HandCombo>();
   const MAX_CACHED_HERO_HANDS=32;
   return (sampleCount:number):ChanceSample=>{
     const deals:ChanceDeal[]=[];
     let actualHeroSamples=0,opponentRangeSamples=0;
     for(let i=0;i<sampleCount;i++){
-      const selectedHero=weightedSampleEntry(proposal,random);
+      const selectedHero=pickHero();
       const hero=selectedHero.cards;
       const selectedKey=handId(hero);
       const isActualHero=selectedKey===actualHeroKey;
@@ -151,17 +140,26 @@ export function createDealSampler(
           : buildUniformRange([...hero,...board]);
         villainCache.set(selectedKey,villainCandidates);
         if(villainCache.size>MAX_CACHED_HERO_HANDS) {
-          villainCache.delete(villainCache.keys().next().value!);
+          const expiredKey=villainCache.keys().next().value!;
+          villainCache.delete(expiredKey);
+          villainPickers.delete(expiredKey);
         }
       }
       if(!villainCandidates.length){
         throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
       }
+      // Uniform fallback has weight 1 per valid combo; summing all weights
+      // on each independent draw would cost O(1,000) unnecessarily.
       const opponentConditionalMass=useOpponentRange
         ? selectedHero.opponentMass
-        : villainCandidates.reduce((sum,item)=>sum+Number(item.weight),0);
+        : villainCandidates.length;
       const heroImportanceWeight=heroProposalImportance*Number(opponentConditionalMass);
-      const villain=weightedSample(villainCandidates,random);
+      let pickVillain=villainPickers.get(selectedKey);
+      if(!pickVillain){
+        pickVillain=createWeightedPicker(villainCandidates,random);
+        villainPickers.set(selectedKey,pickVillain);
+      }
+      const villain=pickVillain().cards;
       if(useOpponentRange && rangeUsedHint)opponentRangeSamples++;
       const excluded=new Set([...hero,...board,...villain].map(cardId));
       const deck:SolverCard[]=[];
