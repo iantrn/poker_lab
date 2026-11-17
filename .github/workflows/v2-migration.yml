@@ -1,4 +1,5 @@
 name: PokerLab V2 - React/TypeScript/Rust validation
+# V1 source is archived on v1-backup. Keep this standalone V2 gate on main.
 on:
   push:
     branches: [main, feat/v2-ts-rust-migration]
