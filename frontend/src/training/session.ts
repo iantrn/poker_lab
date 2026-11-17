@@ -14,7 +14,7 @@ export interface TrainingConfig {
   playerCount: number;
   difficulty: string;
   startingStackBB: number;
-  [key: string]: string | number;
+  [key: string]: string | number | undefined;
 }
 export type GameState = ReturnType<PokerLabGameEngine["getState"]>;
 export interface TrainingSession {
@@ -396,7 +396,7 @@ function createTraining(globals: TrainingGlobals): TrainingApi {
 
     function bindConfigurationInputs(): void {
 
-        const inputs = document.querySelectorAll(
+        const inputs = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
             "[data-training-setting]"
         );
 
@@ -404,7 +404,7 @@ function createTraining(globals: TrainingGlobals): TrainingApi {
 
             input.addEventListener("change", () => {
 
-                const setting = input.dataset.trainingSetting;
+                const setting = input.dataset.trainingSetting ?? "";
 
                 if (setting === "gameMode") {
 
@@ -600,7 +600,7 @@ function createTraining(globals: TrainingGlobals): TrainingApi {
                 botProfiles: players
                     .filter(player => player.isBot)
                     .map(player => ({
-                        playerId: player.id,
+                        playerId: player.id!,
                         profile: player.botProfile
                     }))
             };
