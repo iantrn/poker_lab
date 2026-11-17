@@ -307,6 +307,44 @@ async function run() {
       postflopEquity.legacy.elapsed.toFixed(1)+"ms, WASM V2 "+
       postflopEquity.accelerated.elapsed.toFixed(1)+"ms (including cold initialization and range loading)");
 
+    // Preview Worker functional check: previously only its initialization was
+    // verified, allowing a broken range URL or analysis path to go unnoticed.
+    const typedEquity = await page.evaluate(async () => {
+      const worker = window.PokerLabV2.createTypedPostflopWorker();
+      const state = {
+        street:"flop",
+        board:[{value:2,suit:"clubs"},{value:7,suit:"diamonds"},{value:9,suit:"hearts"}],
+        pot:10,currentPlayerId:"hero",handComplete:false,
+        players:[
+          {id:"hero",isHuman:true,folded:false,
+            holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
+            stack:90,amountToCall:0,actionOptions:{canBet:true}},
+          {id:"villain",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:90,position:"BB"}
+        ]
+      };
+      try {
+        return await new Promise((resolve,reject)=>{
+          const timeout = setTimeout(()=>reject(new Error("Typed equity Worker timed out")),45000);
+          worker.addEventListener("message",event=>{
+            if (event.data.id!==980 || event.data.progress!==undefined) return;
+            clearTimeout(timeout);
+            if(event.data.ok) resolve(event.data.result);
+            else reject(new Error(event.data.error||"Typed equity failed"));
+          });
+          worker.addEventListener("error",event=>reject(new Error(event.message)));
+          worker.postMessage({id:980,task:"equity",input:state,options:{iterations:1800}});
+        });
+      } finally {worker.terminate();}
+    });
+    assert.equal(typedEquity.iterations,1800);
+    assert.equal(typedEquity.wins+typedEquity.ties+typedEquity.losses,1800);
+    assert.ok(typedEquity.equity>=0 && typedEquity.equity<=1);
+    assert.ok(Math.abs(typedEquity.equity-rustEquity.equity)<0.12,
+      "Typed module Worker must agree statistically with Rust-accelerated V2 classic Worker");
+    console.log("Typed postflop Worker equity parity passed; equity="+typedEquity.equity.toFixed(4));
+
+
     const registration = await page.evaluate(async () => {
       const worker = await navigator.serviceWorker.ready;
       return Boolean(worker.active);
