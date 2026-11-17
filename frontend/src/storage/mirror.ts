@@ -1,32 +1,31 @@
 import { pokerLabDb } from "./db";
+import { attachSettingsMirror } from "./mirror-core";
 
-type StorageService = {
-  save(key: string, value: unknown): boolean;
-  load(key: string, defaultValue?: unknown): unknown;
-  remove(key: string): boolean;
+type LegacyPokerLab = {
+  storage?: {
+    save(key:string,value:unknown):boolean;
+    load(key:string,defaultValue?:unknown):unknown;
+    remove(key:string):boolean;
+  };
 };
-type LegacyPokerLab = { storage?: StorageService };
 
-// localStorage remains authoritative until parity and IndexedDB migrations are proven.
-// This best-effort mirror never changes V1 return values or makes gameplay asynchronous.
+/**
+ * V1 localStorage remains authoritative. IndexedDB is an ordered, best-effort
+ * mirror: a failed write never affects game state, and a later remove cannot
+ * be overwritten by a slower, earlier put. Backfill covers V1 settings saved
+ * before loadLegacy() completes, including first-install preferences.
+ */
 export function installStorageMirror(): void {
-  const global = window as Window & { PokerLab?: LegacyPokerLab };
+  const global = window as Window & {PokerLab?:LegacyPokerLab};
   const storage = global.PokerLab?.storage;
   if (!storage) return;
-  const originalSave = storage.save.bind(storage);
-  const originalRemove = storage.remove.bind(storage);
-  storage.save = (key, value) => {
-    const saved = originalSave(key, value);
-    if (saved) {
-      void pokerLabDb.settings.put({ key, value, savedAt: Date.now() })
-        .catch((error: unknown) => console.warn("[PokerLab V2] IndexedDB mirror unavailable", error));
-    }
-    return saved;
-  };
-  storage.remove = (key) => {
-    const removed = originalRemove(key);
-    if (removed) void pokerLabDb.settings.delete(key)
-      .catch((error: unknown) => console.warn("[PokerLab V2] IndexedDB deletion unavailable", error));
-    return removed;
-  };
+  attachSettingsMirror(
+    storage,
+    localStorage,
+    {
+      put: record => pokerLabDb.settings.put(record),
+      delete: key => pokerLabDb.settings.delete(key)
+    },
+    error => console.warn("[PokerLab V2] IndexedDB mirror unavailable",error)
+  );
 }
