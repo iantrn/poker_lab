@@ -243,3 +243,39 @@ test("mixed canonical and numeric serialization rolls back every orphan prefix",
  assert.deepEqual([...result.informationSets],[0,1,0,0,1,0,0]);
  assert.equal(registry.byKey.size,2);
 });
+
+
+test("bounded numeric prefix cache evicts safely without changing stable information IDs",()=>{
+ const fast=createReusableRustTreeSerializer();
+ const plain=createReusableRustTreeSerializer();
+ const a=createCfrInformationRegistry(),b=createCfrInformationRegistry();
+ for(let sample=0;sample<720;sample++){
+   const prefix="p"+sample+"|";
+   const callbacks={
+     informationKey:node=>prefix+node.key,
+     informationPrefix:()=>prefix,
+     informationSuffix:node=>node.key,
+     terminalUtility:node=>node.value
+   };
+   const actual=fast(tree,callbacks,a);
+   const expected=plain(tree,{
+     informationKey:callbacks.informationKey,
+     terminalUtility:callbacks.terminalUtility
+   },b);
+   assert.deepEqual([...actual.informationSets],[...expected.informationSets]);
+ }
+ // The earliest prefix must have been evicted, but all canonical keys and
+ // their original numeric IDs remain in the authoritative registry.
+ const revisit={
+   informationKey:node=>"p0|"+node.key,
+   informationPrefix:()=>"p0|",
+   informationSuffix:node=>node.key,
+   terminalUtility:node=>node.value
+ };
+ const actual=fast(tree,revisit,a);
+ const expected=plain(tree,{informationKey:revisit.informationKey,
+   terminalUtility:revisit.terminalUtility},b);
+ assert.deepEqual([...actual.informationSets],[...expected.informationSets]);
+ assert.deepEqual([...a.byKey],[...b.byKey]);
+ assert.equal(a.byKey.size,1440);
+});
