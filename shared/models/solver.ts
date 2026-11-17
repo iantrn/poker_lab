@@ -2,7 +2,6 @@ export type EngineRequest =
   | { kind: "evaluate"; cards: number[] }
   | { kind: "equity"; holes: number[]; board: number[]; iterations: number; seed: number }
   | { kind: "range"; cards: number[]; weights: number[]; width: number }
-  | { kind: "rangeEquity"; hero: number[]; board: number[]; opponents: number[]; weights: number[]; iterations: number; seed: number }
   | { kind: "equityRange"; hero: number[]; board: number[]; villainPairs: number[]; weights: number[]; iterations: number; seed: number }
   | { kind: "cfr"; payoffs: number[]; rows: number; cols: number; iterations: number };
 export interface WorkerRequest { id: number; request: EngineRequest; baseUrl: string; }

@@ -177,10 +177,17 @@ async function run() {
       const cfr = await solver.calculate({
         kind: "cfr", payoffs: [1,-1,-1,1], rows: 2, cols: 2, iterations: 10000
       });
-      return { equity, equityRange, range, cfr };
+      const weightedLoss = await solver.calculate({
+        kind: "equityRange",
+        hero: [0x2e, 0x3e], board: [0x02, 0x13, 0x24, 0x37, 0x09],
+        villainPairs: [0x0d, 0x1d, 0x05, 0x16, 0x2e, 0x1e],
+        weights: [1, 3, 100], iterations: 100, seed: 11
+      });
+      return { equity, equityRange, weightedLoss, range, cfr };
     });
     assert.deepEqual(wasmPaths.equity, [0,1,0], "Known royal-flush board must split");
     assert.deepEqual(wasmPaths.equityRange, [1,0,0], "Weighted range equity must filter blockers and evaluate exactly on river");
+    assert.deepEqual(wasmPaths.weightedLoss, [0.25, 0, 0.75], "Weighted river enumeration honors blockers and weights");
     assert.equal(wasmPaths.range[4], 1, "Weighted histogram must classify straight");
     assert.equal(wasmPaths.range.reduce((a,b) => a+b,0), 1);
     assert.equal(wasmPaths.cfr.length, 4);

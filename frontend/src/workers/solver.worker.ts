@@ -8,7 +8,6 @@ interface WasmEngine {
   range_category_histogram(cards: Uint8Array, weights: Float64Array, width: number): Float64Array;
   equity_range_monte_carlo(hero: Uint8Array, board: Uint8Array, villainPairs: Uint8Array, weights: Float64Array, iterations: number, seed: bigint): Float64Array;
   cfr_plus_matrix(payoffs: Float64Array, rows: number, cols: number, iterations: number): Float64Array;
-  equity_vs_range(hero: Uint8Array, board: Uint8Array, opponents: Uint8Array, weights: Float64Array, iterations: number, seed: bigint): Float64Array;
 }
 let loading: Promise<WasmEngine> | null = null;
 async function engine(baseUrl: string): Promise<WasmEngine> {
@@ -37,10 +36,6 @@ scope.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
         case "equityRange": result = Array.from(wasm.equity_range_monte_carlo(
           new Uint8Array(request.hero), new Uint8Array(request.board), new Uint8Array(request.villainPairs),
           new Float64Array(request.weights), request.iterations, BigInt(request.seed))); break;
-        case "rangeEquity": result = Array.from(wasm.equity_vs_range(
-          new Uint8Array(request.hero), new Uint8Array(request.board),
-          new Uint8Array(request.opponents), new Float64Array(request.weights),
-          request.iterations, BigInt(request.seed))); break;
         case "range": result = Array.from(wasm.range_category_histogram(
           new Uint8Array(request.cards), new Float64Array(request.weights), request.width)); break;
         case "cfr": result = Array.from(wasm.cfr_plus_matrix(

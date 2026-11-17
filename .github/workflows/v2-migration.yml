@@ -39,6 +39,8 @@ jobs:
         run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: WASM versus JavaScript parity tests
         run: node --test tests/v2-wasm-parity.test.mjs
+      - name: Weighted river equity parity against legacy evaluator
+        run: node --test tests/v2-wasm-range-equity.test.mjs
       - name: Comparative JavaScript versus optimized WASM benchmark
         run: node --test tests/v2-wasm-benchmark.test.mjs
       - name: Install frontend dependencies
