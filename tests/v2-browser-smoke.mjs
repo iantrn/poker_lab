@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, statSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../frontend/node_modules/playwright-core/index.mjs";
@@ -73,6 +73,34 @@ async function run() {
     }));
     console.log("Browser UI ready:", JSON.stringify(uiSnapshot));
     assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
+
+    // Contract uses the untouched V1 HTML fixture, NOT the React component
+    // implementation. This fails if a migrated page loses a functional ID,
+    // data-* hook, nav link or input expected by typed imperatively bound code.
+    const originalShell=readFileSync(path.resolve(root,"..","frontend","src","ui","legacy-shell.html"),"utf8");
+    const count=(values)=>values.reduce((acc,value)=>(acc.set(value,(acc.get(value)||0)+1),acc),new Map());
+    const originalIds=count([...originalShell.matchAll(/\sid="([^"]+)"/g)].map(match=>match[1]));
+    const originalHooks=count([...originalShell.matchAll(/\s(data-[\w-]+)="([^"]+)"/g)]
+      .map(match=>match[1]+"="+match[2]));
+    const originalNavigation=count([...originalShell.matchAll(/href="#([^"]+)"/g)].map(match=>match[1]));
+    const mounted=await page.evaluate(()=>{
+      const all=[...document.querySelectorAll("#app *")];
+      return {
+        ids:all.filter(el=>el.id).map(el=>el.id),
+        hooks:all.flatMap(el=>[...el.attributes].filter(attr=>attr.name.startsWith("data-"))
+          .map(attr=>attr.name+"="+attr.value)),
+        navigation:all.filter(el=>el.hasAttribute("href")&&el.getAttribute("href")?.startsWith("#"))
+          .map(el=>el.getAttribute("href").slice(1))
+      };
+    });
+    for(const [label,expected,actual] of [
+      ["id",originalIds,count(mounted.ids)],
+      ["data hook",originalHooks,count(mounted.hooks)],
+      ["nav anchor",originalNavigation,count(mounted.navigation)]
+    ])for(const [key,value] of expected) {
+      assert.equal(actual.get(key),value,"React shell changed V1 "+label+": "+key);
+    }
+
     assert.equal(await page.locator("[data-page]").count() > 5, true);
     assert.equal(await page.locator("#home").isVisible(), true);
     // Home is now React-owned. Duplicate legacy markup or missing card
