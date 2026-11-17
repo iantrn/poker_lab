@@ -4,7 +4,7 @@
    ========================================================= */
 "use strict";
 
-import type { PrecomputeApi } from "../solver/precompute";
+import type { PrecomputeApi, PrecomputeSnapshot } from "../solver/precompute";
 
 interface SolverPlayer {
   id: unknown;
@@ -67,6 +67,7 @@ export function installPostflopSolverUI(): void {
     let observer: MutationObserver | null = null;
     let busy = false;
     let activeStateKey: string | null = null;
+    let pendingRerun = false;
 
     function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
         const node = document.createElement(tag);
@@ -226,6 +227,33 @@ export function installPostflopSolverUI(): void {
         container.append(heading, summary, frequencies, detailsButton, details);
     }
 
+    function renderProgress(panel:HTMLElement,snapshot:PrecomputeSnapshot):void {
+        const percentage=Math.max(0,Math.min(100,Math.floor((snapshot.progress??0)*100)));
+        const phase=snapshot.phase==="equity"?"Équité Monte-Carlo":
+            snapshot.stage==="strategy_training"?"Entraînement CFR+":
+            snapshot.stage==="strategy_evaluation"?"Évaluation indépendante":
+            snapshot.stage==="strategy_diagnostics"?"Diagnostic stratégique":
+            "Analyse stratégique";
+        const heading=element("p","pl-solve-summary",phase+" · "+percentage+" %");
+        heading.setAttribute("role","status");
+        const children:HTMLElement[]=[heading];
+        if(snapshot.previewActions?.length){
+            children.push(element("p","pl-solve-detail-note",
+                "Fréquences provisoires — stratégie échantillonnée non convergée."));
+            const frequencies=element("div","pl-solve-frequencies");
+            for(const action of snapshot.previewActions){
+                const row=element("div","pl-solve-frequency-row");
+                row.append(element("span","pl-solve-frequency-action",action.action),
+                    element("strong","pl-solve-frequency-value",
+                        (action.frequency*100).toLocaleString("fr-FR",
+                            {maximumFractionDigits:1})+" %"));
+                frequencies.append(row);
+            }
+            children.push(frequencies);
+        }
+        panel.replaceChildren(...children);
+    }
+
     async function run(button: HTMLButtonElement, panel: HTMLElement): Promise<void> {
         if (busy || !global.PokerLabSolverPrecompute) return;
         busy = true;
@@ -237,10 +265,14 @@ export function installPostflopSolverUI(): void {
         const initialKey = stateKey(initialState);
         activeStateKey = initialKey;
         const unsubscribe = global.PokerLabSolverPrecompute!.subscribe(snapshot => {
-            if (!button.isConnected || !panel.isConnected || !dialogIsOpen(panel) || snapshot.key !== initialKey) return;
-            if (snapshot.phase === "equity") panel.textContent = "Calcul de l'équité Monte-Carlo…";
-            else if (snapshot.phase === "strategy") panel.textContent = "Calcul stratégique CFR+…";
-            else if (snapshot.phase === "complete") panel.textContent = "Analyse terminée.";
+            if (!button.isConnected || !panel.isConnected || !dialogIsOpen(panel) ||
+                snapshot.key !== initialKey || activeStateKey !== initialKey ||
+                stateKey(global.PokerLabTraining!.getGameState()) !== initialKey) return;
+            if(snapshot.phase==="equity"||snapshot.phase==="strategy"){
+                renderProgress(panel,snapshot);
+            }else if(snapshot.phase==="complete"){
+                panel.textContent="Analyse terminée.";
+            }
         });
         try {
             const result = await global.PokerLabSolverPrecompute!.getOrStart();
@@ -266,6 +298,16 @@ export function installPostflopSolverUI(): void {
                 button.disabled = false;
                 button.textContent = "Analyser";
             }
+            // When a bot action changes the public state while a dialog is
+            // open, don't ask the user to close/reopen it. The previous Worker
+            // has been terminated by precompute.onStateChange(). Re-solve
+            // automatically for the latest eligible snapshot.
+            const nextState=global.PokerLabTraining!.getGameState();
+            const shouldRestart=pendingRerun&&button.isConnected &&
+                dialogIsOpen(panel)&&eligible(nextState)&&
+                stateKey(nextState)!==initialKey;
+            pendingRerun=false;
+            if(shouldRestart)void run(button,panel);
         }
     }
 
@@ -287,6 +329,7 @@ export function installPostflopSolverUI(): void {
         const oldPanel = actions.querySelector<HTMLElement>("[data-postflop-result]");
 
         if (!eligible(state)) {
+            pendingRerun=false;
             if (oldDialog?.open) oldDialog.close();
             if (oldButton) oldButton.remove();
             if (oldDialog) oldDialog.remove();
@@ -300,8 +343,12 @@ export function installPostflopSolverUI(): void {
                     oldPanel.replaceChildren(element(
                         "p",
                         "text-sm text-textMuted",
-                        "La situation a changé. Ferme cette fenêtre puis clique sur « Analyser » pour étudier la nouvelle situation."
+                        "Situation actualisée. Recalcul de la stratégie en cours…"
                     ));
+                }
+                if(oldDialog?.open&&oldPanel){
+                    if(busy)pendingRerun=true;
+                    else void run(oldButton,oldPanel);
                 }
             }
             return;
