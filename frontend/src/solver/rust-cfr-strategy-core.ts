@@ -23,6 +23,8 @@ export interface RustCfrSession {
   step_prepared_outcome_batch?(handle:number,infos:Uint32Array,
     outcomes:Int8Array,chanceWeights:Float64Array):number;
   average_strategy():Float64Array | number[];
+  /** Optional compact root read; full export remains available for diagnostics. */
+  strategy_for_info_set?(id:number):Float64Array | number[];
   iterations():number;
   information_set_count():number;
 }
@@ -299,7 +301,22 @@ export function createRustCfrStrategyCore(
       batchStep(samples,maps,averageWeightStart);
     },
     getStrategy(...args:Parameters<CFRCoreApi["getStrategy"]>){
-      sync(args[2]);return original.getStrategy(...args);
+      const [node,deal,maps,callbacks]=args;
+      const session=sessions.get(maps);
+      if(session?.engine.strategy_for_info_set&&!node.terminal){
+        const key=callbacks.informationKey(node,deal);
+        const entry=session.registry.byKey.get(key);
+        if(entry&&entry.actions===node.actions.length){
+          const values=Array.from(session.engine.strategy_for_info_set(entry.id));
+          if(values.length!==entry.actions||
+             values.some(value=>!Number.isFinite(value)||value<0||value>1))
+            throw new Error("Le noyau Rust a renvoyé une fréquence CFR+ invalide.");
+          // Reproduce the public CFRCoreApi without materializing every other
+          // information set into JS. Full sync is deferred until EV/NashConv.
+          return Float64Array.from(values);
+        }
+      }
+      sync(maps);return original.getStrategy(...args);
     },
     averageStrategy(...args:Parameters<CFRCoreApi["averageStrategy"]>){
       sync(args[2]);return original.averageStrategy(...args);
