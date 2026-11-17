@@ -51,6 +51,7 @@ interface StrategyGlobal {
     compareScores(a:number[],b:number[]):number;
   };
   PokerLabCFRCore:CFRCoreApi;
+  PokerLabShowdownCompare?: (hero:SolverCard[],villain:SolverCard[],board:SolverCard[])=>number;
 }
 export function createRandom(seed:number):()=>number {
   let state=seed|0;
@@ -69,16 +70,23 @@ const boardId=(cards:SolverCard[]):string=>cards.map(cardId).sort().join(",");
 const toCFR=(node:AbstractTreeNode):CFRNode=>node as unknown as CFRNode;
 const toAbstract=(node:CFRNode):AbstractTreeNode=>node as unknown as AbstractTreeNode;
 
+function compareSampledShowdown(hero:SolverCard[],villain:SolverCard[],
+  board:SolverCard[],global:StrategyGlobal):number {
+  // One packed Rust call in the Worker, with an exact TypeScript fallback.
+  if(global.PokerLabShowdownCompare)
+    return global.PokerLabShowdownCompare(hero,villain,board);
+  return global.PokerLabHandEvaluator.compareScores(
+    global.PokerLabHandEvaluator.evaluate([...hero,...board]).score,
+    global.PokerLabHandEvaluator.evaluate([...villain,...board]).score
+  );
+}
 function utility(node:AbstractTreeNode,deal:ChanceDeal,hero:SolverCard[],board:SolverCard[],global:StrategyGlobal):number {
   if(node.terminal && node.type==="fold"){
     return node.winner===0 ? node.pot-node.heroInvested:-node.heroInvested;
   }
   const result=Number.isInteger(deal.showdownResult)
     ? deal.showdownResult!
-    : global.PokerLabHandEvaluator.compareScores(
-      global.PokerLabHandEvaluator.evaluate([...(deal.hero||hero),...(deal.finalBoard||board)]).score,
-      global.PokerLabHandEvaluator.evaluate([...deal.villain,...(deal.finalBoard||board)]).score
-    );
+    : compareSampledShowdown(deal.hero||hero,deal.villain,deal.finalBoard||board,global);
   const payout=result>0?node.pot:result===0?node.pot/2:0;
   return payout-(node.terminal?node.heroInvested:0);
 }
@@ -400,9 +408,8 @@ export function createStrategy(global:StrategyGlobal){
             sampledActualHeroHand += sampled.actualHeroSamples;
             heroImportanceWeightSum += deal.heroImportanceWeight;
             heroImportanceWeightSquares += deal.heroImportanceWeight * deal.heroImportanceWeight;
-            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
-                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            deal.showdownResult = compareSampledShowdown(
+                deal.hero,deal.villain,deal.finalBoard,global
             );
             const built = buildForRunout(deal.runout);
             if (built.tree.terminal || !built.tree.actions.length) {
@@ -445,9 +452,8 @@ export function createStrategy(global:StrategyGlobal){
         for (let sampleIndex = 0; sampleIndex < requestedEvaluationSamples; sampleIndex++) {
             const sampled = evaluationSampler(1);
             const deal = sampled.deals[0]!;
-            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
-                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            deal.showdownResult = compareSampledShowdown(
+                hero.holeCards,deal.villain,deal.finalBoard,global
             );
             const built = buildForRunout(deal.runout);
             if (rootActionSignature(built.tree) !== expectedRootSignature) {
@@ -502,9 +508,8 @@ export function createStrategy(global:StrategyGlobal){
         for (let sampleIndex = 0; sampleIndex < requestedExploitabilitySamples; sampleIndex++) {
             const sampled = exploitabilitySampler(1);
             const deal = sampled.deals[0]!;
-            deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
-                global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
-                global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
+            deal.showdownResult = compareSampledShowdown(
+                deal.hero,deal.villain,deal.finalBoard,global
             );
             const built = buildForRunout(deal.runout);
             if (rootActionSignature(built.tree) !== expectedRootSignature) {
