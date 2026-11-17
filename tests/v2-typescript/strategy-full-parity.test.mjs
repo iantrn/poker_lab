@@ -348,3 +348,38 @@ test("diagnostic numeric info-set index matches full HU solver on flop, turn and
  }
  console.log("Full CFR+ numeric index diagnostic: "+JSON.stringify(samples));
 });
+
+
+test("CFR+ reports bounded provisional policies and monotonic phase progress without changing final strategy",async()=>{
+ const snapshots=[];
+ const opts={iterations:10,samples:8,seed:20261117,
+   evaluationSamples:16,exploitabilitySamples:8};
+ const baseline=makeTyped();
+ const original=simplify(await baseline.solvePostflop(state(),[],opts));
+ const traced=makeRustTyped();
+ const result=simplify(await traced.solvePostflop(state(),[],{
+   ...opts,onProgress:snapshot=>snapshots.push(snapshot)
+ }));
+ assertNumericallyEquivalent(result,original,"progress-final");
+ assert.ok(snapshots.length>=4,"expected staged progress snapshots");
+ assert.ok(snapshots.length<=32,"progress must remain bounded on mobile");
+ assert.ok(snapshots.some(s=>s.phase==="training"));
+ assert.ok(snapshots.some(s=>s.phase==="evaluation"));
+ assert.ok(snapshots.some(s=>s.phase==="diagnostics"));
+ for(let i=0;i<snapshots.length;i++){
+   const snapshot=snapshots[i];
+   assert.equal(snapshot.provisional,true);
+   assert.ok(snapshot.progress>=0&&snapshot.progress<=1);
+   if(i>0)assert.ok(snapshot.progress>=snapshots[i-1].progress);
+   if(snapshot.actions){
+     assert.equal(snapshot.phase,"training");
+     assert.equal(snapshot.actions.length,original.actions.length);
+     const sum=snapshot.actions.reduce((s,a)=>s+a.frequency,0);
+     assert.ok(Math.abs(sum-1)<1e-9);
+     for(const item of snapshot.actions){
+       assert.ok(item.frequency>=0&&item.frequency<=1);
+     }
+   }
+ }
+ assert.equal(snapshots.at(-1).phase,"diagnostics");
+});
