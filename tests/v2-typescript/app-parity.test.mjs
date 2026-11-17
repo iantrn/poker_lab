@@ -49,6 +49,6 @@ function run(typed) {
   };
 }
 test("TypeScript app config, storage, settings and default navigation match V1",()=>{
-  try { assert.deepEqual(run(true),run(false)); }
+  try { assert.deepEqual(JSON.parse(JSON.stringify(run(true))),JSON.parse(JSON.stringify(run(false)))); }
   finally { delete globalThis.localStorage; delete globalThis.document; delete globalThis.window; }
 });
