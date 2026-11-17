@@ -55,9 +55,9 @@ jobs:
           cd engine
           wasm-pack build --release --target web --out-dir pkg
           wasm-pack build --release --target nodejs --out-dir pkg-node
-      - name: Baseline Node V1, ranges, and other tests
-        run: node --test tests/*.test.js tests/*.test.mjs tests/ranges/*.test.mjs
-      - name: Baseline TypeScript V1 parity tests
+      - name: V2 PWA and range contracts
+        run: node --test tests/v2-source-contract.test.mjs tests/pwa-assets.test.mjs tests/ranges/*.test.mjs
+      - name: Independent TypeScript V2 tests
         run: node --experimental-strip-types --test tests/v2-typescript/*.test.mjs
       - name: Baseline npm ci and Vite build
         run: |
