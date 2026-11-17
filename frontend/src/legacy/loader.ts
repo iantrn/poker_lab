@@ -24,64 +24,56 @@ import { installEvaluator } from "../core/evaluator";
 import { installCards } from "../components/cards";
 import { installTable } from "../components/table";
 
-// Keep exactly the script order from index.html in the validated V1 snapshot.
-const SCRIPTS = [
-  "js/core/deck.js", "js/core/poker-rules.js", "js/core/evaluator.js", "js/core/game-engine.js",
-  "js/bots/bot-profiles.js", "js/bots/bot-engine.js",
-  "js/components/cards.js", "js/components/table.js", "js/components/navigation.js",
-  "js/components/range-matrix.js", "js/modules/ranges-data.js", "js/modules/ranges-viewer.js",
-  "js/modules/training.js", "js/modules/postflop-solver.js", "js/modules/cfr-core.js",
-  "js/modules/postflop-strategy.js", "js/modules/solver-precompute.js",
-  "js/modules/postflop-solver-ui.js", "js/modules/puzzles.js", "js/modules/lessons.js",
-  "js/modules/game-review.js", "js/app.js"
+/** V2 uses only compiled TypeScript modules on its main thread.
+ *
+ * Each entry documents a V1 script and its already-parity-tested V2 installer.
+ * Entries intentionally match the original script execution order, but none
+ * of the V1 scripts is fetched, evaluated or injected into the application.
+ * The legacy JS assets remain available exclusively as rollback/Worker oracles.
+ */
+const MIGRATED_BOOTSTRAP = [
+  ["js/core/deck.js", installDeck],
+  ["js/core/poker-rules.js", installPokerRules],
+  ["js/core/evaluator.js", installEvaluator],
+  ["js/core/game-engine.js", installGameEngine],
+  ["js/bots/bot-profiles.js", installBotProfiles],
+  ["js/bots/bot-engine.js", installBotEngine],
+  ["js/components/cards.js", installCards],
+  ["js/components/table.js", installTable],
+  ["js/components/navigation.js", installNavigation],
+  ["js/components/range-matrix.js", installRangeAdapter],
+  ["js/modules/ranges-data.js", installRangesData],
+  ["js/modules/ranges-viewer.js", installRangesViewer],
+  ["js/modules/training.js", installTraining],
+  ["js/modules/postflop-solver.js", installPostflopSolver],
+  ["js/modules/cfr-core.js", installCfrCore],
+  ["js/modules/postflop-strategy.js", installStrategy],
+  ["js/modules/solver-precompute.js", installSolverPrecompute],
+  ["js/modules/postflop-solver-ui.js", installPostflopSolverUI],
+  ["js/modules/puzzles.js", installPuzzles],
+  ["js/modules/lessons.js", installLessons],
+  ["js/modules/game-review.js", installGameReview],
+  ["js/app.js", installApp],
 ] as const;
 
 let loading: Promise<void> | null = null;
-function loadClassicScript(path: string): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = new URL(path, document.baseURI).href;
-    script.async = false;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Impossible de charger ${path}`));
-    document.body.append(script);
-  });
-}
+/** Stable bridge name for the React entrypoint; no legacy scripts are loaded. */
 export function loadLegacy(): Promise<void> {
   if (loading) return loading;
-  loading = (async () => {
-    for (const file of SCRIPTS) {
-      // Preserve the original module load position with the typed implementation.
-      if (file === "js/app.js") { installApp(); continue; }
-      if (file === "js/core/deck.js") { installDeck(); continue; }
-      if (file === "js/core/poker-rules.js") { installPokerRules(); continue; }
-      if (file === "js/core/evaluator.js") { installEvaluator(); continue; }
-      if (file === "js/core/game-engine.js") { installGameEngine(); continue; }
-      if (file === "js/components/cards.js") { installCards(); continue; }
-      if (file === "js/components/table.js") { installTable(); continue; }
-      if (file === "js/bots/bot-profiles.js") { installBotProfiles(); continue; }
-      if (file === "js/bots/bot-engine.js") { installBotEngine(); continue; }
-      if (file === "js/components/navigation.js") { installNavigation(); continue; }
-      if (file === "js/modules/ranges-data.js") { installRangesData(); continue; }
-      if (file === "js/components/range-matrix.js") { installRangeAdapter(); continue; }
-      if (file === "js/modules/ranges-viewer.js") { installRangesViewer(); continue; }
-      if (file === "js/modules/lessons.js") { installLessons(); continue; }
-      if (file === "js/modules/puzzles.js") { installPuzzles(); continue; }
-      if (file === "js/modules/game-review.js") { installGameReview(); continue; }
-      if (file === "js/modules/training.js") { installTraining(); continue; }
-      if (file === "js/modules/postflop-solver.js") { installPostflopSolver(); continue; }
-      if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
-      if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
-      if (file === "js/modules/postflop-strategy.js") { installStrategy(); continue; }
-      if (file === "js/modules/postflop-solver-ui.js") { installPostflopSolverUI(); continue; }
-      await loadClassicScript(file);
-
-    }
+  loading = Promise.resolve().then(() => {
+    for (const [, install] of MIGRATED_BOOTSTRAP) install();
     installStorageMirror();
-    (window as Window & { PokerLabV2?: { solver: SolverScheduler; createTypedPostflopWorker: typeof createTypedPostflopWorker } }).PokerLabV2 = {
+    (window as Window & { PokerLabV2?: {
+      solver: SolverScheduler;
+      createTypedPostflopWorker: typeof createTypedPostflopWorker;
+    } }).PokerLabV2 = {
       solver: new SolverScheduler(),
       createTypedPostflopWorker
     };
-  })();
+  }).catch((error: unknown) => {
+    // An initialization failure must be visible and retryable after recovery.
+    loading = null;
+    throw error;
+  });
   return loading;
 }
