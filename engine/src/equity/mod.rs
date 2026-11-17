@@ -36,6 +36,14 @@ pub fn monte_carlo(holes: &[u8], board: &[u8], iterations: u32, seed: u64) -> Re
     let mut rng = XorShift64::new(seed);
     let mut outcomes = [0u64; 3];
     let mut draw = deck.clone();
+    // Reuse fixed 7-card hands to avoid two allocations per simulation.
+    let mut first = [0u8; 7];
+    let mut second = [0u8; 7];
+    first[..2].copy_from_slice(&holes[..2]);
+    second[..2].copy_from_slice(&holes[2..]);
+    let board_end = 2 + board.len();
+    first[2..board_end].copy_from_slice(board);
+    second[2..board_end].copy_from_slice(board);
     let sample_count = if missing == 0 { 1 } else { iterations };
     for _ in 0..sample_count {
         draw.copy_from_slice(&deck);
@@ -43,14 +51,8 @@ pub fn monte_carlo(holes: &[u8], board: &[u8], iterations: u32, seed: u64) -> Re
             let choice = index + rng.below(draw.len() - index);
             draw.swap(index, choice);
         }
-        let mut first = Vec::with_capacity(7);
-        first.extend_from_slice(&holes[..2]);
-        first.extend_from_slice(board);
-        first.extend_from_slice(&draw[..missing]);
-        let mut second = Vec::with_capacity(7);
-        second.extend_from_slice(&holes[2..]);
-        second.extend_from_slice(board);
-        second.extend_from_slice(&draw[..missing]);
+        first[board_end..].copy_from_slice(&draw[..missing]);
+        second[board_end..].copy_from_slice(&draw[..missing]);
         let score_a = evaluator::score(&first)?;
         let score_b = evaluator::score(&second)?;
         match evaluator::compare(&score_a, &score_b) {
@@ -71,4 +73,17 @@ mod tests {
         let result = monte_carlo(&[0x12,0x13,0x22,0x23], &board, 100, 11).unwrap();
         assert_eq!(result,vec![0.,1.,0.]);
     }
+    #[test]
+    fn each_board_length_produces_valid_equity() {
+        let holes = [0x0e, 0x0d, 0x1e, 0x1d];
+        let board = [0x02, 0x13, 0x24, 0x35, 0x06];
+        for count in 0..=5 {
+            for seed in [1, 17, 381, 1024] {
+                let result = monte_carlo(&holes, &board[..count], 64, seed).unwrap();
+                assert!(result.iter().all(|value| value.is_finite() && (0.0..=1.0).contains(value)));
+                assert!((result.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+            }
+        }
+    }
+
 }
