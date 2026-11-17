@@ -43,6 +43,8 @@ jobs:
         run: node --test tests/v2-wasm-range-equity.test.mjs
       - name: WASM extensive-form CFR+ tests
         run: node --test tests/v2-wasm-tree.test.mjs
+      - name: State-persistent weighted CFR+ session parity
+        run: node --test tests/v2-wasm-session.test.mjs
       - name: Comparative JavaScript versus optimized WASM benchmark
         run: node --test tests/v2-wasm-benchmark.test.mjs
       - name: Install frontend dependencies
