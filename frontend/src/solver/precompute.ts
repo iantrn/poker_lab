@@ -223,10 +223,10 @@ export function installSolverPrecompute(): PrecomputeApi {
         try{preference=localStorage.getItem("pokerlab_v2_cfr_backend");}
         catch{preference=null;}
       }
-      const strategyBackend=type==="strategy" && (
+      const strategyBackend=type==="strategy" ? (
         preference==="typescript"?{experimentalRustCfr:false}:
         preference==="rust"?{experimentalRustCfr:true}:{}
-      );
+      ) : {};
       task.worker!.postMessage({
         id:task.requestId,task:type,input:task.input,
         ...strategyBackend
