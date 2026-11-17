@@ -79,15 +79,14 @@ function weightedSample(items:HandCombo[],random:PokerRandom):SolverCard[] {
   return weightedSampleEntry(items,random).cards;
 }
 
-export function sampleDeals(
+export function createDealSampler(
   actualHero:SolverCard[],
   board:SolverCard[],
   opponentRange:HandCombo[]|null,
-  sampleCount:number,
   rangeUsedHint=true,
   random:PokerRandom=Math.random,
   heroRange:HandCombo[]|null=null
-):ChanceSample {
+): (sampleCount:number)=>ChanceSample {
   const boardBlocked=new Set(board.map(cardId));
   const opponentBaseCandidates=validCombos(opponentRange,boardBlocked);
   let useOpponentRange=opponentBaseCandidates.length>0;
@@ -128,61 +127,80 @@ export function sampleDeals(
     proposalProbability:item.proposalProbability,
     opponentMass:item.opponentMass
   }));
-  const deals:ChanceDeal[]=[];
+  // Preserve the range proposal and the bounded opponent cache for the whole solve.
+  // The RNG is still consumed exactly once per weighted choice and per shuffle step.
   const suits=["clubs","diamonds","hearts","spades"];
-  let actualHeroSamples=0,opponentRangeSamples=0;
   const villainCache=new Map<string,HandCombo[]>();
   const MAX_CACHED_HERO_HANDS=32;
-  for(let i=0;i<sampleCount;i++){
-    const selectedHero=weightedSampleEntry(proposal,random);
-    const hero=selectedHero.cards;
-    const selectedKey=handId(hero);
-    const isActualHero=selectedKey===actualHeroKey;
-    if(isActualHero)actualHeroSamples++;
-    const heroProposalImportance=selectedHero.proposalProbability>0
-      ? selectedHero.priorProbability/selectedHero.proposalProbability : 1;
-    const blocked=new Set([...hero,...board].map(cardId));
-    let villainCandidates=villainCache.get(selectedKey);
-    if(!villainCandidates){
-      villainCandidates=useOpponentRange
-        ? validCombos(opponentRange,blocked)
-        : buildUniformRange([...hero,...board]);
-      villainCache.set(selectedKey,villainCandidates);
-      if(villainCache.size>MAX_CACHED_HERO_HANDS) {
-        villainCache.delete(villainCache.keys().next().value!);
+  return (sampleCount:number):ChanceSample=>{
+    const deals:ChanceDeal[]=[];
+    let actualHeroSamples=0,opponentRangeSamples=0;
+    for(let i=0;i<sampleCount;i++){
+      const selectedHero=weightedSampleEntry(proposal,random);
+      const hero=selectedHero.cards;
+      const selectedKey=handId(hero);
+      const isActualHero=selectedKey===actualHeroKey;
+      if(isActualHero)actualHeroSamples++;
+      const heroProposalImportance=selectedHero.proposalProbability>0
+        ? selectedHero.priorProbability/selectedHero.proposalProbability : 1;
+      const blocked=new Set([...hero,...board].map(cardId));
+      let villainCandidates=villainCache.get(selectedKey);
+      if(!villainCandidates){
+        villainCandidates=useOpponentRange
+          ? validCombos(opponentRange,blocked)
+          : buildUniformRange([...hero,...board]);
+        villainCache.set(selectedKey,villainCandidates);
+        if(villainCache.size>MAX_CACHED_HERO_HANDS) {
+          villainCache.delete(villainCache.keys().next().value!);
+        }
       }
+      if(!villainCandidates.length){
+        throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
+      }
+      const opponentConditionalMass=useOpponentRange
+        ? selectedHero.opponentMass
+        : villainCandidates.reduce((sum,item)=>sum+Number(item.weight),0);
+      const heroImportanceWeight=heroProposalImportance*Number(opponentConditionalMass);
+      const villain=weightedSample(villainCandidates,random);
+      if(useOpponentRange && rangeUsedHint)opponentRangeSamples++;
+      const excluded=new Set([...hero,...board,...villain].map(cardId));
+      const deck:SolverCard[]=[];
+      for(const suit of suits)for(let value=2;value<=14;value++){
+        const card={value,suit};
+        if(!excluded.has(cardId(card)))deck.push(card);
+      }
+      for(let index=deck.length-1;index>0;index--){
+        const swap=Math.floor(random()*(index+1));
+        [deck[index],deck[swap]]=[deck[swap]!,deck[index]!];
+      }
+      const runout=deck.slice(0,5-board.length);
+      deals.push({
+        hero,villain,runout,finalBoard:[...board,...runout],
+        heroImportanceWeight,isActualHero
+      });
     }
-    if(!villainCandidates.length){
-      throw new Error("Aucune combinaison adverse disponible pour le calcul CFR.");
-    }
-    const opponentConditionalMass=useOpponentRange
-      ? selectedHero.opponentMass
-      : villainCandidates.reduce((sum,item)=>sum+Number(item.weight),0);
-    const heroImportanceWeight=heroProposalImportance*Number(opponentConditionalMass);
-    const villain=weightedSample(villainCandidates,random);
-    if(useOpponentRange && rangeUsedHint)opponentRangeSamples++;
-    const excluded=new Set([...hero,...board,...villain].map(cardId));
-    const deck:SolverCard[]=[];
-    for(const suit of suits)for(let value=2;value<=14;value++){
-      const card={value,suit};
-      if(!excluded.has(cardId(card)))deck.push(card);
-    }
-    for(let index=deck.length-1;index>0;index--){
-      const swap=Math.floor(random()*(index+1));
-      [deck[index],deck[swap]]=[deck[swap]!,deck[index]!];
-    }
-    const runout=deck.slice(0,5-board.length);
-    deals.push({
-      hero,villain,runout,finalBoard:[...board,...runout],
-      heroImportanceWeight,isActualHero
-    });
-  }
-  return {
-    deals,rangeUsed:opponentRangeSamples===sampleCount && rangeUsedHint,
-    heroRangeUsed:Array.isArray(heroRange)&&heroRange.length>0&&Boolean(actualHeroEntry),
-    actualHeroInRange:Boolean(actualHeroEntry),actualHeroSamples
+    return {
+      deals,rangeUsed:opponentRangeSamples===sampleCount && rangeUsedHint,
+      heroRangeUsed:Array.isArray(heroRange)&&heroRange.length>0&&Boolean(actualHeroEntry),
+      actualHeroInRange:Boolean(actualHeroEntry),actualHeroSamples
+    };
   };
 }
+/** Stateless compatibility entry point; the strategic solver uses the prepared
+ * sampler to avoid repeated O(hero-range × villain-range) blocker filtering.
+ */
+export function sampleDeals(
+  actualHero:SolverCard[],
+  board:SolverCard[],
+  opponentRange:HandCombo[]|null,
+  sampleCount:number,
+  rangeUsedHint=true,
+  random:PokerRandom=Math.random,
+  heroRange:HandCombo[]|null=null
+):ChanceSample {
+  return createDealSampler(actualHero,board,opponentRange,rangeUsedHint,random,heroRange)(sampleCount);
+}
+
 /** Compatibly replace only public sampling; internal V1 chance traversals
  * remain V1 until the full solvePostflop orchestration is ported.
  */
