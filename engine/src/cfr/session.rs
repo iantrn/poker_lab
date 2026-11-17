@@ -15,7 +15,7 @@ const MAX_BATCH_ELEMENTS:usize=174_762; // 174762 * (4+8) bytes < 2 MiB
 
 #[derive(Clone,Copy)]
 struct Node {actor:i8,info:usize,start:usize,len:usize,payoff:f64}
-struct PreparedTopology {nodes:Vec<Node>,edges:Vec<u32>}
+struct PreparedTopology {nodes:Vec<Node>,edges:Vec<u32>,payouts:Option<Vec<[f64;3]>>}
 struct Info {actor:i8,len:usize,regret:[f64;MAX_ACTIONS],sum:[f64;MAX_ACTIONS]}
 impl Info {
     fn new(actor:i8,len:usize)->Self{
@@ -81,6 +81,38 @@ fn traverse(
     expected
 }
 
+/// Preflight all info-set allocations for a batch without mutating the
+/// session. IDs must be contiguous in first-encounter DFS order.
+fn validate_prepared_batch_infos(
+    infos:&[Info],nodes:&[Node],ids:&[u32],batch:usize
+)->Result<Vec<(i8,usize)>,&'static str>{
+    let n=nodes.len();
+    let known=infos.len();
+    let mut created:Vec<(i8,usize)>=Vec::new();
+    for sample in 0..batch {
+        let offset=sample*n;
+        for (index,node) in nodes.iter().enumerate(){
+            if node.actor<0 {continue;}
+            let id=ids[offset+index] as usize;
+            let expected=(node.actor,node.len);
+            if id<known {
+                let info=&infos[id];
+                if (info.actor,info.len)!=expected {
+                    return Err("Inconsistent persistent information set");
+                }
+            }else {
+                let next=id-known;
+                if next>created.len(){return Err("CFR+ information set IDs contain gaps");}
+                if next==created.len(){created.push(expected);}
+                else if created[next]!=expected {
+                    return Err("Inconsistent new information set");
+                }
+            }
+        }
+    }
+    Ok(created)
+}
+
 /// A persistent regret table trained with one sampled decision tree per step.
 /// The caller must maintain globally stable information-set IDs and action
 /// signatures between steps. The current V1 solver owns these semantics.
@@ -135,6 +167,22 @@ impl CfrSession {
         self.step_prepared_batch_internal(handle,ids,payoffs,chance_weights)
             .map_err(JsValue::from_str)
     }
+    /// Compile immutable fold and showdown payouts in the Rust topology.
+    /// Kind: 0=decision, 1=fold (hero wins), 2=fold (hero loses),
+    /// 3=showdown. Payouts are player-0 net chips, not pot shares.
+    pub fn prepare_payoffs(
+        &mut self,handle:u32,kinds:&[u8],pots:&[f64],invested:&[f64]
+    )->Result<(),JsValue>{
+        self.prepare_payoffs_internal(handle,kinds,pots,invested)
+            .map_err(JsValue::from_str)
+    }
+    /// Send only sampled private info IDs, showdown results and weights.
+    pub fn step_prepared_outcome_batch(
+        &mut self,handle:u32,ids:&[u32],outcomes:&[i8],weights:&[f64]
+    )->Result<u32,JsValue>{
+        self.step_prepared_outcome_batch_internal(handle,ids,outcomes,weights)
+            .map_err(JsValue::from_str)
+    }
     pub fn average_strategy(&self)->Vec<f64>{
         let mut result=Vec::new();
         for info in &self.infos {
@@ -150,6 +198,81 @@ impl CfrSession {
 }
 impl Default for CfrSession {fn default()->Self{Self::new()}}
 impl CfrSession {
+    pub(crate) fn prepare_payoffs_internal(
+        &mut self,handle:u32,kinds:&[u8],pots:&[f64],invested:&[f64]
+    )->Result<(),&'static str>{
+        let topology=self.prepared.get_mut(handle as usize)
+            .ok_or("Unknown prepared CFR+ topology")?;
+        let n=topology.nodes.len();
+        if kinds.len()!=n||pots.len()!=n||invested.len()!=n||
+            pots.iter().any(|v|!v.is_finite())||
+            invested.iter().any(|v|!v.is_finite()){
+            return Err("Invalid prepared CFR+ payouts");
+        }
+        let mut model=Vec::with_capacity(n);
+        for (index,node) in topology.nodes.iter().enumerate(){
+            let pot=pots[index];
+            let hero_invested=invested[index];
+            let value=if node.actor>=0 {
+                if kinds[index]!=0{return Err("Payoff kind on decision node");}
+                [0.;3]
+            } else {
+                match kinds[index] {
+                    1 => [pot-hero_invested;3],
+                    2 => [-hero_invested;3],
+                    3 => [pot-hero_invested,pot/2.-hero_invested,-hero_invested],
+                    _ => return Err("Invalid prepared CFR+ terminal type")
+                }
+            };
+            if value.iter().any(|v|!v.is_finite()){
+                return Err("Non-finite prepared CFR+ utility");
+            }
+            model.push(value);
+        }
+        // Transactional: retain the previous valid model on malformed input.
+        topology.payouts=Some(model);
+        Ok(())
+    }
+
+    pub(crate) fn step_prepared_outcome_batch_internal(
+        &mut self,handle:u32,ids:&[u32],outcomes:&[i8],weights:&[f64]
+    )->Result<u32,&'static str>{
+        let topology=self.prepared.get(handle as usize)
+            .ok_or("Unknown prepared CFR+ topology")?;
+        if topology.payouts.is_none(){return Err("Unprepared CFR+ terminal payouts");}
+        let n=topology.nodes.len();
+        let batch=weights.len();
+        let elements=n.checked_mul(batch)
+            .ok_or("Oversized CFR+ sample batch")?;
+        if batch==0||batch>MAX_PREPARED_BATCH||elements>MAX_BATCH_ELEMENTS||
+            ids.len()!=elements||outcomes.len()!=batch||
+            (self.steps as usize).checked_add(batch).map_or(true,|x|x>1_000_000)||
+            outcomes.iter().any(|v|*v!=1&&*v!=0&&*v!=-1)||
+            weights.iter().any(|v|!v.is_finite()||*v<0.){
+            return Err("Invalid prepared CFR+ outcome batch");
+        }
+        let new_infos=validate_prepared_batch_infos(&self.infos,&topology.nodes,ids,batch)?;
+        for (actor,len) in new_infos {self.infos.push(Info::new(actor,len));}
+        let topology=self.prepared.get_mut(handle as usize).unwrap();
+        let payouts=topology.payouts.as_ref().unwrap();
+        for sample in 0..batch {
+            let offset=sample*n;
+            let outcome_index=match outcomes[sample]{1=>0,0=>1,_=>2};
+            for (index,node) in topology.nodes.iter_mut().enumerate(){
+                node.info=ids[offset+index] as usize;
+                node.payoff=payouts[index][outcome_index];
+            }
+            let average_weight=self.steps as f64+1.;
+            for traverser in 0..2 {
+                let mut reach=[1.,1.];
+                traverse(&topology.nodes,&topology.edges,&mut self.infos,0,traverser,
+                    &mut reach,average_weight,weights[sample]);
+            }
+            self.steps+=1;
+        }
+        Ok(self.steps)
+    }
+
     pub(crate) fn prepare_tree_internal(
         &mut self,actors:&[i8],offsets:&[u32],counts:&[u8],edges:&[u32]
     )->Result<u32,&'static str>{
@@ -180,7 +303,7 @@ impl CfrSession {
         let mut marks=vec![0;n];
         check(&nodes,edges,0,0,&mut marks)?;
         let handle=self.prepared.len() as u32;
-        self.prepared.push(PreparedTopology{nodes,edges:edges.to_vec()});
+        self.prepared.push(PreparedTopology{nodes,edges:edges.to_vec(),payouts:None});
         self.prepared_nodes+=n;
         Ok(handle)
     }
@@ -251,31 +374,7 @@ impl CfrSession {
         // Preflight the global, sequential info-set allocation across ALL
         // samples, not just each sample in isolation. A rejected batch must
         // leave regrets, average strategies and iteration counters unchanged.
-        let known=self.infos.len();
-        let mut new_infos:Vec<(i8,usize)>=Vec::new();
-        for sample in 0..batch {
-            let start=sample*n;
-            for (index,node) in topology.nodes.iter().enumerate(){
-                if node.actor<0 {continue;}
-                let id=ids[start+index] as usize;
-                let expected=(node.actor,node.len);
-                if id<known {
-                    let info=&self.infos[id];
-                    if (info.actor,info.len)!=expected {
-                        return Err("Inconsistent persistent information set");
-                    }
-                } else {
-                    let next=id-known;
-                    if next>new_infos.len(){
-                        return Err("CFR+ information set IDs contain gaps");
-                    }
-                    if next==new_infos.len(){new_infos.push(expected);}
-                    else if new_infos[next]!=expected {
-                        return Err("Inconsistent new information set");
-                    }
-                }
-            }
-        }
+        let new_infos=validate_prepared_batch_infos(&self.infos,&topology.nodes,ids,batch)?;
         // Only after successful validation may we allocate information sets
         // and traverse. Their zeroed initial state is independent of whether
         // later samples have already reserved their IDs.
@@ -529,6 +628,66 @@ mod tests {
         let ids=[0,1,1,0,0,0,0, 2,3,3,0,0,0,0];
         session.step_prepared_batch_internal(handle,&ids,&payoffs,&[1.,1.]).unwrap();
         assert_eq!(session.iterations(),3);
+    }
+
+
+    #[test]
+    fn compiled_terminal_payoffs_equal_explicit_batch_for_all_outcomes(){
+        let mut compact=CfrSession::new();
+        let mut explicit=CfrSession::new();
+        let actors=[0,1,1,-1,-1,-1,-1];
+        let offsets=[0,2,4,6,6,6,6];
+        let counts=[2,2,2,0,0,0,0];
+        let edges=[1,2,3,4,5,6];
+        let kinds=[0,0,0,3,3,1,2];
+        let pots=[0.,0.,0.,10.,20.,30.,40.];
+        let invested=[0.,0.,0.,3.,5.,7.,9.];
+        let hc=compact.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        let he=explicit.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        compact.prepare_payoffs_internal(hc,&kinds,&pots,&invested).unwrap();
+        for start in (0..120).step_by(8) {
+            let mut ids=Vec::new();
+            let mut payoffs=Vec::new();
+            let mut outcomes=Vec::new();
+            let mut weights=Vec::new();
+            for i in start..start+8 {
+                let group=(i%3) as u32;
+                ids.extend_from_slice(&[2*group,2*group+1,2*group+1,0,0,0,0]);
+                let result=if i%3==0 {1}else if i%3==1 {0}else{-1};
+                let win=|pot:f64,invest:f64|if result>0 {pot-invest}
+                    else if result==0 {pot/2.-invest}else{-invest};
+                payoffs.extend_from_slice(&[0.,0.,0.,win(10.,3.),win(20.,5.),23.,-9.]);
+                outcomes.push(result);
+                weights.push(if i%4==0 {3.}else{1.25});
+            }
+            compact.step_prepared_outcome_batch_internal(hc,&ids,&outcomes,&weights).unwrap();
+            explicit.step_prepared_batch_internal(he,&ids,&payoffs,&weights).unwrap();
+        }
+        assert_eq!(compact.average_strategy(),explicit.average_strategy());
+        assert_eq!(compact.information_set_count(),explicit.information_set_count());
+    }
+    #[test]
+    fn invalid_payout_metadata_and_outcomes_leave_session_unchanged(){
+        let mut session=CfrSession::new();
+        let actors=[0,1,1,-1,-1,-1,-1];
+        let offsets=[0,2,4,6,6,6,6];
+        let counts=[2,2,2,0,0,0,0];
+        let edges=[1,2,3,4,5,6];
+        let h=session.prepare_tree_internal(&actors,&offsets,&counts,&edges).unwrap();
+        let kinds=[0,0,0,3,3,1,2];
+        let pots=[0.,0.,0.,10.,20.,30.,40.];
+        let invested=[0.,0.,0.,3.,5.,7.,9.];
+        assert!(session.step_prepared_outcome_batch_internal(h,&[0,1,1,0,0,0,0],&[1],&[1.]).is_err());
+        assert!(session.prepare_payoffs_internal(h,&[0,0,0,0,3,1,2],&pots,&invested).is_err());
+        session.prepare_payoffs_internal(h,&kinds,&pots,&invested).unwrap();
+        let info=[0,1,1,0,0,0,0];
+        session.step_prepared_outcome_batch_internal(h,&info,&[1],&[1.]).unwrap();
+        let before=session.average_strategy();
+        assert!(session.step_prepared_outcome_batch_internal(h,&info,&[2],&[1.]).is_err());
+        assert!(session.step_prepared_outcome_batch_internal(h,&info,&[1],&[-1.]).is_err());
+        assert!(session.step_prepared_outcome_batch_internal(h,&[0,3,3,0,0,0,0],&[1],&[1.]).is_err());
+        assert_eq!(session.iterations(),1);
+        assert_eq!(session.average_strategy(),before);
     }
 
     #[test]
