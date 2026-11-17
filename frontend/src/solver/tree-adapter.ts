@@ -13,6 +13,18 @@ export interface FlattenedCfrTree {
   /** Information set IDs are assigned on first occurrence in DFS order. */
   informationSets: Array<{id: number; key: string; actions: number}>;
 }
+export interface CfrInformationSet {
+  id: number;
+  actions: number;
+  signature: string;
+}
+export interface CfrInformationRegistry {
+  /** Stable across all sampled runouts, ordered by first appearance. */
+  byKey: Map<string,CfrInformationSet>;
+}
+export function createCfrInformationRegistry(): CfrInformationRegistry {
+  return {byKey:new Map<string,CfrInformationSet>()};
+}
 const MAX_ACTIONS = 5;
 const MAX_NODES = 250_000;
 
@@ -22,7 +34,8 @@ const MAX_NODES = 250_000;
 export function flattenCfrTree(
   root: AbstractTreeNode,
   callbacks: CfrTreeCallbacks,
-  iterations: number
+  iterations: number,
+  registry?: CfrInformationRegistry
 ): FlattenedCfrTree {
   if (!Number.isSafeInteger(iterations) || iterations < 1 || iterations > 1_000_000) {
     throw new RangeError("Budget CFR+ invalide.");
@@ -33,7 +46,8 @@ export function flattenCfrTree(
   const childCounts: number[] = [];
   const children: number[] = [];
   const terminalUtilities: number[] = [];
-  const keys = new Map<string,{id:number; signature:string; actions:number}>();
+  const keys = registry?.byKey ?? new Map<string,CfrInformationSet>();
+  const newlyCreated: string[] = [];
   const active = new Set<AbstractTreeNode>();
 
   function visit(node: AbstractTreeNode, depth: number): number {
@@ -73,6 +87,7 @@ export function flattenCfrTree(
       if (!entry) {
         entry = {id:keys.size,signature,actions:node.actions.length};
         keys.set(key,entry);
+        newlyCreated.push(key);
       }
       actors.push(node.actor);
       informationSetIds.push(entry.id);
@@ -92,7 +107,14 @@ export function flattenCfrTree(
   if (root.terminal) {
     throw new RangeError("Un arbre CFR+ sans décision ne peut pas être entraîné.");
   }
-  visit(root,0);
+  try {
+    visit(root,0);
+  } catch (error: unknown) {
+    // Serialization is transactional: malformed samples must not leave
+    // orphaned IDs in the next runout's persistent information registry.
+    for (const key of newlyCreated) keys.delete(key);
+    throw error;
+  }
   return {
     request: {
       kind:"cfrTree", actors, informationSets:informationSetIds,
