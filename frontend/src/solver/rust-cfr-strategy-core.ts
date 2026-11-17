@@ -113,6 +113,10 @@ export function createRustCfrStrategyCore(
   ):PreparedRustTree {
     return serialize(root as unknown as AbstractTreeNode,{
       informationKey:node=>callbacks.informationKey(node as unknown as CFRNode,deal),
+      informationPrefix:callbacks.informationPrefix
+        ?node=>callbacks.informationPrefix!(node as unknown as CFRNode,deal):undefined,
+      informationSuffix:callbacks.informationSuffix
+        ?node=>callbacks.informationSuffix!(node as unknown as CFRNode,deal):undefined,
       terminalUtility:node=>compiledPayouts?0:
         callbacks.utility(node as unknown as CFRNode,deal)
     },session.registry);
