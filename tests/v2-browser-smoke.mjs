@@ -75,8 +75,13 @@ async function run() {
     assert.equal(uiSnapshot.sections, 6, "The React shell must render six page sections");
     assert.equal(await page.locator("[data-page]").count() > 5, true);
     assert.equal(await page.locator("#home").isVisible(), true);
+    // Home is now React-owned. Duplicate legacy markup or missing card
+    // navigation would invalidate the incremental component migration.
+    assert.equal(await page.locator("#home > .mb-8").count(), 1);
+    assert.equal(await page.locator("#home a[data-page]").count(), 5);
+    assert.equal(await page.locator("#home h2").textContent(), "Deviens meilleur au poker.");
 
-    await page.locator('a[data-page="training"]').first().click();
+    await page.locator('#home a[data-page="training"]').click();
     assert.equal(await page.locator("#training").isVisible(), true);
     assert.equal(await page.locator("#training-mode").inputValue(), "6max");
 
