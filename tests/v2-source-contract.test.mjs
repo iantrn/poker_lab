@@ -126,3 +126,13 @@ test("Phase 4 moves only gameplay controls out of the mobile table", () => {
   assert.match(css, /grid-template-areas:/);
   assert.doesNotMatch(css, /\.pl-card(?:\b|--|__)/, "The new UI layer cannot change card rendering");
 });
+
+test("Mobile bet sizing announces selected presets without changing amount constraints", () => {
+  const session = read("frontend/src/training/session.ts");
+  const style = read("frontend/src/styles/design-system.css");
+  assert.match(session, /syncAmount\(preset\.value, button\)/);
+  assert.match(session, /button\.setAttribute\("aria-pressed", "false"\)/);
+  assert.match(session, /button\.setAttribute\("aria-pressed", String\(button === selectedPreset\)\)/);
+  assert.match(session, /const bounded = Math\.min\(maximum, Math\.max\(minimum, parsed\)\)/);
+  assert.match(style, /\.pl-bet-preset\[aria-pressed="true"\]/);
+});

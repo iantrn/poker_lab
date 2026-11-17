@@ -252,6 +252,16 @@ async function run() {
     assert.equal(mobileGame.success, true, JSON.stringify(mobileGame.errors ?? []));
     await page.waitForFunction(() => Boolean(document.querySelector(
       '#training-game > #training-actions.pl-action-panel')), null, { timeout: 30000 });
+    await page.waitForFunction(() => Boolean(document.querySelector(
+      '#training-actions .pl-action-buttons button')), null, { timeout: 30000 });
+    const firstLegalPreset = page.locator('#training-actions .pl-bet-preset:not(:disabled)').first();
+    if (await firstLegalPreset.count()) {
+      await firstLegalPreset.click();
+      assert.equal(await firstLegalPreset.getAttribute("aria-pressed"), "true",
+        "Selected legal sizing should be indicated without submitting the bet");
+      assert.ok(Number(await page.locator("#training-actions .pl-bet-number").inputValue()) > 0,
+        "Preset must synchronize the original numeric amount");
+    }
     const verifyPhoneActions = async (width) => {
       await page.setViewportSize({ width, height: 844 });
       await page.waitForFunction(() =>

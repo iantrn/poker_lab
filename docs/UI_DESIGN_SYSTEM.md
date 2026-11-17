@@ -90,3 +90,5 @@ Screenshots are a review aid, not proof of physical-device Safari performance or
 - The table's mobile vertical reservation is reduced from 800px to a 600–700px clamp now that controls are outside it. Existing poker card dimensions, suit graphics, classes, animations, felt appearance and seat placement are untouched.
 - The SOLVE dialog remains native and outside the table's clipping region on phones.
 - Added Chromium/WebKit smoke assertions at 390px and 320px, plus active-session viewport change 390 -> 1024 -> 390, and screenshot captures at phone widths.
+
+- Bet sizing preset buttons expose `aria-pressed` and a gold selected border, which is cleared on manual/slider adjustments. Existing numeric normalization, legal minimum and actual bet submission remain unchanged.

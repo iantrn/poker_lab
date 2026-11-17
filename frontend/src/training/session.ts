@@ -1008,18 +1008,24 @@ function renderGame(state: GameState | null = null): void {
             return Number(Math.min(maximum, Math.max(minimum, rounded)).toFixed(1));
         };
 
-        const syncAmount = (value: unknown): void => {
+        const presets = createElement("div", "pl-bet-presets");
+        presets.setAttribute("aria-label", "Tailles de mise prédéfinies");
+        presets.style.gridColumn = "1 / -1";
+
+        // Selected sizing is only a presentation state; no change to
+        // numeric validation or bet submission. Manual/slider input clears it.
+        const syncAmount = (value: unknown, selectedPreset: HTMLButtonElement | null = null): void => {
             const normalized = normalizeAmount(value);
             if (normalized === null) return;
 
             amountInput.value = String(normalized);
             slider.value = String(normalized);
             amountValue.textContent = `${formatChips(normalized)} BB`;
+            presets.querySelectorAll<HTMLButtonElement>("button").forEach(button => {
+                button.setAttribute("aria-pressed", String(button === selectedPreset));
+            });
         };
 
-        const presets = createElement("div", "pl-bet-presets");
-        presets.setAttribute("aria-label", "Tailles de mise prédéfinies");
-        presets.style.gridColumn = "1 / -1";
         const presetDefinitions: Array<{label:string;value:number}> = [];
 
         if (isPreflopOpenRaise) {
@@ -1073,6 +1079,7 @@ function renderGame(state: GameState | null = null): void {
             );
 
             button.type = "button";
+            button.setAttribute("aria-pressed", "false");
 
             // Une taille prédéfinie inférieure au minimum légal ne doit pas
             // être sélectionnable (notamment les petits sizings postflop).
@@ -1085,7 +1092,7 @@ function renderGame(state: GameState | null = null): void {
                 button.title = `${actionType === "bet" ? "Mise" : "Relance"} minimale : ${formatChips(minimum)}`;
             } else {
                 button.addEventListener("click", () => {
-                    syncAmount(preset.value);
+                    syncAmount(preset.value, button);
                 });
             }
 

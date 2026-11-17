@@ -901,3 +901,15 @@
     font-size: .76rem !important;
   }
 }
+
+/* Selected sizing presets: one gold outlined control, no additional hue.
+ * The existing legal-minimum disabling and bet arithmetic are unchanged. */
+#app #training-actions .pl-bet-preset[aria-pressed="true"] {
+  border-color: var(--pl-color-selection) !important;
+  box-shadow: inset 0 0 0 1px var(--pl-color-selection);
+  color: var(--pl-color-text) !important;
+}
+#app #training-actions .pl-bet-preset:focus-visible {
+  outline: 2px solid var(--pl-color-selection) !important;
+  outline-offset: 2px !important;
+}
