@@ -1,9 +1,11 @@
-name: V2 Rust/TypeScript migration validation
+name: PokerLab V2 - React/TypeScript/Rust validation
 on:
   push:
-    branches: [feat/v2-ts-rust-migration]
+    branches: [main, feat/v2-ts-rust-migration]
   pull_request:
     paths:
+      - 'README.md'
+      - 'data/**'
       - 'frontend/**'
       - 'engine/**'
       - 'shared/**'
@@ -11,7 +13,7 @@ on:
       - '.github/workflows/v2-migration.yml'
 permissions:
   contents: read
-# Validate the newest feature-branch commit rather than duplicating expensive jobs.
+# Validate the latest commit on main and migration branches without duplicating expensive jobs.
 concurrency:
   group: pokerlab-v2-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
