@@ -65,6 +65,8 @@ jobs:
           test -s dist/assets/icons/icon-192.png
       - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
         run: node tests/v2-browser-smoke.mjs
+      - name: IndexedDB V1 migration backfill and deletion (Chromium)
+        run: node tests/v2-browser-storage.mjs
       - name: Upload V2 preview bundle (no production deployment)
         uses: actions/upload-artifact@v4
         with:
