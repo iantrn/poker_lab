@@ -8,7 +8,7 @@
 import type {SolverCard} from "./input-contract.ts";
 import type {StrategicGameState} from "./strategic-state.ts";
 import {
-  buildMultiwayTree,multiwayTerminalPayoffs,scoreMultiwayDeal,
+  buildAdaptiveMultiwayTree,multiwayTerminalPayoffs,scoreMultiwayDeal,
   type MultiwayTree,type MultiwayNode,type MultiwayDecision,
   type MultiwayTerminal,type CompareScores
 } from "./multiway-tree.ts";
@@ -193,13 +193,18 @@ function sampler(
     }
   };
 }
-function infoKey(node:MultiwayDecision,deal:MultiwayDeal,board:string):string{
+function infoKey(node:MultiwayDecision,deal:MultiwayDeal):string{
   const hole=deal.holes[node.actor];
   if(!hole)throw new Error("Main privée multiway manquante.");
-  return node.actor+"|"+sortedHand(hole)+"|"+board+"|"+node.history;
+  if(deal.board.length!==5||node.boardLength<3||node.boardLength>5)
+    throw new Error("Board multi-street incomplet.");
+  // The flop information set is the SAME for all future turn/river runouts.
+  // A later street reveals its actual sampled card(s), never any more.
+  const visibleBoard=deal.board.slice(0,node.boardLength).map(id).join(",");
+  return node.actor+"|"+sortedHand(hole)+"|"+visibleBoard+"|"+node.history;
 }
 function flatten(
-  game:MultiwayTree,deal:MultiwayDeal,board:string,
+  game:MultiwayTree,deal:MultiwayDeal,
   scores:ReadonlyArray<readonly number[]|null>,compare:CompareScores,
   registry:Registry
 ):FlatTree{
@@ -218,7 +223,7 @@ function flatten(
       return index;
     }
     actors[index]=node.actor;
-    const key=infoKey(node,deal,board);
+    const key=infoKey(node,deal);
     const signature=node.actions.map(({action})=>
       action.type+":"+action.target+":"+action.label).join("|");
     const known=registry.get(key);
@@ -254,24 +259,24 @@ function flatten(
   };
 }
 function averageForNode(
-  node:MultiwayDecision,deal:MultiwayDeal,board:string,
+  node:MultiwayDecision,deal:MultiwayDeal,
   strategy:ReadonlyMap<string,readonly number[]>
 ):readonly number[]{
-  const value=strategy.get(infoKey(node,deal,board));
+  const value=strategy.get(infoKey(node,deal));
   if(value)return value;
   return Array.from({length:node.actions.length},()=>1/node.actions.length);
 }
 function evaluatePolicy(
-  node:MultiwayNode,deal:MultiwayDeal,board:string,hero:number,
+  node:MultiwayNode,deal:MultiwayDeal,hero:number,
   scores:ReadonlyArray<readonly number[]|null>,compare:CompareScores,
   strategy:ReadonlyMap<string,readonly number[]>
 ):number{
   if(node.terminal)return multiwayTerminalPayoffs(node,scores,compare)[hero]!;
-  const probabilities=averageForNode(node,deal,board,strategy);
+  const probabilities=averageForNode(node,deal,strategy);
   let expected=0;
   for(let i=0;i<node.actions.length;i++){
     expected+=probabilities[i]!*evaluatePolicy(
-      node.actions[i]!.child,deal,board,hero,scores,compare,strategy
+      node.actions[i]!.child,deal,hero,scores,compare,strategy
     );
   }
   return expected;
@@ -325,15 +330,16 @@ export async function solveMultiway(
 ){
   if(state.capability.solver!=="multiway-cfr-plus")
     throw new Error("La configuration n'est pas éligible au solveur multiway.");
-  const game=buildMultiwayTree(state);
   const hero=state.players.find(player=>player.isHuman)!;
   const requested=boundedInt(options.iterations,32,16,384)*
     boundedInt(options.samples,2,1,4);
+  // Topology is invariant to chance runouts, so build it only ONCE, with
+  // its horizon adapted to the Rust 65k information-set and 12k node limits.
+  const {tree:game,trainingSamples}=buildAdaptiveMultiwayTree(state,requested);
   const seed=Number.isSafeInteger(options.seed)?options.seed!>>>0:0x2357127;
   const training=await createSampler(state,environment,seed);
   const registry:Registry=new Map();
   const session=environment.newSession(state.players.length);
-  const board=state.board.map(id).join(",");
   let rootInfo=-1;
   let trainingWeightSum=0,trainingWeightSquares=0;
   const progress=(phase:"training"|"evaluation",amount:number,iterations:number,
@@ -342,10 +348,10 @@ export async function solveMultiway(
       options.onProgress({phase,progress:amount,iterations,provisional:true,
         ...(preview?{actions:preview}:{})});
   };
-  for(let iteration=0;iteration<requested;iteration++){
+  for(let iteration=0;iteration<trainingSamples;iteration++){
     const deal=training.deal();
     const scores=scoresFor(state,deal,environment);
-    const packed=flatten(game,deal,board,scores,environment.compareScores,registry);
+    const packed=flatten(game,deal,scores,environment.compareScores,registry);
     try{
       session.step(packed.actors,packed.ids,packed.offsets,packed.counts,
         packed.children,packed.payoffs,deal.importanceWeight);
@@ -354,12 +360,13 @@ export async function solveMultiway(
       trainingWeightSquares+=deal.importanceWeight*deal.importanceWeight;
     }catch(error){packed.rollback();throw error;}
     const completed=iteration+1;
-    if(completed%Math.max(8,Math.floor(requested/8))===0||completed===requested){
+    if(completed%Math.max(8,Math.floor(trainingSamples/8))===0||
+       completed===trainingSamples){
       const frequencies=Array.from(session.strategy_for_info_set(rootInfo));
       const preview=game.root.actions.map((entry,index)=>({
         action:entry.action.label,frequency:frequencies[index]!
       }));
-      progress("training",0.8*completed/requested,completed,preview);
+      progress("training",0.8*completed/trainingSamples,completed,preview);
       // Event-loop fairness allows Worker termination when a table action
       // invalidates the current public state.
       await new Promise<void>(resolve=>setTimeout(resolve,0));
@@ -383,14 +390,14 @@ export async function solveMultiway(
     const deal=evaluation.deal(),scores=scoresFor(state,deal,environment);
     let heroEV=0;
     game.root.actions.forEach((entry,index)=>{
-      const ev=evaluatePolicy(entry.child,deal,board,hero.seat,
+      const ev=evaluatePolicy(entry.child,deal,hero.seat,
         scores,environment.compareScores,policy);
       actionSamples[index]!.add(ev,deal.importanceWeight);
       heroEV+=rootPolicy[index]!*ev;
     });
     evSamples.add(heroEV,deal.importanceWeight);
     if((i+1)%8===0){
-      progress("evaluation",0.8+0.2*(i+1)/evaluationSamples,requested);
+      progress("evaluation",0.8+0.2*(i+1)/evaluationSamples,trainingSamples);
       await new Promise<void>(resolve=>setTimeout(resolve,0));
     }
   }
@@ -407,8 +414,10 @@ export async function solveMultiway(
     algorithm:"CFR+ multiway échantillonné",
     quality:"sampled_estimate" as const,provisional:false,
     street:state.street,iterations:session.iterations(),
-    sampledHeroHands:requested,sampledOpponentHands:requested,
-    sampledActualHeroHand:requested,
+    requestedIterations:requested,
+    modeledStreets:game.streetsModeled,
+    sampledHeroHands:trainingSamples,sampledOpponentHands:trainingSamples,
+    sampledActualHeroHand:trainingSamples,
     heroRangeEffectiveSampleSize:trainingWeightSquares>0?
       trainingWeightSum*trainingWeightSum/trainingWeightSquares:0,
     heroRangeLabel:"Main réelle du héros (range conditionnelle)",
@@ -416,6 +425,7 @@ export async function solveMultiway(
     evaluationSamples,
     evaluationEffectiveSampleSize:evSamples.effectiveSamples,
     treeNodes:game.nodes,
+    decisionNodes:game.decisionNodes,
     rangeLabel:training.labels.join(" · "),
     rangeConditioning:"Ranges adverses par siège, tirage successif sans collisions, corrigé par importance pour la distribution jointe conditionnelle.",
     rangeUsed:training.rangeUsed,
@@ -428,10 +438,19 @@ export async function solveMultiway(
     postflopActionsUsed:0,actions,
     abstraction:"MULTIWAY "+state.players.filter(p=>!p.folded).length+
       " joueurs actifs, "+state.players.length+
-      " sièges : une seule street stratégique, checkdown ensuite, 50 % pot"+
-      (state.players.length<=3?" / pot":"")+
-      ", une relance maximum, side pots et partage à égalité modélisés.",
-    convergence:"Aucune garantie de convergence GTO en 3+ joueurs. Estimation CFR+ sur sous-jeu abstrait avec tirage indépendant conditionnel approximatif des ranges."
+      " sièges : "+game.streetsModeled+" street(s) de mises modélisées ("+
+      ["flop","turn","river"].slice(
+        state.board.length-3,state.board.length-3+game.streetsModeled
+      ).join(" → ")+"), cartes futures révélées progressivement dans les information sets"+
+      (game.streetsModeled<6-state.board.length?
+        ", checkdown des streets suivantes après horizon mobile":"")+
+      ", 50 % pot"+
+      (state.players.length<=3?" / pot sur la street initiale":"")+
+      ", au plus une ouverture ou relance par street"+
+      (state.players.length>=5?
+        ", sur les futures streets seul le premier joueur peut ouvrir et personne ne peut relancer":"")+
+      ", side pots et partage à égalité modélisés.",
+    convergence:"CFR+ multiway approximatif sur arbre abstrait avec tirages de chances pondérés ; horizon et itérations ajustés au budget de mémoire mobile. Aucune garantie de convergence GTO en 3+ joueurs."
   };
 }
 export async function analyzeMultiwayEquity(
