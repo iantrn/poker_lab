@@ -13,6 +13,11 @@ pub fn evaluate_score(cards: &[u8]) -> Result<Vec<u8>, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn compare_showdown(cards: &[u8]) -> Result<i8, JsValue> {
+    evaluator::compare_showdown_nine(cards).map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
 pub fn equity_monte_carlo(holes: &[u8], board: &[u8], iterations: u32, seed: u64) -> Result<Vec<f64>, JsValue> {
     equity::monte_carlo(holes, board, iterations, seed).map_err(|error| JsValue::from_str(error))
 }
