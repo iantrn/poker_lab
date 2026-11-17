@@ -1,7 +1,11 @@
 # PokerLab V2 — application React / TypeScript / Rust-WASM
 
-**Branche :** `feat/v2-ts-rust-migration`. Le site V1 sur `main` demeure
-inchangé. Toute fusion et tout déploiement nécessitent une décision explicite.
+La V2 est l'implémentation React/TypeScript/Rust-WASM du dépôt. La branche
+`feat/v2-ts-rust-migration` a servi à sa migration et à sa validation.
+Le point d'entrée V1 `index.html` et les sources historiques restent
+conservés pour comparaison et repli ; la V2 est construite depuis
+`frontend/index.html` vers `dist/`. Une fusion Git n'est **pas**
+un déploiement automatique du bundle V2 sur GitHub Pages.
 
 ## Architecture
 
@@ -33,7 +37,7 @@ inchangé. Toute fusion et tout déploiement nécessitent une décision explicit
 ## Assets conservés après le nettoyage de branche
 
 Le référentiel garde les sources JavaScript V1 comme **oracle de tests et
-repli historique** (la branche `main` utilise encore le point d'entrée
+repli historique** (le point d'entrée `index.html` à la racine demeure
 classique). En revanche, le bundle V2 `dist/` n'embarque plus leur copie
 complète : seulement les **cinq modules** nécessaires aux deux Workers
 de secours et les scripts de ces Workers sont copiés. Les styles CSS
@@ -100,5 +104,5 @@ EV et NashConv ne certifient pas un équilibre GTO du Texas Hold'em complet.
 Les benchmarks varient avec le spot, le budget et le navigateur.
 Une campagne sur un **véritable iPhone/Safari**, avec mémoire limitée,
 mise à jour du Service Worker, conservation des données et manches longues,
-demeure nécessaire avant une validation de déploiement. Ne pas fusionner
-la branche dans `main` sans cette revue et l'accord explicite.
+demeure nécessaire avant de considérer **le déploiement public V2** comme
+validé sur iPhone. La fusion du code et sa mise en production sont distinctes.
