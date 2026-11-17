@@ -120,8 +120,8 @@ function createPostflopSolver(global: PostflopGlobals) {
     function handClass(rankA: number, rankB: number, suited: boolean): string {
         const high = Math.max(rankA, rankB);
         const low = Math.min(rankA, rankB);
-        if (high === low) return RANKS[high - 2] + RANKS[low - 2];
-        return RANKS[high - 2] + RANKS[low - 2] + (suited ? "s" : "o");
+        if (high === low) return RANKS[high - 2]! + RANKS[low - 2]!;
+        return RANKS[high - 2]! + RANKS[low - 2]! + (suited ? "s" : "o");
     }
 
     async function loadMatrix(): Promise<MatrixData> {
@@ -312,7 +312,7 @@ function createPostflopSolver(global: PostflopGlobals) {
         const combos: WeightedCombo[] = [];
         for (let first = 0; first < deck.length; first++) {
             for (let second = first + 1; second < deck.length; second++) {
-                combos.push({ cards: [deck[first], deck[second]], weight: 1 });
+                combos.push({ cards: [deck[first]!, deck[second]!], weight: 1 });
             }
         }
         return combos;
@@ -607,7 +607,7 @@ function createPostflopSolver(global: PostflopGlobals) {
         conditioned.rangeUsed = rangeUsed;
         conditioned.actualHandInRange = !player.isHuman ||
             conditioned.combos!.some(item => sameHand(item.cards, player.holeCards));
-        if (conditioned.postflopActionsUsed > 0 && conditioned.combos) {
+        if ((conditioned.postflopActionsUsed ?? 0) > 0 && conditioned.combos) {
             conditioned.label += " · ajustée postflop";
         }
         return conditioned;
@@ -651,17 +651,17 @@ function createPostflopSolver(global: PostflopGlobals) {
             let deckLength = 0;
             if (weightedRange) {
                 const villain = sampleOpponentHand(baseDeck, weightedRange);
-                villainCards[0] = villain[0];
-                villainCards[1] = villain[1];
+                villainCards[0] = villain[0]!;
+                villainCards[1] = villain[1]!;
                 const firstKey = cardKey(villainCards[0]);
                 const secondKey = cardKey(villainCards[1]);
                 for (let cardIndex = 0; cardIndex < baseDeck.length; cardIndex++) {
-                    const card = baseDeck[cardIndex];
+                    const card = baseDeck[cardIndex]!;
                     const key = cardKey(card);
                     if (key !== firstKey && key !== secondKey) simulationDeck[deckLength++] = card;
                 }
             } else {
-                for (let cardIndex = 0; cardIndex < baseDeck.length; cardIndex++) simulationDeck[cardIndex] = baseDeck[cardIndex];
+                for (let cardIndex = 0; cardIndex < baseDeck.length; cardIndex++) simulationDeck[cardIndex] = baseDeck[cardIndex]!;
                 deckLength = baseDeck.length;
                 shuffle(simulationDeck, deckLength);
                 villainCards[0] = simulationDeck[0]!;
