@@ -1,69 +1,71 @@
-# PokerLab V2 — migration checkpoint (17 November 2026)
+# PokerLab V2 — migration checkpoint · 17 novembre 2026
 
-> This document is a development checkpoint, not a release declaration.
-> Work only on `feat/v2-ts-rust-migration`. Never merge or deploy to `main` without explicit user approval.
+> **Branche de développement exclusivement :** `feat/v2-ts-rust-migration`.
+> **Ne pas fusionner ni déployer dans `main` sans validation explicite.**
+> Avancement global **estimatif ≈ 75 %** ; il ne s'agit ni d'un indicateur mesuré,
+> ni d'une validation de mise en production.
 
-## Architecture in the feature branch
+## Fonctionnalités déjà portées ou fonctionnelles
 
-- React + Vite + strict TypeScript application bootstrap and PWA service worker.
-- Rust/WASM primitives: 5/6/7-card evaluator, two-known-hand Monte Carlo equity,
-  weighted range histogram and CFR+ zero-sum matrix solver.
-- Worker-backed WASM, cancelable scheduler, IndexedDB/Dexie caching and an
-  optional mirror of V1 localStorage.
-- V1-compatible TypeScript replacements for deck, rules, evaluator, game engine,
-  bot profiles/engine, card renderer, poker table, navigation, 169-cell React
-  range matrix, range data/viewer, CFR+ primitives, reactive precompute, solver
-  modal UI, lessons, puzzles, game review, and application initialization.
+- Frontend React/Vite avec TypeScript strict, PWA offline-first et Dexie/IndexedDB.
+- Règles, deck, évaluateur, moteur de jeu, bots, profils, rendu des cartes et de
+  la table, navigation, visualiseur de ranges et matrice React.
+- Gestion de l'entraînement, sessions heads-up/6-max, choix des bots, commandes
+  de mise, historique, Leçons, Tactiques et Game Review en TypeScript.
+- Contrat de données du solveur versionné et protecteur des cartes adverses ;
+  création et normalisation des snapshots portées en TypeScript.
+- Rust/WASM avec Worker séparé : classement des mains 5–7 cartes, équité
+  Monte-Carlo à mains connues, histogramme de ranges et primitive CFR+ matricielle.
+- Équité postflop d'une main connue contre une **range adverse pondérée** :
+  filtrage des bloqueurs, poids normalisés, énumération exacte à la river,
+  échantillonnage reproductible au flop/à la turn ; adaptateur TypeScript
+  `createRangeEquityRequest` et méthode `SolverScheduler.calculateRangeEquity`.
+- Le **Worker réel du solveur** (`pokerlab-solver-worker-v2.js`) utilise
+  l'évaluateur Rust/WASM pour le hot-path Monte-Carlo/CFR+ avec fallback JS
+  explicite. **L'algorithme complet CFR+ postflop est toujours en JavaScript.**
 
-## Validation gates
+## Vérifications GitHub Actions
 
-The feature-branch workflow is `.github/workflows/v2-migration.yml`.
-Required stages: Rust tests, browser+Node wasm-pack builds, V1 baseline tests,
-TypeScript/V1 parity tests, JS/WASM score parity on 12,000 shuffled hands,
-production TS strict + Vite build, offline/PWA asset inspection, Chromium
-browser smoke including training session, lessons, puzzles, review, mobile
-navigation, WASM exports and offline reload.
+`.github/workflows/v2-migration.yml` doit être **vert sur le HEAD courant** :
 
-The evaluator throughput benchmark is deliberately non-gating and runner-specific.
-The measured 21.10x speedup (1200 seven-card samples, 179.31 ms JS versus
-8.50 ms Rust/WASM) describes the evaluator, **not** the end-to-end postflop solver.
+1. Tests Rust + compilation wasm-pack navigateur/Node.
+2. Suite JavaScript V1, parité des modules TypeScript et parité de 12 000 mains
+   évaluées entre JS et Rust.
+3. Parité d'équité pondérée : 120 boards de river, ranges comportant des
+   bloqueurs, résultats comparés à l'évaluateur V1.
+4. Compilation TypeScript stricte et bundle Vite.
+5. Tests Chromium : React, PWA hors ligne, range matrix, leçons, tactiques,
+   Game Review, entraînement 6-max et heads-up, Workers WASM, démarrage du
+   Worker postflop réel, et adaptateur TS des ranges.
+6. Archive de prévisualisation V2 uniquement ; **aucun déploiement de production**.
 
-## Incomplete migration — must finish before PR/merge
+**Benchmark déjà mesuré :** 1 200 évaluations de sept cartes, 179,31 ms en
+JS contre 8,50 ms en Rust/WASM, soit 21,1× sur cette charge et ce runner.
+**Ce n'est pas une mesure du temps de résolution CFR+ complet.**
 
-1. `js/modules/training.js` is still loaded at runtime: port session
-   orchestration, action rendering, bot turn scheduling and history saving to TS
-   with event and timing parity.
-2. `js/modules/postflop-solver.js` still implements the legacy postflop
-   analytical inputs/equity layer. Port to Rust/WASM with equivalent ranges,
-   blockers, outputs and seeded statistical comparison.
-3. `js/modules/postflop-strategy.js` still implements the complete postflop
-   game-tree/CFR+ range-vs-range solver in JavaScript. The existing Rust CFR+
-   function is only a matrix-game primitive, **not** an equivalent replacement.
-4. `pokerlab-solver-worker.js` still imports legacy JS evaluator, bot profiles,
-   postflop solver, CFR core and postflop strategy. Replace only after exhaustive
-   parity with new Rust/WASM code, maintaining cancelability and real-time UI.
-5. React currently mounts the preserved V1 HTML shell. Finish React/TSX
-   page/component migration while preserving tested DOM identifiers, behavior,
-   accessibility, responsive layout and offline functionality.
-6. IndexedDB mirrors V1 storage, which remains authoritative. Any change to
-   persistence authority requires migration/rollback tests and zero data loss.
-7. Complete end-to-end regression coverage (including iOS Safari installation,
-   update lifecycle, full heads-up and 6-max action flows, side pots, bot turns,
-   full postflop strategy outputs) and benchmark *whole-solver* workloads.
-8. Finish production review and request explicit approval before merging.
+## À faire pour la migration intégrale (ordre de priorité)
 
-## Development discipline
+1. Migrer `js/modules/postflop-solver.js` (récupération, conditionnement,
+   échantillonnage des ranges et recommandation) vers TypeScript/Rust. Son
+   contrat d'entrée est déjà typé, mais le corps métier reste en JS.
+2. Migrer l'arbre complet de `js/modules/postflop-strategy.js` et le CFR+
+   range-vs-range : infosets, regrets, stratégies moyennes, utilités,
+   meilleur-réponse/exploitabilité, échantillonnage et abstractions de mises.
+   **La primitive Rust CFR+ matricielle ne remplace pas le solveur existant.**
+3. Migrer le Worker postflop réel vers le pipeline Rust/WASM et supprimer la
+   dépendance runtime aux scripts classiques uniquement **après validation de
+   parité statistique et fonctionnelle**, conserver rollback pendant transition.
+4. Refaire les pages React en composants TSX (l'application affiche encore un
+   shell HTML V1). Préserver IDs, sélecteurs, événements et accessibilité.
+5. Consolider la persistance IndexedDB (miroir actuellement non autoritaire),
+   tests migration/rollback et Safari iOS.
+6. Couvrir les scénarios complets d'actions, pots annexes, historiques,
+   cartes privées et manches enchaînées ; benchmarker **le solveur complet**
+   sur flop, turn et river, avec contrôle de la convergence et de la variance.
 
-- `main` must remain unchanged.
-- Preserve original source files as parity oracles while transitioning.
-- Every converted module needs deterministic fixture comparison and browser smoke.
-- Do not claim Rust/WASM compiles or the migration is finished without a green
-  workflow **at the current HEAD**.
-- If a CI check fails, fix or revert the failing feature commit; never leave
-  a partial migration advertised as production-ready.
+## Reprise autonome
 
-## Resume point
-
-Check the latest feature-branch HEAD and GitHub Actions run before editing.
-Investigate the earliest failure, not just the final status; rerun the complete
-workflow after every correction.
+Lire le HEAD de branche et le dernier run Actions avant toute modification ;
+si le run courant échoue, corriger d'abord ce blocage. Commit atomique,
+tests/parité systématiques, ne jamais éditer `main` ni déclarer la migration
+finie avant la réécriture complète, validation navigateur/iOS et revue finale.
