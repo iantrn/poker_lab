@@ -132,7 +132,7 @@ impl CfrSession {
         // implementation allocated nodes, marks and pending IDs on *every*
         // iteration, even for identical public betting trees.
         self.nodes.clear();
-        self.nodes.reserve(n.saturating_sub(self.nodes.capacity()));
+        self.nodes.reserve(n);
         self.pending.clear();
         for i in 0..n {
             let actor=actors[i];
