@@ -84,6 +84,34 @@ function utility(node:AbstractTreeNode,deal:ChanceDeal,hero:SolverCard[],board:S
 }
 // The betting topology is independent of future card values. Cache each
 // sampled deal's public-board prefix identity for its information sets.
+// Private hands and betting-state suffixes are repeated at every node visited
+// for a sampled deal. Both are invariant over that deal's CFR traversals.
+const dealPrivateHandKeys=new WeakMap<ChanceDeal,readonly [string,string]>();
+function sampledHandIds(deal:ChanceDeal):readonly [string,string] {
+  let keys=dealPrivateHandKeys.get(deal);
+  if(!keys){
+    keys=[handId(deal.hero),handId(deal.villain)];
+    dealPrivateHandKeys.set(deal,keys);
+  }
+  return keys;
+}
+const informationSuffixes=new WeakMap<AbstractTreeNode,string>();
+function staticInformationSuffix(node:Extract<AbstractTreeNode,{terminal:false}>):string {
+  const cached=informationSuffixes.get(node);
+  if(cached!==undefined)return cached;
+  const publicState=[
+    roundChips(node.pot),
+    (node.stacks||[]).map(roundChips).join(","),
+    (node.bets||[]).map(roundChips).join(","),
+    (node.hasActed||[]).map(Boolean).join(","),
+    (node.lastActedBets||[]).map(roundChips).join(","),
+    roundChips(node.lastFullRaise),
+    node.raises||0,node.checks||0
+  ].join(":");
+  const suffix="|"+publicState+"|"+node.history;
+  informationSuffixes.set(node,suffix);
+  return suffix;
+}
 const dealPublicBoardKeys=new WeakMap<ChanceDeal,Map<number,string>>();
 function sampledBoardId(deal:ChanceDeal,length:number):string {
   let prefixes=dealPublicBoardKeys.get(deal);
@@ -99,20 +127,13 @@ function sampledBoardId(deal:ChanceDeal,length:number):string {
   return key;
 }
 function informationKey(node:AbstractTreeNode,deal:ChanceDeal|null,hero:SolverCard[],board:SolverCard[]):string {
-  const privateHand=node.terminal?"":node.actor===0
-    ? handId(deal?.hero||hero):handId(deal!.villain);
   if(node.terminal)return "";
-  const publicState=[
-    roundChips(node.pot),
-    (node.stacks||[]).map(roundChips).join(","),
-    (node.bets||[]).map(roundChips).join(","),
-    (node.hasActed||[]).map(Boolean).join(","),
-    (node.lastActedBets||[]).map(roundChips).join(","),
-    roundChips(node.lastFullRaise),
-    node.raises||0,node.checks||0
-  ].join(":");
-  return node.actor+"|"+privateHand+"|"+(deal ? sampledBoardId(deal,node.board.length) : boardId(node.board||board))+
-      "|"+publicState+"|"+node.history;
+  const privateHand=deal
+    ? sampledHandIds(deal)[node.actor===0?0:1]
+    : node.actor===0 ? handId(hero) : handId(deal!.villain);
+  return node.actor+"|"+privateHand+"|"+
+    (deal ? sampledBoardId(deal,node.board.length) : boardId(node.board||board))+
+    staticInformationSuffix(node);
 }
 function cfrCallbacks(hero:SolverCard[],board:SolverCard[],global:StrategyGlobal):CFRCallbacks {
   return {
