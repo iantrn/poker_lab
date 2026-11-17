@@ -102,8 +102,15 @@ test("fully typed chance-sampled postflop strategy reproduces V1 deterministic r
   const typed=makeTyped();
   const opts={iterations:10,samples:8,seed:20261117,
     evaluationSamples:16,exploitabilitySamples:8};
+  const legacyStarted=performance.now();
   const expected=simplify(await legacy.solvePostflop(state(),[],opts));
+  const legacyMs=performance.now()-legacyStarted;
+  const typedStarted=performance.now();
   const actual=simplify(await typed.solvePostflop(state(),[],opts));
+  const typedMs=performance.now()-typedStarted;
+  console.log("Full CFR+ river (80 chance samples, identical seeded fixture): JS V1 "+
+    legacyMs.toFixed(1)+"ms; typed V2 "+typedMs.toFixed(1)+"ms; "+
+    (legacyMs/Math.max(typedMs,0.001)).toFixed(2)+"x (CI runner, non-gating)");
   assert.equal(actual.iterations,80);
   assert.equal(actual.actions.length,expected.actions.length);
   assert.deepEqual(actual,expected);
