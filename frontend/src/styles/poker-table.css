@@ -854,6 +854,11 @@
   #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-avatar {
     left: -2px;
   }
+  /* Bottom opponents face the wider hero capsule; keep their avatar
+     inside the badge so it never covers the hero's name. */
+  #app #training-game #training-table .pl-table-six-max .pl-seat-lower:not(.pl-seat-hero) .pl-player-avatar {
+    left: -2px;
+  }
   #app #training-game #training-table .pl-table-six-max .pl-player-name {
     font-size: .61rem;
   }
