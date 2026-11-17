@@ -10,6 +10,7 @@ import { installGameReview } from "../training/game-review";
 import { installTraining } from "../training/session";
 import { installSolverPrecompute } from "../solver/precompute";
 import { installSolverInputContract } from "../solver/input-contract";
+import { installPostflopSolver } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
 import { installPostflopSolverUI } from "../ui/postflop-solver";
 import { installBotProfiles } from "../bots/profiles";
@@ -67,6 +68,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/modules/puzzles.js") { installPuzzles(); continue; }
       if (file === "js/modules/game-review.js") { installGameReview(); continue; }
       if (file === "js/modules/training.js") { installTraining(); continue; }
+      if (file === "js/modules/postflop-solver.js") { installPostflopSolver(); continue; }
       if (file === "js/modules/solver-precompute.js") { installSolverPrecompute(); continue; }
       if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
       if (file === "js/modules/postflop-solver-ui.js") { installPostflopSolverUI(); continue; }
