@@ -35,6 +35,8 @@ const appBase = new URL(import.meta.env.BASE_URL, scope.location.origin);
 scope.PokerLabMatrixBaseUrl = new URL("data/ranges/preflop/matrix/", appBase).href;
 
 let rustSessionFactory: (() => RustCfrSession) | null = null;
+// Circuit breaker: one failed automatic Rust solve must not retry every hand.
+let autoRustDisabled = false;
 let initialization: Promise<"wasm" | "legacy"> | null = null;
 async function init(): Promise<"wasm" | "legacy"> {
   if (initialization) return initialization;
@@ -116,7 +118,10 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
     try {
       const backend=await init();
       if(message.task==="backend") {
-        scope.postMessage({id:message.id,ok:true,result:{backend,implementation:"typescript"}});
+        scope.postMessage({id:message.id,ok:true,result:{
+          backend,implementation:"typescript",
+          cfrDefault:rustSessionFactory&&!autoRustDisabled?"rust":"typescript"
+        }});
         return;
       }
       scope.postMessage({id:message.id,progress:0,phase:message.task+"_started"});
@@ -129,18 +134,38 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
           [],message.options);
       } else if(message.task==="strategy") {
-        if (message.experimentalRustCfr) {
-          if (!rustSessionFactory) throw new Error("Session CFR+ Rust non disponible.");
-          const root = scope as unknown as Parameters<typeof createStrategy>[0];
-          const isolated = Object.assign(Object.create(root) as object, {
-            PokerLabCFRCore: createRustCfrStrategyCore(
-              (scope as unknown as {PokerLabCFRCore:ReturnType<typeof installCfrCore>}).PokerLabCFRCore,
-              rustSessionFactory
-            )
-          }) as Parameters<typeof createStrategy>[0];
-          result=await createStrategy(isolated).solvePostflop(message.input,[],message.options);
-        } else {
-          result=await globals.PokerLabPostflopStrategy.solvePostflop(message.input,[],message.options);
+        const wantsRust=message.experimentalRustCfr===true ||
+          (message.experimentalRustCfr===undefined &&
+           Boolean(rustSessionFactory) && !autoRustDisabled);
+        if(wantsRust && !rustSessionFactory)
+          throw new Error("Session CFR+ Rust non disponible.");
+        if(wantsRust){
+          try{
+            const root=scope as unknown as Parameters<typeof createStrategy>[0];
+            const isolated=Object.assign(Object.create(root) as object,{
+              PokerLabCFRCore:createRustCfrStrategyCore(
+                (scope as unknown as {
+                  PokerLabCFRCore:ReturnType<typeof installCfrCore>;
+                }).PokerLabCFRCore,
+                rustSessionFactory!
+              )
+            }) as Parameters<typeof createStrategy>[0];
+            result=await createStrategy(isolated).solvePostflop(message.input,[],message.options);
+          }catch(error:unknown){
+            // Explicit opt-in is a diagnostic tool: report the real failure.
+            // Automatic production mode must keep the poker table usable
+            // without trusting a partly completed sampled Rust session.
+            if(message.experimentalRustCfr===true)throw error;
+            autoRustDisabled=true;
+            console.warn("[PokerLab V2] Rust CFR+ auto fallback to TypeScript:",error);
+            result=await globals.PokerLabPostflopStrategy.solvePostflop(
+              message.input,[],message.options
+            );
+          }
+        }else{
+          result=await globals.PokerLabPostflopStrategy.solvePostflop(
+            message.input,[],message.options
+          );
         }
       } else throw new Error("Tâche de solveur inconnue.");
       scope.postMessage({id:message.id,progress:1,phase:message.task+"_completed"});
