@@ -90,6 +90,31 @@ async function run() {
     assert.equal(await first.getAttribute("aria-pressed"), "true");
     assert.equal((await page.locator(".pl-rv-detail").innerText()).includes("AA"), true);
 
+    // Exercise the migrated Lessons, Puzzles, and Game Review modules in Chromium.
+    await page.locator(".pl-lesson-open").first().waitFor({ timeout: 30000 });
+    await page.locator(".pl-lesson-open").first().click();
+    await page.locator("[data-lesson-content] .pl-lesson-title").waitFor({ timeout: 30000 });
+    const completedBefore = await page.evaluate(() => window.PokerLabLessons.getProgress().completed);
+    await page.locator("[data-lesson-content] .pl-lesson-complete").click();
+    const completedAfter = await page.evaluate(() => window.PokerLabLessons.getProgress().completed);
+    assert.equal(completedAfter, completedBefore + 1, "Completing a lesson must persist progress");
+
+    await page.locator('a[data-page="tactics"]').first().click();
+    assert.equal(await page.locator("#tactics").isVisible(), true);
+    await page.locator('[data-puzzle-action="start"]').click();
+    await page.locator("[data-puzzles-container] .pl-puzzle-title").waitFor({ timeout: 30000 });
+    assert.equal(await page.locator("[data-puzzle-stats]").isVisible(), true);
+
+    await page.locator('a[data-page="review"]').first().click();
+    assert.equal(await page.locator("#review").isVisible(), true);
+    await page.locator("[data-review-history] .pl-review-empty").waitFor({ timeout: 30000 });
+
+    // Responsive behavior: mobile navigation is usable at phone width.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('nav').last().locator('a[data-page="home"]').click();
+    assert.equal(await page.locator("#home").isVisible(), true);
+    await page.setViewportSize({ width: 1365, height: 768 });
+
     const score = await page.evaluate(async () => {
       const result = await window.PokerLabV2.solver.calculate({kind: "evaluate", cards:[14,13,12,11,10]});
       return result;
