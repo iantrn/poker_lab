@@ -9,6 +9,7 @@ import { installPuzzles } from "../training/puzzles";
 import { installGameReview } from "../training/game-review";
 import { installTraining } from "../training/session";
 import { installSolverPrecompute } from "../solver/precompute";
+import { installSolverInputContract } from "../solver/input-contract";
 import { installCfrCore } from "../solver/cfr-core";
 import { installPostflopSolverUI } from "../ui/postflop-solver";
 import { installBotProfiles } from "../bots/profiles";
@@ -70,6 +71,7 @@ export function loadLegacy(): Promise<void> {
       if (file === "js/modules/cfr-core.js") { installCfrCore(); continue; }
       if (file === "js/modules/postflop-solver-ui.js") { installPostflopSolverUI(); continue; }
       await loadClassicScript(file);
+      if (file === "js/modules/postflop-solver.js") installSolverInputContract();
     }
     installStorageMirror();
     (window as Window & { PokerLabV2?: { solver: SolverScheduler } }).PokerLabV2 = {
