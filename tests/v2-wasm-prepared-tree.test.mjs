@@ -266,3 +266,21 @@ test("compiled payout metadata rejects incompatible and invalid input transactio
   assert.equal(session.iterations(),1);
   assert.deepEqual(Array.from(session.average_strategy()),before);
 });
+
+
+test("constant-size Rust information-set policy reads match flattened averages",()=>{
+ const session=new CfrSession();
+ const h=session.prepare_tree(actors,offsets,counts,edges);
+ for(let i=0;i<100;i++){
+   session.step_prepared(h,ids[i%ids.length],
+     payoffs[(i*7)%payoffs.length],i%3===0?2.5:0.75);
+ }
+ const flattened=Array.from(session.average_strategy());
+ const before=session.iterations();
+ for(let id=0;id<session.information_set_count();id++){
+   assert.deepEqual(Array.from(session.strategy_for_info_set(id)),
+     flattened.slice(id*2,id*2+2));
+ }
+ assert.throws(()=>session.strategy_for_info_set(10000));
+ assert.equal(session.iterations(),before);
+});
