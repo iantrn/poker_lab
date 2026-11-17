@@ -12,7 +12,8 @@ const MAX_PLAYERS:usize=6;
 const MAX_ACTIONS:usize=4;
 const MAX_NODES:usize=25_000;
 const MAX_DEPTH:usize=96;
-const MAX_INFO_SETS:usize=1_000_000;
+// Roughly 6 MiB of Rust regret tables; keep mobile WASM memory bounded.
+const MAX_INFO_SETS:usize=65_536;
 const MAX_STEPS:u32=1_000_000;
 
 #[derive(Clone,Copy)]
