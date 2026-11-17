@@ -45,7 +45,8 @@ interface PayoutModel {
 
 export function createRustCfrStrategyCore(
   original:CFRCoreApi,
-  newSession:()=>RustCfrSession
+  newSession:()=>RustCfrSession,
+  options:{numericInformationIndex?:boolean}={}
 ):CFRCoreApi {
   const sessions=new WeakMap<CFRMaps,Session>();
   const serialize=createReusableRustTreeSerializer();
@@ -113,9 +114,9 @@ export function createRustCfrStrategyCore(
   ):PreparedRustTree {
     return serialize(root as unknown as AbstractTreeNode,{
       informationKey:node=>callbacks.informationKey(node as unknown as CFRNode,deal),
-      informationPrefix:callbacks.informationPrefix
+      informationPrefix:options.numericInformationIndex!==false&&callbacks.informationPrefix
         ?node=>callbacks.informationPrefix!(node as unknown as CFRNode,deal):undefined,
-      informationSuffix:callbacks.informationSuffix
+      informationSuffix:options.numericInformationIndex!==false&&callbacks.informationSuffix
         ?node=>callbacks.informationSuffix!(node as unknown as CFRNode,deal):undefined,
       terminalUtility:node=>compiledPayouts?0:
         callbacks.utility(node as unknown as CFRNode,deal)
