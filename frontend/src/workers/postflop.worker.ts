@@ -4,12 +4,15 @@
  */
 import { installEvaluator, type PokerLabHandEvaluatorApi } from "../core/evaluator";
 import { installBotProfiles } from "../bots/profiles";
-import { installPostflopSolver } from "../solver/postflop";
+import { installPostflopSolver, type PostflopSolverApi } from "../solver/postflop";
 import { installCfrCore } from "../solver/cfr-core";
 import { installStrategy, createStrategy, type StrategyProgress } from "../solver/strategy";
 import { createRustCfrStrategyCore, type RustCfrSession } from "../solver/rust-cfr-strategy-core";
-import type { SolverCard, SolverStateInput, SolverInputSnapshot } from "../solver/input-contract";
-import { createStrategicGameState } from "../solver/strategic-state";
+import {createSolverInput,resolveSolverInput,
+  type SolverCard, type SolverStateInput, type SolverInputSnapshot} from "../solver/input-contract";
+import { createStrategicGameState, type StrategicGameState } from "../solver/strategic-state";
+import {solveMultiway,analyzeMultiwayEquity,
+  type MultiwayCfrKernel,type MultiwayEnvironment} from "../solver/multiway";
 
 interface PostflopRequest {
   id: number;
@@ -23,6 +26,7 @@ interface WasmEvaluator {
   evaluate_score(cards: Uint8Array): Uint8Array;
   compare_showdown(cards: Uint8Array): number;
   CfrSession?: new () => RustCfrSession;
+  MultiwayCfrSession?: new (players:number) => MultiwayCfrKernel;
 }
 type PostflopScope = DedicatedWorkerGlobalScope & {
   window?: unknown;
@@ -36,6 +40,7 @@ const appBase = new URL(import.meta.env.BASE_URL, scope.location.origin);
 scope.PokerLabMatrixBaseUrl = new URL("data/ranges/preflop/matrix/", appBase).href;
 
 let rustSessionFactory: (() => RustCfrSession) | null = null;
+let multiwaySessionFactory: ((players:number) => MultiwayCfrKernel) | null = null;
 // Circuit breaker: one failed automatic Rust solve must not retry every hand.
 let autoRustDisabled = false;
 let initialization: Promise<"wasm" | "legacy"> | null = null;
@@ -55,6 +60,8 @@ async function init(): Promise<"wasm" | "legacy"> {
       const wasm = await import(/* @vite-ignore */ moduleUrl) as WasmEvaluator;
       await wasm.default(wasmUrl);
       if (typeof wasm.CfrSession === "function") rustSessionFactory = () => new wasm.CfrSession!();
+      if (typeof wasm.MultiwayCfrSession === "function")
+        multiwaySessionFactory = players => new wasm.MultiwayCfrSession!(players);
       const original = scope.PokerLabHandEvaluator!;
       const suits: Record<string,number> = { clubs:0, diamonds:1, hearts:2, spades:3 };
       scope.PokerLabHandEvaluator = {
@@ -112,6 +119,34 @@ async function init(): Promise<"wasm" | "legacy"> {
   })();
   return initialization;
 }
+function multiwayEnvironment(message:PostflopRequest):MultiwayEnvironment {
+  if(!multiwaySessionFactory)
+    throw new Error("Le noyau Rust/WASM multiway est indisponible hors ligne.");
+  // Sanitization is applied again before range lookups: bot hole cards are
+  // forbidden, even when supplied in a crafted versioned snapshot.
+  const resolved=resolveSolverInput(message.input);
+  const safe=createSolverInput(resolved.state as SolverStateInput,resolved.history);
+  const solver=(scope as unknown as {PokerLabPostflopSolver:PostflopSolverApi}).PokerLabPostflopSolver;
+  const evaluator=scope.PokerLabHandEvaluator!;
+  return {
+    newSession:players=>multiwaySessionFactory!(players),
+    async loadRange(playerId){
+      const opponent=safe.state.players.find(player=>player.id===playerId);
+      if(!opponent)throw new Error("Joueur adverse multiway introuvable.");
+      return solver.getOpponentRange(
+        safe.state as Parameters<PostflopSolverApi["getOpponentRange"]>[0],
+        safe.history as Parameters<PostflopSolverApi["getOpponentRange"]>[1],
+        opponent as Parameters<PostflopSolverApi["getOpponentRange"]>[2]
+      );
+    },
+    evaluate:cards=>evaluator.evaluate(cards).score,
+    compareScores:(a,b)=>evaluator.compareScores([...a],[...b])
+  };
+}
+function multiwayState(message:PostflopRequest):StrategicGameState {
+  const input=message.input as SolverStateInput|SolverInputSnapshot;
+  return createStrategicGameState(input,{stateVersion:Math.max(1,message.id)});
+}
 scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
   const message=event.data;
   if(!Number.isSafeInteger(message?.id))return;
@@ -121,7 +156,8 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
       if(message.task==="backend") {
         scope.postMessage({id:message.id,ok:true,result:{
           backend,implementation:"typescript",
-          cfrDefault:rustSessionFactory&&!autoRustDisabled?"rust":"typescript"
+          cfrDefault:rustSessionFactory&&!autoRustDisabled?"rust":"typescript",
+          multiway:multiwaySessionFactory?"rust-sampled":"unavailable"
         }});
         return;
       }
@@ -132,16 +168,17 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
         PokerLabPostflopStrategy: ReturnType<typeof installStrategy>;
       };
       if(message.task==="equity") {
-        result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
-          [],message.options);
+        const strategic=multiwayState(message);
+        if(strategic.capability.solver==="multiway-cfr-plus")
+          result=await analyzeMultiwayEquity(strategic,multiwayEnvironment(message),message.options);
+        else
+          result=await globals.PokerLabPostflopSolver.analyse(message.input as Parameters<typeof globals.PokerLabPostflopSolver.analyse>[0],
+            [],message.options);
       } else if(message.task==="strategy") {
         // Defensive preflight shared by every backend. Reject unsupported or
         // inconsistent public states before exposing any pseudo-GTO frequencies.
         // This adapter never accesses unrevealed opponent cards.
-        const strategic=createStrategicGameState(
-          message.input as SolverStateInput|SolverInputSnapshot,
-          {stateVersion:Math.max(1,message.id)}
-        );
+        const strategic=multiwayState(message);
         if(strategic.capability.quality==="unavailable")
           throw new Error(strategic.capability.reason);
         const strategyOptions={
@@ -158,6 +195,12 @@ scope.addEventListener("message", (event: MessageEvent<PostflopRequest>) => {
             });
           }
         };
+        if(strategic.capability.solver==="multiway-cfr-plus"){
+          result=await solveMultiway(strategic,multiwayEnvironment(message),strategyOptions);
+          scope.postMessage({id:message.id,progress:1,phase:"strategy_completed"});
+          scope.postMessage({id:message.id,ok:true,result});
+          return;
+        }
         const wantsRust=message.experimentalRustCfr===true ||
           (message.experimentalRustCfr===undefined &&
            Boolean(rustSessionFactory) && !autoRustDisabled);
