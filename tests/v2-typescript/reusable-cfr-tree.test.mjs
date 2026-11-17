@@ -191,12 +191,13 @@ test("non-gating reusable CFR numeric key benchmark compares equal serialization
       const begin=performance.now();
       for(let sample=0;sample<prefixSamples;sample++){
         const hand=hands[sample%hands.length],board="board-"+sample%3;
-        const key=node=>node.key+"|"+hand+"|"+board;
+        const prefixes=["0|"+hand+"|"+board,"1|"+hand+"|"+board];
+        const key=node=>prefixes[node.actor]+"|"+node.key;
         run(root,{
           informationKey:key,
           ...(fast?{
-            informationPrefix:node=>node.key+"|",
-            informationSuffix:()=>hand+"|"+board
+            informationPrefix:node=>prefixes[node.actor],
+            informationSuffix:node=>"|"+node.key
           }:{}),
           terminalUtility:node=>node.value*(sample%2?1:-1)
         },registry);
