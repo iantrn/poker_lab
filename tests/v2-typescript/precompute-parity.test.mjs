@@ -26,6 +26,7 @@ function harness(typed,delay=0) {
     terminate(){this.terminated=true;}
   }
   const global={Worker:FakeWorker,AbortController,
+    PokerLabV2:{createTypedPostflopWorker:()=>new FakeWorker()},
     PokerLabTraining:{getGameState:()=>current,getHandHistory:()=>[]},
     PokerLabPostflopSolver:{createInput(s){return {schemaVersion:1,state:JSON.parse(JSON.stringify(s)),history:[]};}}};
   let api;
@@ -97,6 +98,7 @@ test("typed Worker provisional frequencies are versioned and discarded on new ga
  }
  const global={
    Worker:ControlledWorker,AbortController,
+   PokerLabV2:{createTypedPostflopWorker:()=>new ControlledWorker()},
    PokerLabTraining:{getGameState:()=>current.state,getHandHistory:()=>[]},
    PokerLabPostflopSolver:{
      createInput:game=>({schemaVersion:1,state:JSON.parse(JSON.stringify(game)),history:[]})
