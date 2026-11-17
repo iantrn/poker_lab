@@ -6,10 +6,10 @@ import type { SolverCard } from "./input-contract";
 import type { CFRNode,CFRCallbacks,CFRDeal,CFRCoreApi } from "./cfr-core";
 import { buildDecisionTree, rootActionSignature,
   type AbstractTreeNode, type AbstractTreeInput, type AbstractRootOptions
-} from "./decision-tree";
+} from "./decision-tree.ts";
 import { sampleDeals, buildUniformRange,
   type ChanceDeal, type HandCombo
-} from "./deal-sampler";
+} from "./deal-sampler.ts";
 
 const DEFAULT_ITERATIONS=60;
 const DEFAULT_SAMPLES=24;
@@ -259,14 +259,15 @@ function createStrategy(global:StrategyGlobal){
             typeof global.PokerLabPostflopSolver.resolveInput === "function"
             ? global.PokerLabPostflopSolver.resolveInput(input, history)
             : { state: input, history: Array.isArray(history) ? history : [] };
-        const state = resolved.state;
+        const state = resolved.state as StrategyState;
         history = resolved.history;
         const { hero, opponent } = validate(state);
-        const defaults:Record<string,{iterations:number;samples:number}> = {
+        const defaultsByStreet:Record<string,{iterations:number;samples:number}> = {
             flop: { iterations: 20, samples: 8 },
             turn: { iterations: 30, samples: 12 },
             river: { iterations: DEFAULT_ITERATIONS, samples: DEFAULT_SAMPLES }
-        }[state.street];
+        };
+        const defaults=defaultsByStreet[state.street]!;
         const rangeInfo = await global.PokerLabPostflopSolver.getOpponentRange(state, history, opponent);
         const heroRangeInfo = typeof global.PokerLabPostflopSolver.getPlayerRange === "function"
             ? await global.PokerLabPostflopSolver.getPlayerRange(state, history, hero)
@@ -293,7 +294,7 @@ function createStrategy(global:StrategyGlobal){
         const lastActorId = lastStreetAction && lastStreetAction.data
             ? lastStreetAction.data.playerId : null;
         const rootRaises = currentStreetActions.filter(event =>
-            event.data && ["raise", "short_raise"].includes(event.data.action)
+            event.data && ["raise", "short_raise"].includes(event.data.action ?? "")
         ).length;
         const rootChecks = Number(hero.amountToCall) === 0 && lastStreetAction &&
             lastStreetAction.data && lastStreetAction.data.action === "check" &&
@@ -303,7 +304,7 @@ function createStrategy(global:StrategyGlobal){
         if (Number.isInteger(state.dealerIndex) && state.players.length > 0) {
             const activeIds = new Set([hero.id, opponent.id]);
             for (let offset = 1; offset <= state.players.length; offset++) {
-                const seat = (state.dealerIndex + offset) % state.players.length;
+                const seat = (state.dealerIndex! + offset) % state.players.length;
                 if (activeIds.has(state.players[seat]!.id)) {
                     postflopFirstActorId = state.players[seat].id;
                     break;
@@ -316,7 +317,7 @@ function createStrategy(global:StrategyGlobal){
             postflopFirstActorId
         };
         const random = Number.isInteger(options.seed)
-            ? createRandom(options.seed)
+            ? createRandom(options.seed!)
             : Math.random;
         const maps = global.PokerLabCFRCore.createMaps();
         let rootTree:AbstractTreeNode|null=null;
@@ -376,7 +377,7 @@ function createStrategy(global:StrategyGlobal){
         }
 
         const requestedEvaluationSamples = Number.isInteger(options.evaluationSamples)
-            ? Math.max(16, Math.min(512, options.evaluationSamples))
+            ? Math.max(16, Math.min(512, options.evaluationSamples!))
             : Math.max(64, Math.min(256, samples * 4));
         if(!rootTree||rootTree.terminal)throw new Error("Arbre vide après apprentissage.");
         const typedRoot=rootTree as Extract<AbstractTreeNode,{terminal:false}>;
@@ -396,7 +397,7 @@ function createStrategy(global:StrategyGlobal){
                 rangeInfo.rangeUsed !== false,
                 random
             );
-            const deal = sampled.deals[0];
+            const deal = sampled.deals[0]!;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
                 global.PokerLabHandEvaluator.evaluate([...hero.holeCards, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
@@ -447,10 +448,10 @@ function createStrategy(global:StrategyGlobal){
         // Les meilleures réponses sont exactes dans l'arbre abstrait construit
         // pour ces deals, mais la mesure reste conditionnelle à cet échantillon.
         const requestedExploitabilitySamples = Number.isInteger(options.exploitabilitySamples)
-            ? Math.max(8, Math.min(128, options.exploitabilitySamples))
+            ? Math.max(8, Math.min(128, options.exploitabilitySamples!))
             : Math.max(12, Math.min(32, samples));
         const exploitabilityRandom = Number.isInteger(options.seed)
-            ? createRandom((options.seed ^ 0x9E3779B9) >>> 0)
+            ? createRandom((options.seed! ^ 0x9E3779B9) >>> 0)
             : Math.random;
         const exploitabilityDeals:Array<{root:CFRNode;deal:ChanceDeal}>=[];
 
@@ -464,7 +465,7 @@ function createStrategy(global:StrategyGlobal){
                 exploitabilityRandom,
                 heroRangeInfo.combos
             );
-            const deal = sampled.deals[0];
+            const deal = sampled.deals[0]!;
             deal.showdownResult = global.PokerLabHandEvaluator.compareScores(
                 global.PokerLabHandEvaluator.evaluate([...deal.hero, ...deal.finalBoard]).score,
                 global.PokerLabHandEvaluator.evaluate([...deal.villain, ...deal.finalBoard]).score
@@ -536,7 +537,7 @@ function createStrategy(global:StrategyGlobal){
             iterations: trainingIterations,
             requestedIterations,
             samplesPerIteration: 1,
-            randomSeed: Number.isInteger(options.seed) ? (options.seed >>> 0) : null,
+            randomSeed: Number.isInteger(options.seed) ? (options.seed! >>> 0) : null,
             sampledOpponentHands: trainingIterations,
             sampledHeroHands,
             sampledActualHeroHand,
