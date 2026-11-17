@@ -30,6 +30,23 @@ inchangé. Toute fusion et tout déploiement nécessitent une décision explicit
   réplication ordonnée vers Dexie/IndexedDB. Ce choix protège les données
   existantes et est indépendant de la migration du moteur de calcul.
 
+## Assets conservés après le nettoyage de branche
+
+Le référentiel garde les sources JavaScript V1 comme **oracle de tests et
+repli historique** (la branche `main` utilise encore le point d'entrée
+classique). En revanche, le bundle V2 `dist/` n'embarque plus leur copie
+complète : seulement les **cinq modules** nécessaires aux deux Workers
+de secours et les scripts de ces Workers sont copiés. Les styles CSS
+applicatifs sont compilés dans les assets Vite, sans doubles feuilles brutes.
+
+Les **2 606 matrices individuelles** `data/ranges/preflop/matrix/*/*.json`
+ont été supprimées, après vérification exhaustive de leur présence dans
+`index.json` et `ranges.json`. Le runtime, y compris le visualiseur V1
+de repli, utilise maintenant ce bundle unique. Les six squelettes
+`cash-6max` vides et la copie HTML de l'ancien shell ont été retirés.
+Le contrat des ancres de la page React est vérifié directement contre
+le `index.html` historique.
+
 ## Build et tests
 
 ```sh
