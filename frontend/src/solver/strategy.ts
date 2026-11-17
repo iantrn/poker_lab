@@ -664,6 +664,8 @@ export function createStrategy(global:StrategyGlobal){
             algorithm: "CFR+ avec rééchantillonnage des chances",
             quality: "sampled_estimate" as const,
             provisional: false,
+            fullGameGtoCertified: false as const,
+            certificationScope: "none — sampled abstract heads-up game" as const,
             averageStrategyWeighting: "linéaire",
             street: state.street,
             abstraction: state.street.toUpperCase() +
