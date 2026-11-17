@@ -259,6 +259,77 @@ async function run() {
     });
     assert.deepEqual(typedBackend,{backend:"wasm",implementation:"typescript"});
 
+    // Integration gate: the typed module Worker must run a real river equity
+    // calculation and a seeded range-vs-range CFR+ solve, not just initialize.
+    const typedPostflop = await page.evaluate(async () => {
+      const worker = window.PokerLabV2.createTypedPostflopWorker();
+      const input = { schemaVersion:1, history:[], state: {
+        street:"river",
+        board:[
+          {value:2,suit:"clubs"},{value:7,suit:"diamonds"},
+          {value:9,suit:"hearts"},{value:11,suit:"spades"},
+          {value:13,suit:"diamonds"}
+        ],
+        handComplete:false,pot:10,currentBet:0,lastFullRaise:1,
+        minimumRaiseTo:1,blinds:{smallBlind:0.5,bigBlind:1},
+        currentPlayerId:"hero",dealerIndex:0,
+        players:[
+          {id:"hero",name:"Hero",isHuman:true,isBot:false,folded:false,
+            holeCards:[{value:14,suit:"spades"},{value:14,suit:"hearts"}],
+            stack:20,streetBet:0,totalContribution:5,amountToCall:0,
+            lastActedBet:0,hasActed:false,position:"BTN",
+            actionOptions:{canCheck:true,canBet:true,canCall:false,
+              canRaise:false,callAmount:0,minimumBet:1,minimumRaiseTo:1,maximumRaiseTo:20}},
+          {id:"villain",name:"Villain",isHuman:false,isBot:true,folded:false,
+            holeCards:null,stack:20,streetBet:0,totalContribution:5,
+            amountToCall:0,lastActedBet:0,hasActed:false,position:"BB"}
+        ]
+      }};
+      let id=1000;
+      const run=(task,options={})=>new Promise((resolve,reject)=>{
+        const currentId=++id;
+        const timeout=setTimeout(()=>reject(new Error(
+          "Typed postflop "+task+" calculation exceeded 60s")),60000);
+        const onMessage=event=>{
+          if(event.data?.id!==currentId || event.data.progress!==undefined)return;
+          clearTimeout(timeout);worker.removeEventListener("message",onMessage);
+          if(event.data.ok)resolve(event.data.result);
+          else reject(new Error(event.data.error||("Typed "+task+" failed")));
+        };
+        worker.addEventListener("message",onMessage);
+        worker.addEventListener("error",event=>{
+          clearTimeout(timeout);reject(new Error(event.message||"Module Worker error"));
+        },{once:true});
+        worker.postMessage({id:currentId,task,input,options});
+      });
+      try {
+        const equity=await run("equity");
+        const strategy=await run("strategy",{
+          iterations:10,samples:8,seed:20261117,
+          evaluationSamples:16,exploitabilitySamples:8
+        });
+        return {
+          equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
+            losses:equity.losses,value:equity.equity},
+          strategy:{iterations:strategy.iterations,actions:strategy.actions,
+            nashConv:strategy.nashConv,heroEV:strategy.heroEV,
+            evaluationSamples:strategy.evaluationSamples}
+        };
+      } finally {worker.terminate();}
+    });
+    assert.equal(typedPostflop.equity.iterations,1800);
+    assert.equal(typedPostflop.equity.wins+typedPostflop.equity.ties+
+      typedPostflop.equity.losses,1800);
+    assert.ok(typedPostflop.equity.value>=0&&typedPostflop.equity.value<=1);
+    assert.equal(typedPostflop.strategy.iterations,80);
+    assert.ok(typedPostflop.strategy.actions.length>=2);
+    assert.ok(Math.abs(typedPostflop.strategy.actions.reduce((sum,action)=>
+      sum+action.frequency,0)-1)<0.001);
+    assert.ok(Number.isFinite(typedPostflop.strategy.heroEV));
+    assert.ok(Number.isFinite(typedPostflop.strategy.nashConv));
+    assert.equal(typedPostflop.strategy.evaluationSamples,16);
+
+
 
     // Statistical parity and full-pipeline timing: the V1 and V2 solvers use
     // independent random streams, so this is intentionally not bit-for-bit parity.
