@@ -5,6 +5,8 @@ on:
   push:
     branches: [chore/remove-v1]
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
