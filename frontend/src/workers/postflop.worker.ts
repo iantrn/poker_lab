@@ -120,8 +120,8 @@ async function init(): Promise<"wasm" | "legacy"> {
   return initialization;
 }
 function multiwayEnvironment(message:PostflopRequest):MultiwayEnvironment {
-  if(!multiwaySessionFactory)
-    throw new Error("Le noyau Rust/WASM multiway est indisponible hors ligne.");
+  // JS card evaluation / equity must still function even when the multiway
+  // Rust kernel is unavailable; only strategic CFR+ requires the WASM class.
   // Sanitization is applied again before range lookups: bot hole cards are
   // forbidden, even when supplied in a crafted versioned snapshot.
   const resolved=resolveSolverInput(message.input);
@@ -129,7 +129,11 @@ function multiwayEnvironment(message:PostflopRequest):MultiwayEnvironment {
   const solver=(scope as unknown as {PokerLabPostflopSolver:PostflopSolverApi}).PokerLabPostflopSolver;
   const evaluator=scope.PokerLabHandEvaluator!;
   return {
-    newSession:players=>multiwaySessionFactory!(players),
+    newSession:players=>{
+      if(!multiwaySessionFactory)
+        throw new Error("Le noyau Rust/WASM multiway est indisponible hors ligne.");
+      return multiwaySessionFactory(players);
+    },
     async loadRange(playerId){
       const opponent=safe.state.players.find(player=>player.id===playerId);
       if(!opponent)throw new Error("Joueur adverse multiway introuvable.");
