@@ -43,9 +43,9 @@ jobs:
       - name: Record dependencies referencing V1 (full-tree grep)
         run: |
           printf '%s\n' '=== ALL REFERENCES TO WORKERS, V1 SERVICE WORKER, INDEX AND CSS ==='
-          rg -n --hidden --glob '!.git/**' --glob '!frontend/package-lock.json' --glob '!data/**'             '(pokerlab-solver-worker|service-worker\\.js|css/(style|utilities)\\.css|legacy-shell|index\\.html|js/core/evaluator\\.js|js/bots/bot-profiles\\.js|js/modules/(postflop-solver|cfr-core|postflop-strategy)\\.js)' . || true
+          git grep -n -E 'pokerlab-solver-worker|service-worker[.]js|css/(style|utilities)[.]css|legacy-shell|index[.]html|js/core/evaluator[.]js|js/bots/bot-profiles[.]js|js/modules/(postflop-solver|cfr-core|postflop-strategy)[.]js' -- . ':(exclude)data/**' ':(exclude)frontend/package-lock.json' || true
           printf '%s\n' '=== ALL REFS TO LEGACY ROOT OR BROAD IMPORT PATHS ==='
-          rg -n --hidden --glob '!.git/**' --glob '!frontend/package-lock.json' --glob '!data/**'             '(\.\./\.\./css/|\./js/|\bjs/|from .?\./\.\./|from .?\./\.\./\.\./|postflop-solver\.yml|tests/[^ ]*\.test\.js|index\.html)' frontend tests .github README.md V2_MIGRATION_CHECKPOINT.md || true
+          git grep -n -E 'css/|js/|postflop-solver[.]yml|tests/[^ ]*[.]test[.]js|index[.]html' -- frontend tests .github README.md V2_MIGRATION_CHECKPOINT.md || true
       - name: Baseline Rust tests
         run: cargo test --manifest-path engine/Cargo.toml
       - name: Build Rust browser and Node WASM
