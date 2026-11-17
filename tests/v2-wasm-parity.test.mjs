@@ -65,3 +65,26 @@ test("WASM weighted range equity is exact on river and deterministic on flop",()
   assert.deepEqual(first,second);
   assert.ok(Math.abs(first.reduce((a,b)=>a+b,0)-1)<1e-12);
 });
+
+
+test("one-call Rust showdown exactly matches V1 on 8,000 distinct nine-card deals",()=>{
+  for(let attempt=0;attempt<8000;attempt++){
+    const cards=deck.slice();
+    for(let index=0;index<9;index++){
+      const next=index+random(cards.length-index);
+      [cards[index],cards[next]]=[cards[next],cards[index]];
+    }
+    const nine=cards.slice(0,9);
+    const board=nine.slice(4);
+    const expected=old.compareScores(
+      old.evaluate([...nine.slice(0,2),...board]).score,
+      old.evaluate([...nine.slice(2,4),...board]).score
+    );
+    const actual=wasm.compare_showdown(Uint8Array.from(nine.map(packed)));
+    assert.equal(actual,expected,"showdown parity scenario "+attempt);
+  }
+  assert.throws(()=>wasm.compare_showdown(Uint8Array.of(0x0e,0x1e)));
+  assert.throws(()=>wasm.compare_showdown(
+    Uint8Array.of(0x02,0x12,0x22,0x32,0x03,0x13,0x23,0x33,0x02)
+  ),"duplicate card across opponents must be rejected");
+});
