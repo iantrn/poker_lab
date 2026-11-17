@@ -1,21 +1,23 @@
-/** Experimental, opt-in bridge for chance-sampled CFR+ regret updates in Rust.
- * The existing TypeScript solver remains authoritative until strategy parity,
- * offline tests and end-to-end performance benchmarks confirm an improvement.
+/** Rust/WASM bridge for chance-sampled heads-up CFR+.
+ * Keep the proven TypeScript implementation as the fallback and diagnostic oracle.
  */
-import type {CFRCoreApi,CFRMaps,CFRNode} from "./cfr-core";
+import type {CFRBatchSample,CFRCoreApi,CFRMaps,CFRNode,CFRCallbacks} from "./cfr-core";
 import type {AbstractTreeNode} from "./decision-tree";
 import {createCfrInformationRegistry,
   type CfrInformationRegistry} from "./tree-adapter.ts";
-import {createReusableRustTreeSerializer} from "./reusable-cfr-tree.ts";
+import {createReusableRustTreeSerializer,
+  type PreparedRustTree} from "./reusable-cfr-tree.ts";
 
 export interface RustCfrSession {
   step(actors:Int8Array,infos:Uint32Array,offsets:Uint32Array,counts:Uint8Array,
     children:Uint32Array,payoffs:Float64Array,chanceWeight:number):number;
-  /** Optional: old WASM bundles remain supported by step(). */
+  /** Optional methods preserve compatibility with old installed WASM bundles. */
   prepare_tree?(actors:Int8Array,offsets:Uint32Array,counts:Uint8Array,
     children:Uint32Array):number;
   step_prepared?(handle:number,infos:Uint32Array,payoffs:Float64Array,
     chanceWeight:number):number;
+  step_prepared_batch?(handle:number,infos:Uint32Array,payoffs:Float64Array,
+    chanceWeights:Float64Array):number;
   average_strategy():Float64Array | number[];
   iterations():number;
   information_set_count():number;
@@ -27,12 +29,16 @@ interface Session {
   prepared:WeakMap<AbstractTreeNode,number>;
   unprepared:WeakSet<AbstractTreeNode>;
 }
+const MAX_BATCH_SAMPLES=16;
+const MAX_BATCH_BYTES=2*1024*1024;
+
 export function createRustCfrStrategyCore(
   original:CFRCoreApi,
   newSession:()=>RustCfrSession
 ):CFRCoreApi {
   const sessions=new WeakMap<CFRMaps,Session>();
   const serialize=createReusableRustTreeSerializer();
+
   function sync(maps:CFRMaps):void {
     const session=sessions.get(maps);
     if(!session||!session.dirty)return;
@@ -52,6 +58,145 @@ export function createRustCfrStrategyCore(
     }
     session.dirty=false;
   }
+  function pack(
+    session:Session,root:CFRNode,deal:unknown,callbacks:CFRCallbacks
+  ):PreparedRustTree {
+    return serialize(root as unknown as AbstractTreeNode,{
+      informationKey:node=>callbacks.informationKey(node as unknown as CFRNode,deal),
+      terminalUtility:node=>callbacks.utility(node as unknown as CFRNode,deal)
+    },session.registry);
+  }
+  function preparedHandle(session:Session,root:CFRNode,request:PreparedRustTree):number|undefined {
+    const publicTree=root as unknown as AbstractTreeNode;
+    let handle=session.prepared.get(publicTree);
+    if(session.engine.prepare_tree&&session.engine.step_prepared&&
+        handle===undefined&&!session.unprepared.has(publicTree)){
+      try {
+        handle=session.engine.prepare_tree(
+          request.actors,request.childOffsets,request.childCounts,request.children
+        );
+        session.prepared.set(publicTree,handle);
+      }catch(error:unknown){
+        // A memory-budget cache miss is not a CFR failure: use old step().
+        if(!String(error).includes("oversized prepared CFR+ topology"))throw error;
+        session.unprepared.add(publicTree);
+      }
+    }
+    return handle;
+  }
+  function stepPacked(
+    session:Session,root:CFRNode,request:PreparedRustTree,chanceWeight:number
+  ):void {
+    const handle=preparedHandle(session,root,request);
+    if(handle!==undefined&&session.engine.step_prepared){
+      session.engine.step_prepared(
+        handle,request.informationSets,request.terminalUtilities,chanceWeight
+      );
+    } else {
+      session.engine.step(
+        request.actors,request.informationSets,request.childOffsets,
+        request.childCounts,request.children,request.terminalUtilities,chanceWeight
+      );
+    }
+  }
+  function stepOne(session:Session,sample:CFRBatchSample):void {
+    const request=pack(session,sample.root,sample.deal,sample.callbacks);
+    try {
+      stepPacked(session,sample.root,request,sample.chanceWeight);
+      session.dirty=true;
+    } catch(error:unknown){
+      request.rollback();
+      throw error;
+    }
+  }
+  function assertSequential(session:Session,averageWeightStart:number):void {
+    if(!Number.isSafeInteger(averageWeightStart)||
+       averageWeightStart!==session.engine.iterations()+1){
+      throw new Error("CFR+ Rust exige des itérations complètes et séquentielles.");
+    }
+  }
+  function batchStep(
+    samples:readonly CFRBatchSample[],maps:CFRMaps,averageWeightStart:number
+  ):void {
+    if(!samples.length)return;
+    const session=sessions.get(maps);
+    if(!session){
+      // External CFR maps: keep the original TypeScript semantics.
+      for(let i=0;i<samples.length;i++){
+        const sample=samples[i]!;
+        original.runCfr(sample.root,sample.deal,0,[1,1],maps,sample.callbacks,
+          averageWeightStart+i,sample.chanceWeight);
+        original.runCfr(sample.root,sample.deal,1,[1,1],maps,sample.callbacks,
+          averageWeightStart+i,sample.chanceWeight);
+      }
+      return;
+    }
+    assertSequential(session,averageWeightStart);
+    for(const sample of samples){
+      if(!Number.isFinite(sample.chanceWeight)||sample.chanceWeight<0){
+        throw new Error("Poids CFR+ invalide.");
+      }
+    }
+    const firstRoot=samples[0]!.root;
+    const engine=session.engine;
+    // Never batch across different public trees or exceed bounded payloads.
+    // Old WASM versions transparently execute the same sequential Rust steps.
+    if(samples.length===1||samples.length>MAX_BATCH_SAMPLES||
+       !engine.step_prepared_batch||!engine.prepare_tree||!engine.step_prepared||
+       samples.some(sample=>sample.root!==firstRoot)){
+      for(const sample of samples)stepOne(session,sample);
+      return;
+    }
+    // The first serialization gives the exact node count. The returned arrays
+    // are reused/mutated on every deal, so each sample must be copied into the
+    // contiguous batch immediately after serialization.
+    const first=pack(session,samples[0]!.root,samples[0]!.deal,samples[0]!.callbacks);
+    const rollbacks=[first.rollback];
+    let executed=false;
+    try {
+      const n=first.actors.length;
+      if(n*samples.length*12>MAX_BATCH_BYTES){
+        // Roll back reservations before the sequential fallback, otherwise
+        // new IDs could be seen out of sequence by the Rust session.
+        first.rollback();
+        executed=true;
+        for(const sample of samples)stepOne(session,sample);
+        return;
+      }
+      const handle=preparedHandle(session,firstRoot,first);
+      if(handle===undefined){
+        first.rollback();
+        executed=true;
+        for(const sample of samples)stepOne(session,sample);
+        return;
+      }
+      const ids=new Uint32Array(n*samples.length);
+      const payoffs=new Float64Array(n*samples.length);
+      const weights=new Float64Array(samples.length);
+      ids.set(first.informationSets,0);
+      payoffs.set(first.terminalUtilities,0);
+      weights[0]=samples[0]!.chanceWeight;
+      for(let i=1;i<samples.length;i++){
+        const sample=samples[i]!;
+        const request=pack(session,sample.root,sample.deal,sample.callbacks);
+        rollbacks.push(request.rollback);
+        if(request.informationSets.length!==n){
+          throw new Error("La topologie CFR+ a changé pendant le lot.");
+        }
+        ids.set(request.informationSets,i*n);
+        payoffs.set(request.terminalUtilities,i*n);
+        weights[i]=sample.chanceWeight;
+      }
+      engine.step_prepared_batch(handle,ids,payoffs,weights);
+      session.dirty=true;
+      executed=true;
+    }finally{
+      // On error, Rust's batch preflight guarantees no regret update. Undo
+      // all newly reserved JS information-set IDs in reverse chronological order.
+      if(!executed)for(let i=rollbacks.length-1;i>=0;i--)rollbacks[i]!();
+    }
+  }
+
   return {
     ...original,
     createMaps(){
@@ -65,53 +210,18 @@ export function createRustCfrStrategyCore(
       const [root,deal,traverser,reach,maps,callbacks,averageWeight=1,chanceWeight=1]=args;
       const session=sessions.get(maps);
       if(!session)return original.runCfr(...args);
-      // The two V1 traverser calls are paired. One Rust step executes both
-      // in the same order, so the second JS call is intentionally a no-op.
+      // The two TypeScript traverser calls are paired. Rust performs both
+      // traversers in a single step, in the original order.
       if(traverser===1)return 0;
-      if(traverser!==0||reach[0]!==1||reach[1]!==1||
-          Math.abs(averageWeight-(session.engine.iterations()+1))>1e-8){
+      if(traverser!==0||reach[0]!==1||reach[1]!==1){
         throw new Error("CFR+ Rust exige des itérations complètes et séquentielles.");
       }
-      const request=serialize(root as unknown as AbstractTreeNode,{
-        informationKey:node=>callbacks.informationKey(node as unknown as CFRNode,deal),
-        terminalUtility:node=>callbacks.utility(node as unknown as CFRNode,deal)
-      },session.registry);
-      try {
-        const publicTree=root as unknown as AbstractTreeNode;
-        // Root identity is stable across deals for a cached public betting tree.
-        // Preserve the legacy step() path for older (already installed) WASM.
-        let handle=session.prepared.get(publicTree);
-        if(session.engine.prepare_tree && session.engine.step_prepared &&
-            handle===undefined && !session.unprepared.has(publicTree)){
-          try{
-            handle=session.engine.prepare_tree(
-              request.actors,request.childOffsets,request.childCounts,request.children
-            );
-            session.prepared.set(publicTree,handle);
-          }catch(error:unknown){
-            // Cache is bounded in Rust. Continue with the validated legacy
-            // kernel when the budget is exhausted; do not disable Rust entirely.
-            if(!String(error).includes("oversized prepared CFR+ topology"))throw error;
-            session.unprepared.add(publicTree);
-          }
-        }
-        if(handle!==undefined && session.engine.step_prepared){
-          session.engine.step_prepared(
-            handle,request.informationSets,request.terminalUtilities,chanceWeight
-          );
-        } else {
-          session.engine.step(
-            request.actors,request.informationSets,request.childOffsets,
-            request.childCounts,request.children,request.terminalUtilities,
-            chanceWeight
-          );
-        }
-      }catch(error:unknown){
-        request.rollback();
-        throw error;
-      }
-      session.dirty=true;
+      assertSequential(session,averageWeight);
+      stepOne(session,{root,deal,callbacks,chanceWeight});
       return 0;
+    },
+    runCfrBatch(samples:readonly CFRBatchSample[],maps:CFRMaps,averageWeightStart:number){
+      batchStep(samples,maps,averageWeightStart);
     },
     getStrategy(...args:Parameters<CFRCoreApi["getStrategy"]>){
       sync(args[2]);return original.getStrategy(...args);
