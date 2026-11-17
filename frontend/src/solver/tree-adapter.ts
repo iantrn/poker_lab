@@ -7,6 +7,9 @@ import type { EngineRequest } from "../../../shared/models/solver";
 export interface CfrTreeCallbacks {
   informationKey(node: Extract<AbstractTreeNode, {terminal: false}>): string;
   terminalUtility(node: Extract<AbstractTreeNode, {terminal: true}>): number;
+  /** Lossless, optional component index; canonical key remains prefix+suffix. */
+  informationPrefix?(node: Extract<AbstractTreeNode, {terminal: false}>): string;
+  informationSuffix?(node: Extract<AbstractTreeNode, {terminal: false}>): string;
 }
 export interface FlattenedCfrTree {
   request: Extract<EngineRequest, {kind: "cfrTree"}>;
