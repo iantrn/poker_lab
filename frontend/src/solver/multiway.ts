@@ -60,6 +60,10 @@ interface FlatTree {
 }
 const suits=["clubs","diamonds","hearts","spades"] as const;
 function id(card:Card):string{return card.value+"_"+card.suit;}
+function validCard(card:Card|undefined):boolean{
+  return Boolean(card&&Number.isInteger(card.value)&&card.value>=2&&card.value<=14&&
+    suits.includes(card.suit as typeof suits[number]));
+}
 function sortedHand(hand:readonly Card[]):string{
   return hand.map(id).sort().join(",");
 }
@@ -106,7 +110,7 @@ function sampler(
     const range=info.get(player.seat);
     const valid=(range?.combos??[]).filter(combo=>combo.cards.length===2 &&
       Number.isFinite(combo.weight)&&combo.weight>0 &&
-      combo.cards.every(card=>!reserved.has(id(card)))&&
+      combo.cards.every(card=>validCard(card)&&!reserved.has(id(card)))&&
       id(combo.cards[0]!)!==id(combo.cards[1]!));
     if(!valid.length||range?.rangeUsed===false){
       pools.set(player.seat,uniform);
