@@ -134,18 +134,43 @@ function sampledBoardId(deal:ChanceDeal,length:number):string {
   }
   return key;
 }
+// For Rust's reusable serializer, intern the public information prefix once
+// per sampled deal, actor and board street (at most six distinct combinations).
+// Canonical string keys remain unchanged for TypeScript CFR and exploitability.
+const dealInformationPrefixes=new WeakMap<ChanceDeal,Map<number,string>>();
+function informationPrefix(node:Extract<AbstractTreeNode,{terminal:false}>,
+  deal:ChanceDeal|null,hero:SolverCard[],board:SolverCard[]):string {
+  if(!deal){
+    // Keep the exact legacy key semantics for external root-only reads.
+    const privateHand=node.actor===0?handId(hero):handId(deal!.villain);
+    return node.actor+"|"+privateHand+"|"+boardId(node.board||board);
+  }
+  let prefixes=dealInformationPrefixes.get(deal);
+  if(!prefixes){
+    prefixes=new Map<number,string>();
+    dealInformationPrefixes.set(deal,prefixes);
+  }
+  const index=node.board.length*2+node.actor;
+  let value=prefixes.get(index);
+  if(value===undefined){
+    const hand=sampledHandIds(deal)[node.actor===0?0:1];
+    value=node.actor+"|"+hand+"|"+sampledBoardId(deal,node.board.length);
+    prefixes.set(index,value);
+  }
+  return value;
+}
 function informationKey(node:AbstractTreeNode,deal:ChanceDeal|null,hero:SolverCard[],board:SolverCard[]):string {
   if(node.terminal)return "";
-  const privateHand=deal
-    ? sampledHandIds(deal)[node.actor===0?0:1]
-    : node.actor===0 ? handId(hero) : handId(deal!.villain);
-  return node.actor+"|"+privateHand+"|"+
-    (deal ? sampledBoardId(deal,node.board.length) : boardId(node.board||board))+
-    staticInformationSuffix(node);
+  return informationPrefix(node,deal,hero,board)+staticInformationSuffix(node);
 }
 function cfrCallbacks(hero:SolverCard[],board:SolverCard[],global:StrategyGlobal):CFRCallbacks {
   return {
     informationKey:(node,deal)=>informationKey(toAbstract(node),deal as ChanceDeal|null,hero,board),
+    informationPrefix:(node,deal)=>informationPrefix(
+      toAbstract(node) as Extract<AbstractTreeNode,{terminal:false}>,
+      deal as ChanceDeal|null,hero,board),
+    informationSuffix:node=>staticInformationSuffix(
+      toAbstract(node) as Extract<AbstractTreeNode,{terminal:false}>),
     utility:(node,deal)=>utility(toAbstract(node),deal as ChanceDeal,hero,board,global)
   };
 }
