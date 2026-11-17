@@ -326,11 +326,11 @@ async function run() {
             {amount:21.5,winnerIds:[hero.id,bot.id],share:10.5,
               oddChipRecipients:[hero.id],category:"Quinte",isTie:true},
             {amount:10,winnerIds:[bot.id],share:10,
-              oddChipRecipients:[],category:"Paire",isTie:false}
+              oddChipRecipients:[],category:"Quinte",isTie:false}
           ],
           evaluations:[
             {playerId:hero.id,category:"Quinte",bestFiveCards:board},
-            {playerId:bot.id,category:"Paire",bestFiveCards:board}
+            {playerId:bot.id,category:"Quinte",bestFiveCards:board}
           ]
         }
       };
@@ -359,7 +359,7 @@ async function run() {
     assert.match(multiPotFixture.title,/partagé/i);
     assert.equal(multiPotFixture.total,"31,5 BB");
     assert.deepEqual(multiPotFixture.gains,["+11 BB","+20,5 BB"]);
-    assert.deepEqual(multiPotFixture.categories,["Quinte","Paire"]);
+    assert.deepEqual(multiPotFixture.categories,["Quinte","Quinte"]);
     assert.deepEqual(multiPotFixture.fiveCards,[5,5]);
     assert.deepEqual(multiPotFixture.pots,["Pot principal","Pot secondaire 1"]);
     assert.equal(multiPotFixture.next,1,"Next hand action must be inside the modal");
@@ -559,7 +559,11 @@ async function run() {
     assert.equal(await page.locator('#review .pl-review-column').count(), 2);
     assert.equal(await page.locator('#review .pl-page-panel').count(), 1);
     await captureUi("review-desktop");
-    await page.locator("[data-review-history] .pl-review-empty").waitFor({ timeout: 30000 });
+    // We intentionally completed a real heads-up hand above. Its successful
+    // persistence must be visible in the review timeline rather than leaving
+    // the old assertion that the user's hand history is empty.
+    await page.locator("[data-review-history] .pl-review-history-item")
+      .first().waitFor({ timeout: 30000 });
 
     // Responsive behavior: mobile navigation is usable at phone width.
     await page.locator('a[data-page="settings"]').first().click();

@@ -294,3 +294,11 @@ cards for each winner; and (2) an **actual heads-up fold victory**
 followed by clicking the modal's primary CTA and verifying the game
 engine advances `handNumber`. The dialog receives focus and starts
 scrolled at the outcome heading, not the sticky CTA.
+
+### Review history contract after actual showdown smoke
+
+The real heads-up fold test now produces an actual saved hand. The review
+test therefore confirms that a `pl-review-history-item` is present, rather
+than continuing to expect an empty history. The synthetic split-pot scenario
+uses a shared board straight for both evaluated winners to keep the
+screenshot's best five cards consistent with the displayed categories.
