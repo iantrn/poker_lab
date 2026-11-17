@@ -8,6 +8,7 @@
 import type { PokerCard, PokerHandEvaluation } from "../core/evaluator";
 import type { BotProfilesApi } from "../bots/profiles";
 import { createSolverInput, resolveSolverInput } from "./input-contract.ts";
+import { createWeightedPicker } from "./weighted-picker.ts";
 import type { SolverStateInput, SolverHistoryEvent } from "./input-contract";
 
 interface PostflopPlayer {
@@ -237,24 +238,15 @@ function createPostflopSolver(global: PostflopGlobals) {
         }
     }
 
-    function weightedChoice(items: WeightedCombo[]): PokerCard[] {
-        const total = items.reduce((sum, item) => sum + item.weight, 0);
-        let cursor = Math.random() * total;
-        for (const item of items) {
-            cursor -= item.weight;
-            if (cursor <= 0) return item.cards;
-        }
-        return items[items.length - 1]!.cards;
-    }
-
-    function sampleOpponentHand(deck: PokerCard[], weightedRange: WeightedCombo[] | null): PokerCard[] {
-        if (!weightedRange || weightedRange.length === 0) {
+    function sampleOpponentHand(
+        deck: PokerCard[],
+        weightedPicker: (() => WeightedCombo) | null
+    ): PokerCard[] {
+        if (!weightedPicker) {
             shuffle(deck);
             return [deck[0]!, deck[1]!];
         }
-        // The range is filtered against the fixed base deck once in analyse().
-        // Repeating this filter in every Monte-Carlo iteration created avoidable arrays.
-        return weightedChoice(weightedRange);
+        return weightedPicker().cards;
     }
 
     // Snapshot serialization is shared with the TypeScript scheduler.
@@ -637,6 +629,7 @@ function createPostflopSolver(global: PostflopGlobals) {
             )
             : [];
         const weightedRange = availableCombos.length ? availableCombos : null;
+        const weightedPicker = weightedRange ? createWeightedPicker(weightedRange) : null;
         const preflopRangeUsed = range.rangeUsed !== false && availableCombos.length > 0;
         const iterations = Math.max(300, Math.min(10000, Number(options.iterations) || DEFAULT_ITERATIONS));
         let wins = 0, ties = 0, losses = 0;
@@ -650,7 +643,7 @@ function createPostflopSolver(global: PostflopGlobals) {
         for (let i = 0; i < iterations; i++) {
             let deckLength = 0;
             if (weightedRange) {
-                const villain = sampleOpponentHand(baseDeck, weightedRange);
+                const villain = sampleOpponentHand(baseDeck, weightedPicker);
                 villainCards[0] = villain[0]!;
                 villainCards[1] = villain[1]!;
                 const firstKey = cardKey(villainCards[0]);
