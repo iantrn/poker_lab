@@ -138,6 +138,12 @@
   display: none !important;
 }
 
+/* Legacy CSS inset:40px shifted all seats down into the felt. Reset the
+   seat overlay to match the full table's coordinate system (0–100% both ways). */
+#app #training-game #training-table .pl-table-container > .pl-seats {
+  inset: 0 !important;
+}
+
 /* Anchors become transparent; the compact rounded capsule is player-info. */
 #app #training-game #training-table .pl-table-container .pl-seat {
   display: block !important;

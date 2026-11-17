@@ -209,3 +209,12 @@ seat, adjacent Solver alignment and disabled opacity, all-blue backs,
 slightly increased private-card dimensions, and five softly visible empty
 community slots. Also tests numeric rank displays directly through the
 installed table API, without changing game state.
+
+### Legacy seat-overlay offset
+
+The legacy stylesheet had `.pl-table-container > .pl-seats { inset:40px 0 0
+!important }`, which shifted every seat down by 40 px even when TS seat
+coordinates were correct. The new style explicitly resets this overlay
+to `inset:0` at higher specificity, making top and bottom rail offsets
+truly relative to the full table canvas; browser geometry tests verify
+capsules stay outside the red felt.

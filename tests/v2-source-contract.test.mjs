@@ -202,6 +202,7 @@ test("Final table review: two horizontal seat rails, numeric ranks, centred hand
   assert.match(css, /left: calc\(50% \+ clamp\(78px, 22\.5vw, 117px\) \+ 9px\)/);
   assert.match(css, /opacity: \.38/);
   assert.match(css, /\.pl-board \.pl-card--empty\s*\{\s*border-color:/);
+  assert.match(css, /\.pl-table-container > \.pl-seats\s*\{\s*inset: 0 !important/);
   assert.match(css, /\.pl-seat \.pl-player-cards > \*/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Keep the existing blue card backs");
 });
