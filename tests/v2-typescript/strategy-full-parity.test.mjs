@@ -130,8 +130,15 @@ test("typed CFR+ range-vs-range strategy preserves seeded turn and flop frequenc
     spot.players[0].actionOptions.maximumRaiseTo=4;
     const old=makeLegacy();
     const migrated=makeTyped();
+    const legacyBegin=performance.now();
     const reference=simplify(await old.solvePostflop(spot,[],opts));
+    const legacyMs=performance.now()-legacyBegin;
+    const typedBegin=performance.now();
     const result=simplify(await migrated.solvePostflop(spot,[],opts));
+    const typedMs=performance.now()-typedBegin;
+    console.log("Full CFR+ "+street+" (80 seeded samples, identical abstract tree): V1 "+
+      legacyMs.toFixed(1)+"ms, V2 "+typedMs.toFixed(1)+"ms, speedup "+
+      (legacyMs/Math.max(typedMs,0.001)).toFixed(2)+"x (runner-dependent, non-gating)");
     assert.deepEqual(result,reference,
       "typed full-street strategy diverged on "+street);
     assert.equal(result.iterations,80);
