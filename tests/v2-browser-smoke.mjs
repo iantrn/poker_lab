@@ -183,11 +183,24 @@ async function run() {
         villainPairs: [0x0d, 0x1d, 0x05, 0x16, 0x2e, 0x1e],
         weights: [1, 3, 100], iterations: 100, seed: 11
       });
-      return { equity, equityRange, weightedLoss, range, cfr };
+      // Raw V1 range shape -> strict TS adapter -> packed cards -> Rust/WASM.
+      const typedRange = await solver.calculateRangeEquity(
+        [{ value:14, suit:"hearts" }, { value:14, suit:"spades" }],
+        [{ value:2, suit:"clubs" }, { value:3, suit:"diamonds" },
+         { value:4, suit:"hearts" }, { value:7, suit:"spades" },
+         { value:9, suit:"clubs" }],
+        [
+          { cards:[{value:13,suit:"clubs"},{value:13,suit:"diamonds"}],weight:1 },
+          { cards:[{value:5,suit:"clubs"},{value:6,suit:"diamonds"}],weight:3 },
+          { cards:[{value:14,suit:"hearts"},{value:14,suit:"diamonds"}],weight:100 }
+        ], 100, 11
+      );
+      return { equity, equityRange, weightedLoss, typedRange, range, cfr };
     });
     assert.deepEqual(wasmPaths.equity, [0,1,0], "Known royal-flush board must split");
     assert.deepEqual(wasmPaths.equityRange, [1,0,0], "Weighted range equity must filter blockers and evaluate exactly on river");
     assert.deepEqual(wasmPaths.weightedLoss, [0.25, 0, 0.75], "Weighted river enumeration honors blockers and weights");
+    assert.deepEqual(wasmPaths.typedRange, wasmPaths.weightedLoss, "The typed range adapter preserves weighted equity results");
     assert.equal(wasmPaths.range[4], 1, "Weighted histogram must classify straight");
     assert.equal(wasmPaths.range.reduce((a,b) => a+b,0), 1);
     assert.equal(wasmPaths.cfr.length, 4);
