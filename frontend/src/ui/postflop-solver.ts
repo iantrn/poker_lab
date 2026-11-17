@@ -121,7 +121,14 @@ export function installPostflopSolverUI(): void {
                 const action = element("span", "pl-solve-frequency-action", item.action);
                 const value = element("strong", "pl-solve-frequency-value",
                     (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
-                row.append(action, value);
+                // The bar is purely visual: show the exact original frequency
+                // numerically and clamp only the painted width to [0,100].
+                const track = element("div", "pl-solve-frequency-track");
+                track.setAttribute("aria-hidden", "true");
+                const fill = element("span", "pl-solve-frequency-fill");
+                fill.style.width = String(Math.min(100, Math.max(0, item.frequency * 100))) + "%";
+                track.appendChild(fill);
+                row.append(action, value, track);
                 frequencies.appendChild(row);
             });
         } else {

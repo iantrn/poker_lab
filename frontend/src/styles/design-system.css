@@ -582,3 +582,131 @@
   #app .pl-setup-actions .pl-button { flex: 1 1 100%; }
   #app .pl-section-topline { gap: 0; }
 }
+
+/* Phase 3 — GTO visual presentation, preserving input/output data and the
+ * existing range frequencies green; all rules are scoped to feature UI only. */
+#app .pl-rv {
+  min-width: 0;
+  gap: var(--pl-space-3);
+}
+#app .pl-rv-tabs {
+  gap: var(--pl-space-2);
+}
+#app .pl-rv-tab {
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 3px;
+  border-radius: var(--pl-radius-control);
+  font-size: .82rem;
+  transition: color var(--pl-duration-fast), border-color var(--pl-duration-fast), background-color var(--pl-duration-fast);
+}
+#app .pl-rv-input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: var(--pl-color-background);
+  color: var(--pl-color-text);
+  border: 1px solid var(--pl-color-border-strong);
+  border-radius: var(--pl-radius-control);
+}
+#app .pl-rv-list {
+  min-width: 0;
+  border-color: var(--pl-color-border);
+  border-radius: var(--pl-radius-panel);
+  background: var(--pl-color-background);
+}
+#app .pl-rv-spot {
+  min-height: 44px;
+  gap: var(--pl-space-2);
+  border-radius: var(--pl-radius-control);
+}
+#app .pl-rv-panel {
+  min-width: 0;
+  padding: var(--pl-space-4);
+  border-color: var(--pl-color-border);
+  border-radius: var(--pl-radius-panel);
+  background: var(--pl-color-background);
+}
+#app .pl-rv-title { color: var(--pl-color-text); }
+#app .pl-rv-summary {
+  margin-bottom: var(--pl-space-4);
+  color: var(--pl-color-text-secondary);
+}
+#app .pl-rv-detail {
+  color: var(--pl-color-selection);
+  font-variant-numeric: tabular-nums;
+  min-height: 1.5em;
+}
+#app .pl-rv-matrix {
+  min-width: 0;
+  width: 100%;
+  max-width: 560px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+#app .pl-range-cell-hand {
+  font-size: clamp(.61rem, 1.3vw, .78rem);
+  font-variant-numeric: tabular-nums;
+}
+#app .pl-range-cell:focus-visible {
+  outline: 2px solid var(--pl-color-selection);
+  outline-offset: -2px;
+}
+#app .pl-rv-legend { color: var(--pl-color-text-secondary); }
+#app .pl-rv-legend-bar {
+  /* Existing color convention: 0% is neutral, 100% is green. */
+  background: linear-gradient(to right, var(--pl-color-surface-raised), var(--accent-green-light));
+}
+#app #training-actions .pl-solve-frequency-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px var(--pl-space-3);
+  border-color: var(--pl-color-border);
+  border-radius: var(--pl-radius-control);
+  background: var(--pl-color-surface-raised);
+}
+#app #training-actions .pl-solve-frequency-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#app #training-actions .pl-solve-frequency-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--pl-color-background);
+}
+#app #training-actions .pl-solve-frequency-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-green-light);
+}
+@media (min-width: 1024px) {
+  #app .pl-rv {
+    display: grid;
+    grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "positions positions"
+      "filters panel"
+      "count panel"
+      "list panel";
+    align-items: start;
+    gap: var(--pl-space-3) var(--pl-space-6);
+  }
+  #app .pl-rv-tabs { grid-area: positions; }
+  #app .pl-rv-filters { grid-area: filters; grid-template-columns: minmax(0, 1fr); }
+  #app .pl-rv-count { grid-area: count; }
+  #app .pl-rv-list { grid-area: list; max-height: 390px; }
+  #app .pl-rv-panel { grid-area: panel; align-self: stretch; }
+}
+@media (max-width: 479px) {
+  #app .pl-range-matrix { min-width: 390px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app .pl-rv-tab { transition: none; }
+}

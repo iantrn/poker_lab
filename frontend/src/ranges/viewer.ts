@@ -338,7 +338,14 @@ export function installRangesViewer(): RangesViewerApi {
         ui.title = el("h3", "pl-rv-title");
         ui.summary = el("p", "pl-rv-summary");
         ui.matrix = el("div", "pl-rv-matrix");
+        // The 13×13 matrix stays intact; on narrow screens its own region
+        // scrolls horizontally instead of shrinking every hand label.
+        ui.matrix.tabIndex = 0;
+        ui.matrix.setAttribute("role", "region");
+        ui.matrix.setAttribute("aria-label", "Matrice des ranges — défilement horizontal sur petit écran");
         ui.detail = el("p", "pl-rv-detail");
+        ui.detail.setAttribute("role", "status");
+        ui.detail.setAttribute("aria-live", "polite");
         ui.error = el("p", "pl-rv-error");
         ui.error.hidden = true;
 

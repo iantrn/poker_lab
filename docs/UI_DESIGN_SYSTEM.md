@@ -66,3 +66,11 @@ Semantic colors for folding, calling, raising, all-in and range frequencies rema
 - Replaced non-namespaced layout utilities without matching CSS definitions (e.g. `space-y-6`, complex `lg:grid-cols-[...]`) with explicit, responsive, documented styles.
 - A 44px minimum applies to new form inputs and primary/secondary UI buttons. **The live game-action control strip remains untouched pending its own dedicated responsive audit.**
 - No modifications to `components/cards.ts`, styles selectors for poker cards, engines, worker or solver outputs.
+
+## Phase 3 — Strategy presentation
+
+- At desktop widths, preflop ranges use a two-column information layout. The matrix remains the exact 169-combination component and retains all data contracts.
+- At narrow phone widths, only the matrix has horizontal overflow. Selected-hand detail is announced via a polite live region.
+- Range frequency fills preserve the existing green convention and current percentage labels.
+- SOLVE strategy frequencies gain a decorative green bar under each action. The original percentage is displayed unchanged; the visual width alone is clamped to a valid 0–100% display interval.
+- Mathematical outputs, estimates, confidence intervals and the explicit no-full-game-GTO-certification disclaimer are preserved verbatim.

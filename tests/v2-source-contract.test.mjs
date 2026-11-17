@@ -96,3 +96,19 @@ test("Phase 2 page primitives preserve dynamic runtime mounts and game-card isol
   assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/, "New UI must not modify poker card CSS");
   assert.match(design, /min-height:\s*44px/, "Touch control size must not be regressed");
 });
+
+test("Phase 3 retains GTO numeric output while improving range and solver presentation", () => {
+  const viewer = read("frontend/src/ranges/viewer.ts");
+  const solver = read("frontend/src/ui/postflop-solver.ts");
+  const design = read("frontend/src/styles/design-system.css");
+  assert.match(viewer, /Matrice des ranges — défilement horizontal/);
+  assert.match(viewer, /ui\.detail\.setAttribute\("aria-live", "polite"\)/);
+  assert.match(solver, /pl-solve-frequency-track/);
+  assert.match(solver, /fill\.style\.width = String\(Math\.min\(100, Math\.max\(0, item\.frequency \* 100\)\)\)/);
+  assert.match(solver, /item\.frequency \* 100\)\.toLocaleString\("fr-FR"/);
+  assert.match(solver, /GTO intégral non certifié/);
+  assert.match(design, /grid-template-areas:/);
+  assert.match(design, /\.pl-range-matrix \{ min-width: 390px; \}/);
+  assert.match(design, /\.pl-solve-frequency-fill/);
+  assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/);
+});

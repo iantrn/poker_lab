@@ -170,6 +170,9 @@ async function run() {
     await first.click();
     assert.equal(await first.getAttribute("aria-pressed"), "true");
     assert.equal((await page.locator(".pl-rv-detail").innerText()).includes("AA"), true);
+    assert.equal(await page.locator(".pl-rv-detail").getAttribute("aria-live"), "polite");
+    const rangesLayout = await page.locator(".pl-rv").evaluate(element => getComputedStyle(element).display);
+    assert.equal(rangesLayout, "grid", "Large screens should show range selection beside the matrix");
 
     // Exercise the migrated Lessons, Puzzles, and Game Review modules in Chromium.
     await page.locator(".pl-lesson-open").first().waitFor({ timeout: 30000 });
@@ -212,6 +215,14 @@ async function run() {
         destination + " page must not overflow viewport at 768px");
     }
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('a[data-page="lessons"]').first().click();
+    const rangeScroll = await page.locator(".pl-rv-matrix").evaluate(element => ({
+      width: element.clientWidth,
+      scroll: element.scrollWidth
+    }));
+    assert.ok(rangeScroll.scroll >= rangeScroll.width, "Range data must remain in its own scroll region");
+    assert.ok((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1,
+      "Range matrix must not overflow the mobile document");
     await page.locator('nav').last().locator('a[data-page="home"]').click();
     assert.equal(await page.locator("#home").isVisible(), true);
     await page.locator('nav.pl-mobile-nav a[data-page="review"]').click();
