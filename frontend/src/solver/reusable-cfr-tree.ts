@@ -95,6 +95,43 @@ export function createReusableRustTreeSerializer() {
       shapes.set(root,shape);
       for(const [key,entry] of registry.byKey)
         if(entry.id>=originalSize)reserved.push(key);
+      // The first validated serialization can reserve IDs that later samples
+      // in the SAME Rust batch reuse. Index them now so rollback of that first
+      // sample invalidates every associated numerical lookup.
+      if(useNumeric){
+        try {
+          for(const node of nodes){
+            if(node.terminal)continue;
+            const prefix=callbacks.informationPrefix!(node);
+            const suffix=callbacks.informationSuffix!(node);
+            if(typeof prefix!=="string"||typeof suffix!=="string"||
+               prefix.length+suffix.length===0 ||
+               callbacks.informationKey(node)!==prefix+suffix)
+              throw new RangeError("Identité numérique CFR+ incompatible avec la clé canonique.");
+            const entry=registry.byKey.get(prefix+suffix);
+            if(!entry)throw new Error("Identité CFR+ absente du registre canonique.");
+            let slots=index.byPrefix.get(prefix);
+            if(!slots){
+              slots=new Map<string,CfrInformationSet>();
+              index.byPrefix.set(prefix,slots);
+            }
+            if(!slots.has(suffix)){
+              slots.set(suffix,entry);
+              if(entry.id>=originalSize)reservedParts.push([prefix,suffix]);
+            }
+          }
+        }catch(error:unknown){
+          for(const [prefix,suffix] of reservedParts){
+            const slots=index.byPrefix.get(prefix);
+            slots?.delete(suffix);
+            if(slots?.size===0)index.byPrefix.delete(prefix);
+          }
+          for(const key of reserved)registry.byKey.delete(key);
+          index.size=registry.byKey.size;
+          shapes.delete(root);
+          throw error;
+        }
+      }
     } else {
       try {
         for(let position=0;position<shape.nodes.length;position++){
