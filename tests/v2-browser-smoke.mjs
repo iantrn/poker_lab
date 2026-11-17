@@ -354,12 +354,23 @@ async function run() {
         ]
       }};
       let id=1000;
+      const rustProgress=[];
       const run=(task,options={},experimentalRustCfr)=>new Promise((resolve,reject)=>{
         const currentId=++id;
         const timeout=setTimeout(()=>reject(new Error(
           "Typed postflop "+task+" calculation exceeded 60s")),60000);
         const onMessage=event=>{
-          if(event.data?.id!==currentId || event.data.progress!==undefined)return;
+          if(event.data?.id!==currentId)return;
+          if(event.data.progress!==undefined){
+            if(task==="strategy"&&experimentalRustCfr===true)
+              rustProgress.push({
+                progress:event.data.progress,
+                phase:event.data.phase,
+                provisional:event.data.provisional===true,
+                actionCount:event.data.previewActions?.length??0
+              });
+            return;
+          }
           clearTimeout(timeout);worker.removeEventListener("message",onMessage);
           if(event.data.ok)resolve(event.data.result);
           else reject(new Error(event.data.error||("Typed "+task+" failed")));
@@ -387,6 +398,8 @@ async function run() {
         const autoStrategy=await run("strategy",solveOptions);
         return {
           timing:{typedDurationMs,rustDurationMs},
+          rustProgress,
+          rustQuality:rustStrategy.quality,
           equity:{iterations:equity.iterations,wins:equity.wins,ties:equity.ties,
             losses:equity.losses,value:equity.equity},
           strategy:{iterations:strategy.iterations,actions:strategy.actions,
@@ -405,6 +418,19 @@ async function run() {
       typedPostflop.equity.losses,1800);
     assert.ok(typedPostflop.equity.value>=0&&typedPostflop.equity.value<=1);
     assert.equal(typedPostflop.strategy.iterations,80);
+    assert.equal(typedPostflop.rustQuality,"sampled_estimate");
+    assert.ok(typedPostflop.rustProgress.length>=4,
+      "real Worker must stream bounded CFR progress checkpoints");
+    assert.ok(typedPostflop.rustProgress.some(update=>
+      update.provisional&&update.phase==="strategy_training"),
+      "real Worker must distinguish un-converged strategy estimates");
+    assert.ok(typedPostflop.rustProgress.some(update=>update.actionCount>0),
+      "real Worker must send a provisional root policy when sampled hero is known");
+    for(let step=1;step<typedPostflop.rustProgress.length;step++)
+      assert.ok(typedPostflop.rustProgress[step].progress>=
+        typedPostflop.rustProgress[step-1].progress,
+        "progress must stay monotonic");
+
     assert.ok(typedPostflop.strategy.actions.length>=2);
     assert.ok(Math.abs(typedPostflop.strategy.actions.reduce((sum,action)=>
       sum+action.frequency,0)-1)<0.001);
