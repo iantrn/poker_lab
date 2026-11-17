@@ -7,7 +7,7 @@
 import {
   createSolverInput,resolveSolverInput,
   type SolverCard,type SolverStateInput,type SolverInputSnapshot
-} from "./input-contract";
+} from "./input-contract.ts";
 
 export type StrategicStreet="waiting"|"preflop"|"flop"|"turn"|"river"|"showdown";
 export type StrategicQuality="sampled_estimate"|"unavailable";
