@@ -141,13 +141,13 @@ pub fn weighted_equity(
     let mut outcomes = [0.0f64; 3];
 
     if missing == 0 {
-        let hero_score = evaluator::score(&hero_seven)?;
+        let hero_key = evaluator::rank_seven_unchecked(&hero_seven);
         for (index, combo) in combos.iter().enumerate() {
             villain_seven[..2].copy_from_slice(&combo.cards);
-            let villain_score = evaluator::score(&villain_seven)?;
+            let villain_key = evaluator::rank_seven_unchecked(&villain_seven);
             let previous = if index == 0 { 0.0 } else { combos[index - 1].cumulative };
             let weight = combo.cumulative - previous;
-            let category = match evaluator::compare(&hero_score, &villain_score) {
+            let category = match hero_key.cmp(&villain_key) {
                 Ordering::Greater => 0,
                 Ordering::Equal => 1,
                 Ordering::Less => 2,
@@ -174,9 +174,8 @@ pub fn weighted_equity(
         hero_seven[board_end..].copy_from_slice(&draw[..missing]);
         villain_seven[board_end..].copy_from_slice(&draw[..missing]);
 
-        let hero_score = evaluator::score(&hero_seven)?;
-        let villain_score = evaluator::score(&villain_seven)?;
-        let category = match evaluator::compare(&hero_score, &villain_score) {
+        let category = match evaluator::rank_seven_unchecked(&hero_seven)
+            .cmp(&evaluator::rank_seven_unchecked(&villain_seven)) {
             Ordering::Greater => 0,
             Ordering::Equal => 1,
             Ordering::Less => 2,

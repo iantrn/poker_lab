@@ -65,9 +65,8 @@ pub fn monte_carlo(holes: &[u8], board: &[u8], iterations: u32, seed: u64) -> Re
         }
         first[board_end..].copy_from_slice(&draw[..missing]);
         second[board_end..].copy_from_slice(&draw[..missing]);
-        let score_a = evaluator::score(&first)?;
-        let score_b = evaluator::score(&second)?;
-        match evaluator::compare(&score_a, &score_b) {
+        match evaluator::rank_seven_unchecked(&first)
+            .cmp(&evaluator::rank_seven_unchecked(&second)) {
             Ordering::Greater => outcomes[0] += 1,
             Ordering::Equal => outcomes[1] += 1,
             Ordering::Less => outcomes[2] += 1

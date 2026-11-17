@@ -102,6 +102,13 @@ pub fn rank_five(cards: &[u8; 5]) -> Vec<u8> {
 
 pub fn score(cards: &[u8]) -> Result<Vec<u8>, &'static str> {
     validate(cards)?;
+    Ok(best_score_unchecked(cards).as_slice().to_vec())
+}
+
+/// The inner score kernel only accepts unique, valid cards of length 5..=7.
+/// The caller performs deck validation before entering a Monte-Carlo hot path.
+#[inline]
+fn best_score_unchecked(cards: &[u8]) -> HandScore {
     let mut best: Option<HandScore> = None;
     for a in 0..cards.len() - 4 {
         for b in a + 1..cards.len() - 3 {
@@ -117,7 +124,21 @@ pub fn score(cards: &[u8]) -> Result<Vec<u8>, &'static str> {
             }
         }
     }
-    Ok(best.expect("validated hand must contain at least five cards").as_slice().to_vec())
+    best.expect("hand must contain at least five cards")
+}
+
+/// Comparable six-byte score, zero padded only after the score's final kicker.
+/// For legal seven-card hands the rank category determines its score length,
+/// so padding cannot change the established V1 comparison order.
+/// Used only after the equity engine has checked the complete deal's cards.
+#[inline]
+pub(crate) fn rank_seven_unchecked(cards: &[u8; 7]) -> u64 {
+    let score = best_score_unchecked(cards);
+    let mut key = 0u64;
+    for &digit in &score.bytes {
+        key = (key << 8) | u64::from(digit);
+    }
+    key
 }
 
 pub fn compare(left: &[u8], right: &[u8]) -> Ordering {
@@ -139,6 +160,26 @@ mod tests {
     fn picks_best_five_from_seven() {
         assert_eq!(score(&[c(14,0),c(14,1),c(14,2),c(13,0),c(13,1),c(8,0),c(2,1)]).unwrap(),vec![6,14,13]);
         assert!(validate(&[c(2,0),c(2,0),c(3,0),c(4,0),c(5,0)]).is_err());
+    }
+    #[test]
+    fn allocation_free_comparison_matches_public_scoring_on_many_deals() {
+        let deck: Vec<u8> = (0u8..4).flat_map(|s| (2u8..=14).map(move |r| c(r, s))).collect();
+        let mut state = 0x7133a6cf_u64;
+        for _ in 0..12000 {
+            let mut work = deck.clone();
+            for position in 0..9 {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                let choice = position + (state as usize % (work.len() - position));
+                work.swap(position, choice);
+            }
+            let a = [work[0],work[1],work[4],work[5],work[6],work[7],work[8]];
+            let b = [work[2],work[3],work[4],work[5],work[6],work[7],work[8]];
+            let expected = compare(&score(&a).unwrap(), &score(&b).unwrap());
+            let actual = rank_seven_unchecked(&a).cmp(&rank_seven_unchecked(&b));
+            assert_eq!(actual,expected,"different score comparison for a={a:?} b={b:?}");
+        }
     }
     #[test]
     fn stable_kickers_and_multi_pair_tie_breaks() {
