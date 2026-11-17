@@ -80,6 +80,18 @@ async function run() {
     assert.equal(await page.locator("#training").isVisible(), true);
     assert.equal(await page.locator("#training-mode").inputValue(), "6max");
 
+    // A complete V2 game session must render six seats and preserve the V1 action mount.
+    const gameStarted = await page.evaluate(() => window.PokerLabTraining.createSession());
+    assert.equal(gameStarted.success, true, JSON.stringify(gameStarted.errors ?? []));
+    await page.waitForFunction(() =>
+      document.querySelectorAll("#training-table .pl-seat").length === 6 &&
+      Boolean(document.querySelector("#training-table .pl-hero-actions-mount #training-actions")),
+      null, { timeout: 30000 });
+    const gameState = await page.evaluate(() => window.PokerLabTraining.getGameState());
+    assert.equal(gameState.players.length, 6);
+    assert.equal(gameState.street, "preflop");
+    assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
+
     await page.locator('a[data-page="lessons"]').first().click();
     assert.equal(await page.locator("#lessons").isVisible(), true);
     await page.waitForFunction(() => document.querySelectorAll(".pl-range-cell").length === 169, null, { timeout: 30000 });
