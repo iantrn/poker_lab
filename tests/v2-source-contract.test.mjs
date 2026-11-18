@@ -338,16 +338,17 @@ test("Landscape tablet can show six-max table and decisions together, without sc
   assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "No redesign of the cards");
 });
 
-test("Tablet landscape felt is deep enough for all six private-card pairs",()=>{
+test("Tablet landscape private cards straddle the rail halfway like desktop",()=>{
   const css=read("frontend/src/styles/poker-table.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/\.pl-seat-upper \.pl-player-cards \{\s*top: calc\(100% \+ 42px\)/);
-  assert.match(css,/\.pl-seat-lower \.pl-player-cards \{\s*bottom: calc\(100% \+ 58px\)/);
+  assert.match(css,/\.pl-seat-upper \.pl-player-cards \{\s*top: calc\(100% \+ 15px\)/);
+  assert.match(css,/\.pl-seat-lower \.pl-player-cards \{\s*bottom: calc\(100% \+ 15px\)/);
   assert.match(css,/\.pl-player-bet \{\s*top: calc\(100% \+ 112px\)/);
   assert.match(css,/\.pl-seat-lower \.pl-player-bet \{\s*top: auto;\s*bottom: calc\(100% \+ 129px\)/);
   assert.match(smoke,/The red felt needs enough depth for private cards/);
-  assert.match(smoke,/Top-row hole cards must clear the gold felt border/);
-  assert.match(smoke,/Bottom-row hole cards must clear the gold felt border/);
+  assert.match(smoke,/Every hole card must sit about half inside and half outside the gold rail/);
+  assert.match(smoke,/Hole cards must stay separate from their player's capsule/);
+  assert.match(smoke,/No private card should overlap another player's cards/);
   assert.match(smoke,/Player hole cards must never overlap community-card slots/);
   assert.match(smoke,/Bet chips must not overlap the community-card row/);
 });

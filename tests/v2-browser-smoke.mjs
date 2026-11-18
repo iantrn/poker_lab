@@ -345,6 +345,7 @@ async function run() {
         const cardPairs=[...table.querySelectorAll(".pl-seat")].map(seat=>({
           rail:seat.classList.contains("pl-seat-upper")?"upper":"lower",
           cards:[...seat.querySelectorAll(".pl-player-cards > *")].map(r),
+          pill:r(seat.querySelector(".pl-player-info")),
           bet:seat.querySelector(".pl-player-bet")?r(seat.querySelector(".pl-player-bet")):null
         }));
         const topSeats = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(r);
@@ -403,13 +404,17 @@ async function run() {
       for(const pair of layout.cardPairs) {
         assert.equal(pair.cards.length,2,"Every six-max player retains both cards");
         for(const card of pair.cards) {
-          if(pair.rail==="upper") {
-            assert.ok(card.top>=layout.felt.top-3,
-              "Top-row hole cards must clear the gold felt border");
-          } else {
-            assert.ok(card.bottom<=layout.felt.bottom+3,
-              "Bottom-row hole cards must clear the gold felt border");
-          }
+          // The user-approved desktop visual deliberately lets the two
+          // private cards straddle the gold rail. Measure *actual* card
+          // pixels, requiring half inside and half outside on both sides.
+          const outsidePx=pair.rail==="upper"
+            ? layout.felt.top-card.top
+            : card.bottom-layout.felt.bottom;
+          const outsideShare=outsidePx/card.height;
+          assert.ok(outsideShare>=0.43 && outsideShare<=0.57,
+            "Every hole card must sit about half inside and half outside the gold rail");
+          assert.equal(overlaps(card,pair.pill),false,
+            "Hole cards must stay separate from their player's capsule");
           assert.ok(layout.boardCards.every(other=>!overlaps(card,other)),
             "Player hole cards must never overlap community-card slots");
           assert.ok(!overlaps(card,layout.pot),
@@ -422,6 +427,13 @@ async function run() {
             "Bet chips must remain separate from the main-pot display");
           assert.ok(layout.boardCards.every(card=>!overlaps(pair.bet,card)),
             "Bet chips must not overlap the community-card row");
+        }
+      }
+      const allPrivate=layout.cardPairs.flatMap(pair=>pair.cards);
+      for(let i=0;i<allPrivate.length;i++) {
+        for(let j=i+1;j<allPrivate.length;j++) {
+          assert.ok(!overlaps(allPrivate[i],allPrivate[j]),
+            "No private card should overlap another player's cards");
         }
       }
       assert.ok(Math.abs(layout.header.midY-layout.solver.midY)<=3);
