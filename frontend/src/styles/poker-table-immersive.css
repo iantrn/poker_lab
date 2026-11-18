@@ -4,6 +4,28 @@
  * card backs, game state, solver maths or animation keyframes.
  * Loaded after poker-table.css so the existing implementation can roll back.
  */
+/* The functional leave-session action is kept, but no competing top-right
+   button appears beside the dedicated Settings icon in the table header. */
+#app #training-game .pl-training-game-heading {
+  justify-content: flex-start;
+  gap: 12px;
+}
+#app #training-game .pl-training-game-heading > [data-training-action="stop"] {
+  margin-left: 0;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+#app #training-game .pl-training-game-heading > [data-training-action="stop"]:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-light);
+}
+
 #app #training-game .pl-live-table-stage {
   isolation: isolate;
   overflow: visible;
