@@ -44,9 +44,9 @@ export function TrainingPage() {
       <div className="pl-training-notes">
         <section className="pl-training-note" aria-labelledby="training-blinds-title">
           <h3 id="training-blinds-title" className="pl-training-note-title">Structure des blinds</h3>
-          <p className="pl-training-note-value">SB : 0,5 jeton · BB : 1 jeton</p>
+          <p className="pl-training-note-value">Small blind : 0,5 BB · Big blind : 1 BB</p>
           <p className="pl-training-note-detail">
-            1 BB correspond à 1 jeton. Ton tapis est directement exprimé en grosses blinds.
+            Les stacks, les mises et les pots sont affichés en big blinds (BB).
           </p>
         </section>
         <section className="pl-training-note" aria-labelledby="training-opponents-title">
