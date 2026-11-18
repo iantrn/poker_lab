@@ -511,6 +511,16 @@
     min-height: clamp(640px, calc(147vw + 100px), 750px) !important;
     max-height: clamp(640px, calc(147vw + 100px), 750px) !important;
   }
+  /* Shortening the stage removes 19px above the far-side bots. Shift the
+     entire upper rail +15px, without moving the lower edge or the cards
+     relative to that rail. This protects the hand/solver lane at 320px. */
+  #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
+    top: calc(19% + 40px) !important;
+  }
+  #app #training-game #training-table .pl-table-container > .pl-felt {
+    top: calc(19% + 108px) !important;
+    height: calc(69% - 145px) !important;
+  }
 }
 @media (min-width: 1000px) and (max-width: 1280px) and (max-height: 900px) and (orientation: landscape),
        (min-width: 1281px) and (max-width: 1450px) and (max-height: 1100px) and (orientation: landscape) and (pointer: coarse) {
