@@ -332,3 +332,24 @@ without modifying the card illustrations or game engine.
 - Automated real-browser checks cover 0→3→4→5, unchanged-street rerenders,
   next-hand reset, the identities of dealt cards, desktop, mobile and
   reduced-motion styling.
+
+## Jouer — taller table and safer hand/Solver header
+
+The playing-window height increases by **120px on desktop** (up to 745px)
+and **100px on phones** (up to 750px). The extra space is distributed
+vertically: the top-player rail is lowered by 25px and the felt's top
+edge follows it, maintaining its original 40–48px separation from all
+player capsules; the bottom rail and its felt gap remain consistent.
+
+The `Votre main` summary and adjacent Solver use the same horizontal
+positions, but their top offsets shift from 11→4px on desktop and from
+43→36px on phones. Together with the taller panel, this provides over
+**40px more effective clearance from the central top player**. A literal
+-40px from the old offsets was impossible without clipping above the
+table's frame or overlapping the mobile top-header badges; this solution
+honours the no-overflow and no-overlap constraints instead.
+
+Browser regression checks assert both controls remain **inside the frame**,
+clear of all visible header chips and the top-centre player, at desktop,
+390px and 320px; card assets, positions across the two long rails, betting
+logic and Solver behaviour are unchanged.

@@ -33,9 +33,11 @@
   width: 100% !important;
   max-width: 1200px !important;
   min-width: 0 !important;
-  height: clamp(500px, 54vw, 625px) !important;
-  min-height: clamp(500px, 54vw, 625px) !important;
-  max-height: clamp(500px, 54vw, 625px) !important;
+  /* +120px desktop creates real headroom without pushing either header
+     control through the top frame (which must remain clipped). */
+  height: clamp(620px, calc(54vw + 120px), 745px) !important;
+  min-height: clamp(620px, calc(54vw + 120px), 745px) !important;
+  max-height: clamp(620px, calc(54vw + 120px), 745px) !important;
   margin: 0 auto !important;
   padding: 0;
   overflow: hidden;
@@ -44,16 +46,16 @@
   background: radial-gradient(ellipse at 50% 40%,#23282d 0%,#161b20 65%,#111519 100%);
   box-shadow: inset 0 0 38px rgba(0,0,0,.18);
 }
-/* The far-row bots need a ~40px visible gap from the red rail. With
-   seats at 12% / 88% (56px-high pills), the felt edges are calculated
-   from the seat edges plus 44px. This avoids reinstating the legacy
-   40px inset on ALL players, which previously broke their alignment. */
+/* Extending the table downwards gives the summary a clear header lane.
+   The upper players sit 25px lower within this taller panel; matching
+   the felt start preserves the original 44px capsule-to-rail gap.
+   The bottom edge is anchored to the lower row, not to the viewport. */
 #app #training-game #training-table .pl-table-container > .pl-felt {
-  top: calc(12% + 72px) !important;
+  top: calc(12% + 97px) !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
   width: 92% !important;
-  height: calc(76% - 144px) !important;
+  height: calc(76% - 169px) !important;
   min-width: 0 !important;
   min-height: 0 !important;
   box-sizing: border-box;
@@ -120,7 +122,7 @@
 }
 #app #training-game #training-table .pl-table-container > .pl-hand-strength {
   --pl-hand-pill-width: clamp(156px, 45vw, 234px);
-  top: 11px !important;
+  top: 4px !important;
   bottom: auto !important;
   left: 50% !important;
   right: auto !important;
@@ -164,6 +166,11 @@
   background: transparent !important;
   box-shadow: none !important;
   z-index: 21 !important;
+}
+/* Move the far row away from the header, rather than raising the hand
+   pill 40px outside a frame whose original pill top was only 11px. */
+#app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
+  top: calc(var(--seat-y) + 25px) !important;
 }
 #app #training-game #training-table .pl-table-container .pl-seat-hero {
   width: clamp(164px,18vw,216px) !important;
@@ -341,7 +348,7 @@
 #app #training-game .pl-table-solver-dock {
   position: absolute;
   z-index: 40;
-  top: 11px;
+  top: 4px;
   left: calc(50% + clamp(78px, 22.5vw, 117px) + 9px);
   right: auto;
   bottom: auto;
@@ -678,21 +685,23 @@
 }
 @media (max-width: 767px) {
   #app #training-game #training-table .pl-table-container {
-    height: clamp(540px,147vw,650px) !important;
-    min-height: clamp(540px,147vw,650px) !important;
-    max-height: clamp(540px,147vw,650px) !important;
+    /* +100px mobile keeps the whole table/board readable while leaving
+       the navigation and game actions in their existing normal flow. */
+    height: clamp(640px, calc(147vw + 100px), 750px) !important;
+    min-height: clamp(640px, calc(147vw + 100px), 750px) !important;
+    max-height: clamp(640px, calc(147vw + 100px), 750px) !important;
   }
-  /* On phones the upper seats have a 19% baseline and all seats are
-     40–45px tall, so reserve 44–48px outside the felt for the capsules. */
+  /* Mobile upper players also move 25px down; move the rail by the
+     same amount and subtract it from height to keep bottom clearance. */
   #app #training-game #training-table .pl-table-container > .pl-felt {
-    top: calc(19% + 68px) !important;
+    top: calc(19% + 93px) !important;
     width: 94% !important;
-    height: calc(69% - 136px) !important;
+    height: calc(69% - 161px) !important;
     border-width: 3px !important;
     border-radius: 43px !important;
   }
   #app #training-game #training-table .pl-table-container > .pl-hand-strength {
-    top: 43px !important;
+    top: 36px !important;
     max-width: clamp(156px, 45vw, 234px) !important;
     gap: 5px;
     padding-inline: 6px;
@@ -720,9 +729,9 @@
     width: clamp(90px,27vw,132px) !important;
     height: 45px;
   }
-  /* A 19% top rail clears both the centred hand pill and the felt edge. */
+  /* Keep the 6-max upper rail below the summary's dedicated lane. */
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
-    top: 19% !important;
+    top: calc(19% + 25px) !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat-hero {
     width: clamp(122px,36vw,158px) !important;
@@ -795,7 +804,7 @@
     min-width: 75px;
   }
   #app #training-game .pl-table-solver-dock {
-    top: 43px;
+    top: 36px;
     left: calc(50% + clamp(78px, 22.5vw, 117px) + 7px);
     right: auto;
     transform: none;

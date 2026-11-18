@@ -195,6 +195,9 @@ async function run() {
             midX:r.left+r.width/2,midY:r.top+r.height/2,width:r.width,height:r.height};
         };
         const table = document.querySelector("#training-table .pl-table-container");
+        const frame = rect(table);
+        const headerChips=[...table.querySelectorAll(".pl-table-header > span")]
+          .filter(el=>getComputedStyle(el).display!=="none").map(rect);
         const felt = rect(table.querySelector(".pl-felt"));
         const upper = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(rect)
           .sort((a,b)=>a.midX-b.midX);
@@ -216,7 +219,7 @@ async function run() {
         const empty = [...table.querySelectorAll(".pl-board .pl-card--empty")];
         const handValue = table.querySelector(".pl-hand-strength-value");
         return {
-          felt,upper,lower,hand,solver,seatBets,
+          frame,headerChips,felt,upper,lower,hand,solver,seatBets,
           stage:rect(document.querySelector(".pl-live-table-stage")),
           solverOpacity:Number(getComputedStyle(solverButton).opacity),
           solverDisabled:solverButton.disabled,
@@ -267,6 +270,31 @@ async function run() {
         "Solver must sit to the right of the centred hand pill");
       assert.ok(Math.abs(geometry.solver.top-geometry.hand.top)<=3,
         "Solver must share the hand pill's header row");
+      // The hand summary was 11px from the top on desktop and 43px on
+      // phones: a literal -40px would clip it. Increase the panel and
+      // give the header >=40px *additional separation from Bot 3* instead.
+      const headerY = mobile ? 36 : 4;
+      assert.ok(Math.abs(geometry.hand.top-geometry.frame.top-headerY)<=2,
+        "The hand summary must keep its dedicated top lane inside the frame");
+      assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-headerY)<=2,
+        "The Solver must be in the same protected header lane");
+      assert.ok(geometry.frame.height >= (mobile ? 635 : 615),
+        "The enlarged table must have the requested extra vertical space");
+      const tableTop = geometry.frame.top;
+      assert.ok(geometry.hand.top>=tableTop+3 && geometry.solver.top>=tableTop+3,
+        "Neither the hand summary nor Solver may overflow past the top frame");
+      assert.ok(geometry.hand.bottom<=geometry.upper[1].top-30,
+        "The hand summary needs at least 30px clearance above Bot 3");
+      assert.ok(geometry.solver.bottom<=geometry.upper[1].top-30,
+        "Solver needs the same clearance above Bot 3");
+      const intersects=(a,b)=>a.left<b.right && a.right>b.left &&
+        a.top<b.bottom && a.bottom>b.top;
+      for(const chip of geometry.headerChips) {
+        assert.equal(intersects(geometry.hand,chip),false,
+          "The hand summary must not cover any top-header badge");
+        assert.equal(intersects(geometry.solver,chip),false,
+          "The Solver must not cover any top-header badge");
+      }
       assert.ok(geometry.solver.right<=geometry.stage.right+1,
         "Solver must stay within the table stage");
       assert.equal(geometry.solverDisabled,true);
