@@ -320,6 +320,75 @@ async function run() {
 
     const desktopGeometry = await verifyTableGeometry(false);
     assert.ok(desktopGeometry.handText.length>0,"Hand strength label must be present");
+
+    // The user should never have to scroll down from the table to reach
+    // the decision buttons on a landscape iPad. Verify geometry with the
+    // actual game, not just the configured CSS or detached mock elements.
+    const verifyTabletLandscapeControls = async (width, height) => {
+      await page.setViewportSize({width,height});
+      await page.evaluate(() => window.scrollTo(0,0));
+      const layout = await page.evaluate(() => {
+        const r = el => {
+          const box = el.getBoundingClientRect();
+          return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,
+            width:box.width,height:box.height};
+        };
+        const table = document.querySelector("#training-table .pl-table-container");
+        const actions = document.querySelector("#training-game > #training-actions.pl-action-panel");
+        const buttons = [...actions.querySelectorAll(".pl-action-buttons button")];
+        const presets = [...actions.querySelectorAll(".pl-bet-presets button")];
+        const board = r(table.querySelector(".pl-board"));
+        const felt = r(table.querySelector(".pl-felt"));
+        const topSeats = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(r);
+        const bottomSeats = [...table.querySelectorAll(".pl-seat-lower .pl-player-info")].map(r);
+        const header = r(table.querySelector(".pl-hand-strength"));
+        const solver = r(document.querySelector("#training-solver-dock > .pl-solve-button"));
+        const tableBox = r(table);
+        return {
+          viewport:{width:innerWidth,height:innerHeight},
+          table:tableBox,actions:r(actions),board,felt,topSeats,bottomSeats,header,solver,
+          headerVisible:getComputedStyle(document.querySelector("#training .pl-page-header")).display,
+          panels:document.querySelectorAll("#training-actions").length,
+          buttonCount:buttons.length,
+          buttonMinimum:buttons.length?Math.min(...buttons.map(el=>r(el).height)):0,
+          presetMinimum:presets.length?Math.min(...presets.map(el=>r(el).height)):0,
+          horizontalOverflow:document.documentElement.scrollWidth-innerWidth,
+          scrollY
+        };
+      });
+      assert.equal(layout.headerVisible,"none",
+        "The redundant title should not consume tablet landscape play space");
+      assert.ok(layout.table.height<=595 && layout.table.height>=460,
+        "Landscape tablet table should shrink proportionally with screen height");
+      assert.ok(layout.table.width>=550,
+        "Six-max table must remain wide enough for three seats per rail");
+      assert.ok(layout.actions.left>=layout.table.right+8,
+        "Tablet decisions should be beside the felt, not below it");
+      assert.ok(Math.abs(layout.actions.top-layout.table.top)<=2,
+        "Table and actions must share their top row");
+      assert.ok(layout.actions.bottom<=layout.viewport.height-6,
+        "All tablet landscape game actions must fit inside the visible viewport");
+      assert.ok(layout.table.bottom<=layout.viewport.height-6,
+        "Entire tablet landscape table must fit inside the visible viewport");
+      assert.ok(layout.buttonCount>=2 && layout.buttonMinimum>=44,
+        "Decision controls remain usable touch targets in landscape");
+      assert.ok(layout.presetMinimum===0||layout.presetMinimum>=44,
+        "Bet presets remain touch accessible in landscape");
+      assert.ok(layout.horizontalOverflow<=1,
+        "Tablet landscape must not introduce horizontal page scrolling");
+      assert.ok(layout.topSeats.every(seat=>seat.bottom<=layout.felt.top+5));
+      assert.ok(layout.bottomSeats.every(seat=>seat.top>=layout.felt.bottom-5));
+      assert.ok(Math.abs(layout.header.midY-layout.solver.midY)<=3);
+      assert.ok(layout.board.width<=layout.felt.width,
+        "All five community card positions must stay inside the felt width");
+      await captureGameElement(`table-6max-tablet-landscape-${width}x${height}`,
+        "#training-game");
+    };
+    await verifyTabletLandscapeControls(1024,768);
+    await verifyTabletLandscapeControls(1080,810);
+    await verifyTabletLandscapeControls(1180,820);
+    await page.setViewportSize({width:1365,height:768});
+
     const sampleLabels = await page.evaluate(() => {
       const evaluator = window.PokerLabTable;
       return {
