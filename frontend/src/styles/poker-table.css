@@ -1352,6 +1352,11 @@
     min-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
     max-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
   }
+  /* Preserve the previously validated tablet landscape geometry: the
+     100px desktop/mobile expansion must not hide the action sidebar. */
+  #app #training-game #training-table .pl-table-container > .pl-felt {
+    height: calc(76% - 189px) !important;
+  }
   /* Scale the visual footprint slightly, never change card graphics. */
   #app #training-game #training-table .pl-seat .pl-player-cards > * {
     width: 40px !important;
