@@ -186,6 +186,52 @@ async function run() {
     assert.equal(await page.locator("#training-solver-dock > .pl-solve-dialog").count(), 1);
     assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").isDisabled(), true);
     assert.equal(await page.locator("#training-actions [data-postflop-solve]").count(), 0);
+    // Fold fixture: change only a copied presentation state, never the live
+    // poker engine. The bot must be obviously folded with a solid FOLD badge.
+    const foldedVisual = await page.evaluate(() => {
+      const live = window.PokerLabTraining.getGameState();
+      const mock = { ...live, players: live.players.map(player => ({ ...player })) };
+      const bot = mock.players.find(player => !player.isHuman);
+      if (!bot) throw new Error("Six-max fold visual fixture requires a bot");
+      bot.folded = true;
+      const mount = document.getElementById("training-table");
+      window.PokerLabTable.render(mount, mock);
+      const seat = [...mount.querySelectorAll(".pl-seat")].find(el => el.dataset.playerId === bot.id);
+      const badge = seat?.querySelector(".pl-badge-folded");
+      if (!seat || !badge) throw new Error("Folded bot lacks its FOLD indicator");
+      const badgeStyle = getComputedStyle(badge);
+      const identityStyle = getComputedStyle(seat.querySelector(".pl-player-info"));
+      const groupStyle = getComputedStyle(seat.querySelector(".pl-player-badges"));
+      const cardStyle = getComputedStyle(seat.querySelector(".pl-player-cards"));
+      return {
+        folded: seat.classList.contains("is-folded"),
+        text: badge.textContent,
+        background: badgeStyle.backgroundColor,
+        textColor: badgeStyle.color,
+        badgeHeight: badge.getBoundingClientRect().height,
+        identityOpacity: Number(identityStyle.opacity),
+        badgeOpacity: Number(groupStyle.opacity),
+        cardOpacity: Number(cardStyle.opacity),
+        otherFolded: [...mount.querySelectorAll(".pl-seat:not(.is-folded) .pl-badge-folded")].length
+      };
+    });
+    assert.equal(foldedVisual.folded, true);
+    assert.equal(foldedVisual.text, "FOLD");
+    assert.equal(foldedVisual.background, "rgb(166, 39, 54)");
+    assert.equal(foldedVisual.textColor, "rgb(255, 255, 255)");
+    assert.ok(foldedVisual.badgeHeight >= 23, "Fold label must be readable");
+    assert.ok(foldedVisual.identityOpacity <= .4,
+      "Folded bot identity should be visibly muted");
+    assert.equal(foldedVisual.badgeOpacity, 1,
+      "FOLD label must not fade with the folded player identity");
+    assert.equal(foldedVisual.cardOpacity, 1,
+      "Do not tint or fade the original blue playing-card backs");
+    assert.equal(foldedVisual.otherFolded, 0,
+      "Active opponents must not receive a FOLD label");
+    await page.evaluate(() => window.PokerLabTable.render(
+      document.getElementById("training-table"), window.PokerLabTraining.getGameState()
+    ));
+
     const feltDimensions = await page.locator("#training-table .pl-felt").evaluate(el => {
       const rect = el.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
@@ -287,7 +333,9 @@ async function run() {
       assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-(headerY+10))<=2,
         "The Solver must be lowered 10px to centre beside the 54px summary");
       assert.ok(geometry.frame.height >= (mobile ? 635 : 615),
-        "The enlarged table must have the requested extra vertical space");
+        "The compact table must still fit players, board and controls");
+      assert.ok(geometry.frame.height <= (mobile ? 755 : 750),
+        "The table must no longer be excessively tall");
       const tableTop = geometry.frame.top;
       assert.ok(geometry.hand.top>=tableTop+3 && geometry.solver.top>=tableTop+3,
         "Neither the hand summary nor Solver may overflow past the top frame");

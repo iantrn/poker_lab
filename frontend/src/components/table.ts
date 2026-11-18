@@ -421,7 +421,7 @@ function createTable() {
                 createElement(
                     "span",
                     "pl-badge pl-badge-folded",
-                    "Fold"
+                    "FOLD"
                 )
             );
 

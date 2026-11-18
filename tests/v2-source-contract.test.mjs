@@ -360,9 +360,26 @@ test("Reject the organic SVG table while keeping the rest of the modern UI", () 
   assert.match(main, /poker-table-immersive\.css/);
   assert.doesNotMatch(table, /renderTableSilhouette|pl-table-silhouette/);
   assert.match(table, /felt\.appendChild\(center\)/);
-  assert.doesNotMatch(css, /\.pl-table-silhouette|\.pl-table-container > \.pl-felt\s*\{/);
+  assert.doesNotMatch(css, /\.pl-table-silhouette|\.pl-table-silhouette-felt/);
+  assert.match(css, /top: calc\(19% \+ 108px\) !important/);
   assert.match(css, /\.pl-player-info/);
   assert.match(css, /\.pl-table-settings/);
   assert.match(css, /#training-actions\.pl-action-panel/);
   assert.match(table, /formatAmount\(player\.streetBet\)\} BB/);
+});
+
+
+test("Compact Jouer table and clearly readable folded opponents", () => {
+  const css = read("frontend/src/styles/poker-table-immersive.css");
+  const table = read("frontend/src/components/table.ts");
+  const smoke = read("tests/v2-browser-smoke.mjs");
+  assert.match(css, /height: clamp\(620px, calc\(54vw \+ 120px\), 745px\) !important/);
+  assert.match(css, /height: clamp\(640px, calc\(147vw \+ 100px\), 750px\) !important/);
+  assert.match(css, /#training-game:not\(\.hidden\) #training-table \.pl-table-container/);
+  assert.match(css, /#a62736 !important/);
+  assert.match(css, /\.pl-seat\.is-folded:not\(\.pl-seat-hero\) \.pl-badge-folded/);
+  assert.match(table, /"pl-badge pl-badge-folded",\s*"FOLD"/);
+  assert.match(smoke, /Fold label must be readable/);
+  assert.match(smoke, /The table must no longer be excessively tall/);
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Original card art remains unchanged");
 });
