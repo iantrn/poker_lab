@@ -353,3 +353,21 @@ Browser regression checks assert both controls remain **inside the frame**,
 clear of all visible header chips and the top-centre player, at desktop,
 390px and 320px; card assets, positions across the two long rails, betting
 logic and Solver behaviour are unchanged.
+
+## November refinement: taller hand summary and one shared card deal
+
+- The `Votre main` summary is now **54px high** instead of 34px (+20px),
+  with the same width, header text, and centred horizontal position.
+- The Solver button remains 34px high but is **vertically centred** next
+  to the 54px summary (desktop top 14px, mobile top 46px).
+- On desktop only, the upper opponent row and felt top move down 20px,
+  preserving the minimum 30px clearance from the expanded summary and
+  the established gap between upper seat capsules and felt. Mobile
+  already has sufficient clearance, so opponent positions do not move.
+- **Turn and river now use exactly the flop's 520ms entry animation**,
+  including the same mobile motion path and reduced-motion alternative.
+  Separate street classes remain for correct trigger timing, so the
+  3+1+1 sequence and non-reanimation on subsequent bets are preserved.
+- Chromium and WebKit geometry checks cover the expanded summary,
+  its centre alignment with Solver, header and Bot 3 clearances,
+  shared animation names/durations and card identities.

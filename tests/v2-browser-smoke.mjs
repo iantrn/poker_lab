@@ -268,16 +268,18 @@ async function run() {
         "The hand pill must align exactly with the central Bot 3 seat");
       assert.ok(geometry.solver.left>=geometry.hand.right+4,
         "Solver must sit to the right of the centred hand pill");
-      assert.ok(Math.abs(geometry.solver.top-geometry.hand.top)<=3,
-        "Solver must share the hand pill's header row");
+      assert.ok(Math.abs(geometry.hand.height-54)<=1,
+        "Hand summary should be exactly 20px taller: 34px to 54px");
+      assert.ok(Math.abs(geometry.solver.midY-geometry.hand.midY)<=3,
+        "Solver must be vertically centred beside the taller hand summary");
       // The hand summary was 11px from the top on desktop and 43px on
       // phones: a literal -40px would clip it. Increase the panel and
       // give the header >=40px *additional separation from Bot 3* instead.
       const headerY = mobile ? 36 : 4;
       assert.ok(Math.abs(geometry.hand.top-geometry.frame.top-headerY)<=2,
         "The hand summary must keep its dedicated top lane inside the frame");
-      assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-headerY)<=2,
-        "The Solver must be in the same protected header lane");
+      assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-(headerY+10))<=2,
+        "The Solver must be lowered 10px to centre beside the 54px summary");
       assert.ok(geometry.frame.height >= (mobile ? 635 : 615),
         "The enlarged table must have the requested extra vertical space");
       const tableTop = geometry.frame.top;
@@ -383,16 +385,21 @@ async function run() {
       assert.equal(dealt(observations.preflop).length,0);
       assert.deepEqual(dealt(observations.flop).map(c=>c.street),["flop","flop","flop"]);
       assert.deepEqual(dealt(observations.flop).map(c=>c.delay),["0s","0.14s","0.28s"]);
-      assert.ok(dealt(observations.flop).every(c=>c.name==="pl-board-deal-flop"));
+      assert.ok(dealt(observations.flop).every(c=>
+        c.name==="pl-board-deal-flop" && c.duration==="0.52s"));
       assert.equal(dealt(observations.flopRerender).length,0,
         "A betting action should not replay the flop card animation");
       assert.deepEqual(dealt(observations.turn).map(c=>c.street),["turn"]);
-      assert.equal(dealt(observations.turn)[0].name,"pl-board-deal-turn");
+      assert.equal(dealt(observations.turn)[0].name,"pl-board-deal-flop");
+      assert.equal(dealt(observations.turn)[0].duration,"0.52s",
+        "Turn must use exactly the flop's 520ms duration");
       assert.equal(dealt(observations.turn)[0].delay,"0s");
       assert.equal(dealt(observations.turnRerender).length,0,
         "A betting action should not replay the turn card animation");
       assert.deepEqual(dealt(observations.river).map(c=>c.street),["river"]);
-      assert.equal(dealt(observations.river)[0].name,"pl-board-deal-river");
+      assert.equal(dealt(observations.river)[0].name,"pl-board-deal-flop");
+      assert.equal(dealt(observations.river)[0].duration,"0.52s",
+        "River must use exactly the flop's 520ms duration");
       assert.equal(dealt(observations.river)[0].delay,"0s");
       assert.equal(dealt(observations.riverRerender).length,0,
         "A betting action should not replay the river card animation");
