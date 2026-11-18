@@ -1293,3 +1293,105 @@
     animation: none !important;
   }
 }
+
+/* ================================================================
+   Community-card dealing (flop / turn / river).
+   Animation only: no edits to card symbols, backs, ranks or dimensions.
+   Transform + opacity remain cheap on mobile; stagger belongs to the
+   newly dealt cards in table.ts, not to an entire rerendered board.
+   ================================================================ */
+#app #training-game #training-table .pl-board > .pl-card-deal {
+  transform-origin: 50% 65%;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+@keyframes pl-board-deal-flop {
+  0% {
+    opacity: 0;
+    transform: translate3d(-20px, -30px, 0) rotate(-9deg) scale(.84);
+    filter: brightness(1.23);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(1px, 3px, 0) rotate(1.4deg) scale(1.035);
+    filter: brightness(1.09);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    filter: brightness(1);
+  }
+}
+@keyframes pl-board-deal-turn {
+  0% {
+    opacity: 0;
+    transform: translate3d(35px, -27px, 0) rotate(8deg) scale(.86);
+    filter: brightness(1.3);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(-2px, 2px, 0) rotate(-1.2deg) scale(1.03);
+    filter: brightness(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    filter: brightness(1);
+  }
+}
+@keyframes pl-board-deal-river {
+  0% {
+    opacity: 0;
+    transform: translate3d(43px, -33px, 0) rotate(11deg) scale(.82);
+    filter: brightness(1.33);
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(-3px, 3px, 0) rotate(-2deg) scale(1.045);
+    filter: brightness(1.19);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    filter: brightness(1);
+  }
+}
+#app #training-game #training-table .pl-board > .pl-card-deal--flop {
+  animation: pl-board-deal-flop 520ms cubic-bezier(.2,.76,.3,1) both;
+}
+#app #training-game #training-table .pl-board > .pl-card-deal--turn {
+  animation: pl-board-deal-turn 565ms cubic-bezier(.18,.78,.29,1) both;
+}
+#app #training-game #training-table .pl-board > .pl-card-deal--river {
+  animation: pl-board-deal-river 635ms cubic-bezier(.17,.74,.29,1) both;
+}
+/* Shorter travel on narrow layouts without shortening the flop sequence. */
+@media (max-width: 767px) {
+  #app #training-game #training-table .pl-board > .pl-card-deal {
+    transform-origin: center;
+  }
+  @keyframes pl-board-deal-flop {
+    0% { opacity: 0; transform: translate3d(-13px,-19px,0) rotate(-7deg) scale(.89); }
+    72% { opacity: 1; transform: translate3d(1px,2px,0) rotate(1deg) scale(1.025); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes pl-board-deal-turn {
+    0% { opacity: 0; transform: translate3d(23px,-19px,0) rotate(7deg) scale(.89); }
+    72% { opacity: 1; transform: translate3d(-1px,2px,0) rotate(-1deg) scale(1.025); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes pl-board-deal-river {
+    0% { opacity: 0; transform: translate3d(29px,-21px,0) rotate(9deg) scale(.87); }
+    70% { opacity: 1; transform: translate3d(-2px,2px,0) rotate(-1deg) scale(1.03); }
+    100% { opacity: 1; transform: none; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app #training-game #training-table .pl-board > .pl-card-deal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    will-change: auto;
+  }
+}
