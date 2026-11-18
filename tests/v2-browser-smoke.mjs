@@ -340,6 +340,13 @@ async function run() {
         const presets = [...actions.querySelectorAll(".pl-bet-presets button")];
         const board = r(table.querySelector(".pl-board"));
         const felt = r(table.querySelector(".pl-felt"));
+        const pot = r(table.querySelector(".pl-pot-display"));
+        const boardCards=[...table.querySelectorAll(".pl-board > *")].map(r);
+        const cardPairs=[...table.querySelectorAll(".pl-seat")].map(seat=>({
+          rail:seat.classList.contains("pl-seat-upper")?"upper":"lower",
+          cards:[...seat.querySelectorAll(".pl-player-cards > *")].map(r),
+          bet:seat.querySelector(".pl-player-bet")?r(seat.querySelector(".pl-player-bet")):null
+        }));
         const topSeats = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(r);
         const bottomSeats = [...table.querySelectorAll(".pl-seat-lower .pl-player-info")].map(r);
         const header = r(table.querySelector(".pl-hand-strength"));
@@ -347,7 +354,7 @@ async function run() {
         const tableBox = r(table);
         return {
           viewport:{width:innerWidth,height:innerHeight},
-          table:tableBox,actions:r(actions),board,felt,topSeats,bottomSeats,header,solver,
+          table:tableBox,actions:r(actions),board,felt,pot,boardCards,cardPairs,topSeats,bottomSeats,header,solver,
           headerVisible:getComputedStyle(document.querySelector("#training .pl-page-header")).display,
           panels:document.querySelectorAll("#training-actions").length,
           buttonCount:buttons.length,
@@ -359,8 +366,16 @@ async function run() {
       });
       assert.equal(layout.headerVisible,"none",
         "The redundant title should not consume tablet landscape play space");
-      assert.ok(layout.table.height<=595 && layout.table.height>=460,
-        "Landscape tablet table should shrink proportionally with screen height");
+      console.log("Tablet geometry",JSON.stringify({
+        size:width+"x"+height,
+        tableTop:layout.table.top,tableBottom:layout.table.bottom,
+        tableHeight:layout.table.height,viewportHeight:layout.viewport.height,
+        feltHeight:layout.felt.height,actionsBottom:layout.actions.bottom
+      }));
+      assert.ok(layout.table.height>=595 && layout.table.height<=710,
+        "Landscape tablet should use the available vertical space, not flatten the felt");
+      assert.ok(layout.felt.height>=260,
+        "The red felt needs enough depth for private cards, bets and board");
       assert.ok(layout.table.width>=550,
         "Six-max table must remain wide enough for three seats per rail");
       assert.ok(layout.actions.left>=layout.table.right+8,
@@ -379,6 +394,36 @@ async function run() {
         "Tablet landscape must not introduce horizontal page scrolling");
       assert.ok(layout.topSeats.every(seat=>seat.bottom<=layout.felt.top+5));
       assert.ok(layout.bottomSeats.every(seat=>seat.top>=layout.felt.bottom-5));
+      const overlaps=(a,b,pad=2)=>a.left<b.right-pad && a.right>b.left+pad &&
+        a.top<b.bottom-pad && a.bottom>b.top+pad;
+      const topPairs=layout.cardPairs.filter(pair=>pair.rail==="upper");
+      const bottomPairs=layout.cardPairs.filter(pair=>pair.rail==="lower");
+      assert.equal(topPairs.length,3);
+      assert.equal(bottomPairs.length,3);
+      for(const pair of layout.cardPairs) {
+        assert.equal(pair.cards.length,2,"Every six-max player retains both cards");
+        for(const card of pair.cards) {
+          if(pair.rail==="upper") {
+            assert.ok(card.top>=layout.felt.top-3,
+              "Top-row hole cards must clear the gold felt border");
+          } else {
+            assert.ok(card.bottom<=layout.felt.bottom+3,
+              "Bottom-row hole cards must clear the gold felt border");
+          }
+          assert.ok(layout.boardCards.every(other=>!overlaps(card,other)),
+            "Player hole cards must never overlap community-card slots");
+          assert.ok(!overlaps(card,layout.pot),
+            "Player hole cards must not overlap the pot display");
+          if(pair.bet) assert.ok(!overlaps(card,pair.bet),
+            "The wager chip must not cover its owner's hole cards");
+        }
+        if(pair.bet) {
+          assert.ok(!overlaps(pair.bet,layout.pot),
+            "Bet chips must remain separate from the main-pot display");
+          assert.ok(layout.boardCards.every(card=>!overlaps(pair.bet,card)),
+            "Bet chips must not overlap the community-card row");
+        }
+      }
       assert.ok(Math.abs(layout.header.midY-layout.solver.midY)<=3);
       assert.ok(layout.board.width<=layout.felt.width,
         "All five community card positions must stay inside the felt width");

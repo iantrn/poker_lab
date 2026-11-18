@@ -328,7 +328,7 @@ test("Landscape tablet can show six-max table and decisions together, without sc
   const browser=read("tests/v2-browser-smoke.mjs");
   assert.match(css,/@media \(min-width: 1000px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
   assert.match(css,/grid-template-areas:\s*"heading heading"\s*"felt actions"/);
-  assert.match(css,/height: clamp\(465px, calc\(100dvh - 235px\), 595px\) !important/);
+  assert.match(css,/height: clamp\(500px, calc\(100dvh - 165px\), 710px\) !important/);
   assert.match(css,/\.pl-action-buttons \{\s*grid-template-columns: repeat\(2/);
   assert.match(css,/\.pl-bet-presets \{\s*grid-template-columns: repeat\(2/);
   for (const size of ["1024,768","1080,810","1180,820"])
@@ -336,4 +336,18 @@ test("Landscape tablet can show six-max table and decisions together, without sc
   assert.match(browser,/All tablet landscape game actions must fit inside the visible viewport/);
   assert.match(browser,/Entire tablet landscape table must fit inside the visible viewport/);
   assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "No redesign of the cards");
+});
+
+test("Tablet landscape felt is deep enough for all six private-card pairs",()=>{
+  const css=read("frontend/src/styles/poker-table.css");
+  const smoke=read("tests/v2-browser-smoke.mjs");
+  assert.match(css,/\.pl-seat-upper \.pl-player-cards \{\s*top: calc\(100% \+ 42px\)/);
+  assert.match(css,/\.pl-seat-lower \.pl-player-cards \{\s*bottom: calc\(100% \+ 58px\)/);
+  assert.match(css,/\.pl-player-bet \{\s*top: calc\(100% \+ 112px\)/);
+  assert.match(css,/\.pl-seat-lower \.pl-player-bet \{\s*top: auto;\s*bottom: calc\(100% \+ 129px\)/);
+  assert.match(smoke,/The red felt needs enough depth for private cards/);
+  assert.match(smoke,/Top-row hole cards must clear the gold felt border/);
+  assert.match(smoke,/Bottom-row hole cards must clear the gold felt border/);
+  assert.match(smoke,/Player hole cards must never overlap community-card slots/);
+  assert.match(smoke,/Bet chips must not overlap the community-card row/);
 });

@@ -1346,16 +1346,32 @@
     min-width: 0;
   }
   #app #training-game:not(.hidden) #training-table .pl-table-container {
-    /* Sized by remaining *height*, not width. Maintains enough room
-       for both card rows, the board, bets and the 54px hand summary. */
-    height: clamp(465px, calc(100dvh - 235px), 595px) !important;
-    min-height: clamp(465px, calc(100dvh - 235px), 595px) !important;
-    max-height: clamp(465px, calc(100dvh - 235px), 595px) !important;
+    /* Use previously wasted space *below* the table to regain 100px of
+       felt depth without pushing the touch action panel off-screen. */
+    height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+    min-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+    max-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
   }
   /* Scale the visual footprint slightly, never change card graphics. */
   #app #training-game #training-table .pl-seat .pl-player-cards > * {
     width: 40px !important;
     height: 58px !important;
+  }
+  /* The compact landscape frame previously placed each hole-card pair
+     astride the gold rail. Give the felt real vertical space, then keep
+     private cards *inside* its boundary and bets beyond the card edges. */
+  #app #training-game #training-table .pl-seat-upper .pl-player-cards {
+    top: calc(100% + 42px);
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 58px);
+  }
+  #app #training-game #training-table .pl-player-bet {
+    top: calc(100% + 112px);
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-bet {
+    top: auto;
+    bottom: calc(100% + 129px);
   }
   #app #training-game #training-table .pl-board .pl-card {
     width: clamp(38px, 3.8vw, 48px) !important;

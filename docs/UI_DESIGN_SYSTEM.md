@@ -392,3 +392,30 @@ portrait tablet and regular desktop remain unchanged.
 - An extra coarse-pointer landscape breakpoint extends the same design
   to large iPad Pro widths without forcing desktop mouse layouts into
   the tablet arrangement.
+
+### Landscape tablet correction — restore felt depth and separate cards
+
+Screenshot review of the original 1024×768 and 1080×810 layouts revealed
+that the private cards straddled the gold felt edge because the 533–575px
+frame was unnecessarily shallow even though 150px of screen space remained
+below it. The frame is now sized to **min(710px, 100dvh - 165px)** (with
+a short-height fallback of 500px). At common tablet heights this provides
+about **100px more red felt depth**, while retaining the side-by-side
+touch controls inside the same viewport.
+
+Only within the tablet-landscape breakpoint, top-row hole cards now
+start 42px below their seat and bottom-row cards sit 58px above theirs.
+Wager markers are moved towards the felt centre (112px / 129px
+respectively), so they remain clear of the hole cards, pot and board.
+Neither the card artwork nor any pot/betting logic was changed.
+
+Real Chromium/WebKit regression tests now measure **each of 12 hole
+cards**, all present bet chips, the pot and five community slots. They
+require cards to clear the gold rail and reject overlapping rectangles
+between private cards, public cards, pot and bets, in addition to
+requiring the full table **and controls** to fit on screen.
+
+Note: the first run confirmed the enlarged table could exceed the real
+viewport once shell/navigation height was accounted for. The height
+reserve was increased to 165px, with measured viewport/table geometry
+reported in browser tests, before approving the change.
