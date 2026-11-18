@@ -33,11 +33,11 @@
   width: 100% !important;
   max-width: 1200px !important;
   min-width: 0 !important;
-  /* +120px desktop creates real headroom without pushing either header
+  /* +220px desktop total creates extra room without pushing either header
      control through the top frame (which must remain clipped). */
-  height: clamp(620px, calc(54vw + 120px), 745px) !important;
-  min-height: clamp(620px, calc(54vw + 120px), 745px) !important;
-  max-height: clamp(620px, calc(54vw + 120px), 745px) !important;
+  height: clamp(720px, calc(54vw + 220px), 845px) !important;
+  min-height: clamp(720px, calc(54vw + 220px), 845px) !important;
+  max-height: clamp(720px, calc(54vw + 220px), 845px) !important;
   margin: 0 auto !important;
   padding: 0;
   overflow: hidden;
@@ -55,7 +55,7 @@
   left: 50% !important;
   transform: translateX(-50%) !important;
   width: 92% !important;
-  height: calc(76% - 189px) !important;
+  height: calc(76% - 165px) !important;
   min-width: 0 !important;
   min-height: 0 !important;
   box-sizing: border-box;
@@ -685,18 +685,18 @@
 }
 @media (max-width: 767px) {
   #app #training-game #training-table .pl-table-container {
-    /* +100px mobile keeps the whole table/board readable while leaving
+    /* +200px mobile total keeps the table/board readable while leaving
        the navigation and game actions in their existing normal flow. */
-    height: clamp(640px, calc(147vw + 100px), 750px) !important;
-    min-height: clamp(640px, calc(147vw + 100px), 750px) !important;
-    max-height: clamp(640px, calc(147vw + 100px), 750px) !important;
+    height: clamp(740px, calc(147vw + 200px), 850px) !important;
+    min-height: clamp(740px, calc(147vw + 200px), 850px) !important;
+    max-height: clamp(740px, calc(147vw + 200px), 850px) !important;
   }
   /* Mobile upper players also move 25px down; move the rail by the
      same amount and subtract it from height to keep bottom clearance. */
   #app #training-game #training-table .pl-table-container > .pl-felt {
     top: calc(19% + 93px) !important;
     width: 94% !important;
-    height: calc(69% - 161px) !important;
+    height: calc(69% - 130px) !important;
     border-width: 3px !important;
     border-radius: 43px !important;
   }
