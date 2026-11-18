@@ -234,23 +234,24 @@ async function run() {
       });
       assert.equal(geometry.upper.length, 3, "Six-max needs three upper seats");
       assert.equal(geometry.lower.length, 3, "Six-max needs three lower seats");
-      for (const rail of [geometry.upper,geometry.lower]) {
+      // The organic rail has a shallow centre notch: its central opponent
+      // follows the curved top edge instead of sharing the outer seats' Y.
+      for (const rail of [geometry.upper,geometry.lower])
         assert.ok(rail[0].midX < rail[1].midX && rail[1].midX < rail[2].midX,
-          "Seats must stay ordered across the long edge");
-        assert.ok(Math.max(...rail.map(seat=>seat.midY))-
-          Math.min(...rail.map(seat=>seat.midY)) <= 2,
-          "All seats on a rail must share a horizontal baseline");
-      }
-      assert.ok(geometry.upper.every(seat=>seat.bottom<=geometry.felt.top+5),
-        "Upper capsules must remain outside the red felt");
-      assert.ok(geometry.lower.every(seat=>seat.top>=geometry.felt.bottom-5),
-        "Lower capsules must remain outside the red felt");
-      const upperRailGap = Math.min(...geometry.upper.map(seat=>geometry.felt.top-seat.bottom));
-      const lowerRailGap = Math.min(...geometry.lower.map(seat=>seat.top-geometry.felt.bottom));
-      assert.ok(upperRailGap >= 39,
-        "Far-side opponents must remain at least 40px away from the felt's top edge");
-      assert.ok(lowerRailGap >= 39,
-        "Lower row must stay outside the felt without shifting seat overlays");
+          "Seats must stay ordered across each edge");
+      assert.ok(Math.abs(geometry.upper[0].midY-geometry.upper[2].midY)<=2);
+      assert.ok(geometry.upper[1].midY>geometry.upper[0].midY+25,
+        "Upper centre opponent must follow the organic rail notch");
+      assert.ok(Math.max(...geometry.lower.map(seat=>seat.midY))-
+        Math.min(...geometry.lower.map(seat=>seat.midY))<=2);
+      const topRailY = index=>geometry.felt.top+geometry.felt.height*(index===1?90:38)/480;
+      const lowerRailY = geometry.felt.top+geometry.felt.height*442/480;
+      const upperRailGap = Math.min(...geometry.upper.map((seat,index)=>topRailY(index)-seat.bottom));
+      const lowerRailGap = Math.min(...geometry.lower.map(seat=>seat.top-lowerRailY));
+      assert.ok(upperRailGap >= 20,
+        "Upper opponents must clear the visible organic table rail");
+      assert.ok(lowerRailGap >= 20,
+        "Lower opponents must clear the visible organic table rail");
       assert.ok(geometry.seatBets.length>=1,"At least one player should have posted a bet");
       for (const {rail, bet, cards} of geometry.seatBets) {
         if (rail==="upper") {
@@ -275,7 +276,7 @@ async function run() {
       // The hand summary was 11px from the top on desktop and 43px on
       // phones: a literal -40px would clip it. Increase the panel and
       // give the header >=40px *additional separation from Bot 3* instead.
-      const headerY = mobile ? 36 : 4;
+      const headerY = mobile ? 53 : 5;
       assert.ok(Math.abs(geometry.hand.top-geometry.frame.top-headerY)<=2,
         "The hand summary must keep its dedicated top lane inside the frame");
       assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-(headerY+10))<=2,
@@ -301,6 +302,10 @@ async function run() {
         "Solver must stay within the table stage");
       assert.equal(geometry.solverDisabled,true);
       assert.ok(geometry.solverOpacity<.6, "Preflop Solver should be clearly subdued");
+      assert.ok(await page.locator("#training-table svg.pl-table-silhouette").count()===1,
+        "The table must have one actual organic SVG rail");
+      assert.equal(await page.locator("#training-table .pl-table-settings[href=\"#settings\"]").count(),1,
+        "Accessible settings navigation must remain available in the game header");
       assert.equal(geometry.detailCount,0, "No suited/gapper descriptions in hand pill");
       assert.ok(geometry.cardWidths.length>=8 &&
         geometry.cardWidths.every(w=>w >= (mobile ? 33 : 45)),
@@ -344,6 +349,7 @@ async function run() {
         const boardCards=[...table.querySelectorAll(".pl-board > *")].map(r);
         const cardPairs=[...table.querySelectorAll(".pl-seat")].map(seat=>({
           rail:seat.classList.contains("pl-seat-upper")?"upper":"lower",
+          middle:seat.classList.contains("pl-seat-middle"),
           cards:[...seat.querySelectorAll(".pl-player-cards > *")].map(r),
           pill:r(seat.querySelector(".pl-player-info")),
           bet:seat.querySelector(".pl-player-bet")?r(seat.querySelector(".pl-player-bet")):null
@@ -393,8 +399,11 @@ async function run() {
         "Bet presets remain touch accessible in landscape");
       assert.ok(layout.horizontalOverflow<=1,
         "Tablet landscape must not introduce horizontal page scrolling");
-      assert.ok(layout.topSeats.every(seat=>seat.bottom<=layout.felt.top+5));
-      assert.ok(layout.bottomSeats.every(seat=>seat.top>=layout.felt.bottom-5));
+      // Visible boundaries are SVG paths, not the transparent SVG viewport.
+      assert.ok(layout.topSeats.every((seat,index)=>seat.bottom<=
+        layout.felt.top+layout.felt.height*((index===1?90:38)/480)-16));
+      assert.ok(layout.bottomSeats.every(seat=>seat.top>=
+        layout.felt.top+layout.felt.height*(442/480)+16));
       const overlaps=(a,b,pad=2)=>a.left<b.right-pad && a.right>b.left+pad &&
         a.top<b.bottom-pad && a.bottom>b.top+pad;
       const topPairs=layout.cardPairs.filter(pair=>pair.rail==="upper");
@@ -407,9 +416,10 @@ async function run() {
           // The user-approved desktop visual deliberately lets the two
           // private cards straddle the gold rail. Measure *actual* card
           // pixels, requiring half inside and half outside on both sides.
+          const railY=layout.felt.top+layout.felt.height*((pair.rail==="lower"?442:(pair.middle?90:38))/480);
           const outsidePx=pair.rail==="upper"
-            ? layout.felt.top-card.top
-            : card.bottom-layout.felt.bottom;
+            ? railY-card.top
+            : card.bottom-railY;
           const outsideShare=outsidePx/card.height;
           assert.ok(outsideShare>=0.43 && outsideShare<=0.57,
             "Every hole card must sit about half inside and half outside the gold rail");
