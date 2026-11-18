@@ -221,10 +221,10 @@ test("UI rail clearance and wagers stay central without moving cards or the engi
   const css = read("frontend/src/styles/poker-table.css");
   const smoke = read("tests/v2-browser-smoke.mjs");
   const table = read("frontend/src/components/table.ts");
-  assert.match(css, /top: calc\(12% \+ 72px\) !important/);
-  assert.match(css, /height: calc\(76% - 144px\) !important/);
-  assert.match(css, /top: calc\(19% \+ 68px\) !important/);
-  assert.match(css, /height: calc\(69% - 136px\) !important/);
+  assert.match(css, /top: calc\(12% \+ 97px\) !important/);
+  assert.match(css, /height: calc\(76% - 169px\) !important/);
+  assert.match(css, /top: calc\(19% \+ 93px\) !important/);
+  assert.match(css, /height: calc\(69% - 161px\) !important/);
   assert.match(css, /top: calc\(100% \+ 86px\)/);
   assert.match(css, /bottom: calc\(100% \+ 105px\)/);
   assert.match(css, /bottom: calc\(100% \+ 125px\)/);
@@ -293,4 +293,19 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
   assert.match(smoke,/Reduced-motion users should see their cards immediately/);
   assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, 
     "Keep the approved playing card graphics intact");
+});
+
+test("Jouer table is taller with the hand and Solver kept inside a clear upper lane", () => {
+  const css=read("frontend/src/styles/poker-table.css");
+  const browser=read("tests/v2-browser-smoke.mjs");
+  assert.match(css,/height: clamp\(620px, calc\(54vw \+ 120px\), 745px\) !important/);
+  assert.match(css,/height: clamp\(640px, calc\(147vw \+ 100px\), 750px\) !important/);
+  assert.match(css,/top: 4px !important/);
+  assert.match(css,/\.pl-table-solver-dock \{\s*position: absolute;[\s\S]*?top: 4px;/);
+  assert.match(css,/top: 36px !important/);
+  assert.match(css,/top: calc\(var\(--seat-y\) \+ 25px\) !important/);
+  assert.match(css,/top: calc\(19% \+ 25px\) !important/);
+  assert.match(browser,/Neither the hand summary nor Solver may overflow past the top frame/);
+  assert.match(browser,/The hand summary must not cover any top-header badge/);
+  assert.match(browser,/clearance above Bot 3/);
 });
