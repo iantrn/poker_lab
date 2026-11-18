@@ -217,21 +217,29 @@ test("Folded players preserve unmodified navy card backs and tiny phones fit sea
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "No card-back graphic changes");
 });
 
-test("UI rail clearance and wagers stay central without moving cards or the engine", () => {
-  const css = read("frontend/src/styles/poker-table.css");
+test("Organic rail and BB wagers preserve real player state and cards", () => {
+  const old = read("frontend/src/styles/poker-table.css");
+  const immersive = read("frontend/src/styles/poker-table-immersive.css");
   const smoke = read("tests/v2-browser-smoke.mjs");
   const table = read("frontend/src/components/table.ts");
-  assert.match(css, /top: calc\(12% \+ 117px\) !important/);
-  assert.match(css, /height: calc\(76% - 189px\) !important/);
-  assert.match(css, /top: calc\(19% \+ 93px\) !important/);
-  assert.match(css, /height: calc\(69% - 161px\) !important/);
-  assert.match(css, /top: calc\(100% \+ 86px\)/);
-  assert.match(css, /bottom: calc\(100% \+ 105px\)/);
-  assert.match(css, /bottom: calc\(100% \+ 125px\)/);
-  assert.match(smoke, /Far-side opponents must remain at least 40px away/);
-  assert.match(smoke, /Every bet must be nearer the table's horizontal axis/);
+  const main = read("frontend/src/main.tsx");
+  assert.match(main, /import "\.\/styles\/poker-table-immersive\.css"/);
+  assert.match(table, /function renderTableSilhouette\(\): SVGSVGElement/);
+  assert.match(table, /pl-table-silhouette-rail/);
+  assert.match(table, /pl-table-silhouette-felt/);
+  assert.match(table, /seat\.classList\.add\("pl-seat-middle"\)/);
   assert.match(table, /if \(player\.streetBet > 0\)/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "The existing card design must remain untouched");
+  assert.match(table, /formatAmount\(player\.streetBet\)\} BB/);
+  assert.match(immersive, /\.pl-table-silhouette-rail\s*\{/);
+  assert.match(immersive, /\.pl-table-silhouette-felt\s*\{/);
+  assert.match(immersive, /\.pl-table-container \.pl-seat\.pl-seat-upper\.pl-seat-middle/);
+  assert.match(immersive, /top: calc\(100% \+ 88px\)/);
+  assert.match(immersive, /bottom: calc\(100% \+ 85px\)/);
+  assert.match(smoke, /Upper opponents must clear the visible organic table rail/);
+  assert.match(smoke, /Every bet must be nearer the table's horizontal axis/);
+  assert.doesNotMatch(immersive, /\.pl-card--back\b|\.pl-card__|\.pl-card--red\b|\.pl-card--black\b/,
+    "The original card faces and backs must stay unchanged");
+  assert.doesNotMatch(old, /\.pl-card--back\b|\.pl-card__/, "Legacy card graphics remain isolated");
 });
 
 test("Showdown modal uses real engine distributions, native dialog and one next-hand action", () => {
@@ -296,19 +304,20 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
     "Keep the approved playing card graphics intact");
 });
 
-test("Jouer table is taller with the hand and Solver kept inside a clear upper lane", () => {
-  const css=read("frontend/src/styles/poker-table.css");
-  const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/height: clamp\(620px, calc\(54vw \+ 120px\), 745px\) !important/);
-  assert.match(css,/height: clamp\(640px, calc\(147vw \+ 100px\), 750px\) !important/);
-  assert.match(css,/top: 4px !important/);
-  assert.match(css,/\.pl-table-solver-dock \{\s*position: absolute;[\s\S]*?top: 14px;/);
-  assert.match(css,/top: 36px !important/);
-  assert.match(css,/top: calc\(var\(--seat-y\) \+ 45px\) !important/);
-  assert.match(css,/top: calc\(19% \+ 25px\) !important/);
-  assert.match(browser,/Neither the hand summary nor Solver may overflow past the top frame/);
-  assert.match(browser,/The hand summary must not cover any top-header badge/);
-  assert.match(browser,/clearance above Bot 3/);
+test("Jouer immersive layout keeps the hand and Solver clear of seats", () => {
+  const css = read("frontend/src/styles/poker-table-immersive.css");
+  const table = read("frontend/src/components/table.ts");
+  const browser = read("tests/v2-browser-smoke.mjs");
+  assert.match(css, /height: clamp\(580px, 58vw, 740px\) !important/);
+  assert.match(css, /height: clamp\(680px, 156vw, 740px\) !important/);
+  assert.match(css, /\.pl-table-container > \.pl-hand-strength\s*\{/);
+  assert.match(css, /\.pl-table-solver-dock\s*\{/);
+  assert.match(css, /\.pl-table-settings\s*\{/);
+  assert.match(table, /settings\.href = "#settings"/);
+  assert.match(table, /settings\.setAttribute\("aria-label", "Paramètres"\)/);
+  assert.match(browser, /Neither the hand summary nor Solver may overflow past the top frame/);
+  assert.match(browser, /The hand summary must not cover any top-header badge/);
+  assert.match(browser, /clearance above Bot 3/);
 });
 
 test("Jouer pill gains 20px in height while all community streets share one animation",()=>{
