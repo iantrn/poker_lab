@@ -555,6 +555,7 @@ function createTable() {
                 seat.classList.add("pl-seat-hero");
             }
             seat.classList.add(y < 50 ? "pl-seat-upper" : "pl-seat-lower");
+            if (x === 50) seat.classList.add("pl-seat-middle");
 
             if (isActive) {
                 seat.classList.add("is-active");
