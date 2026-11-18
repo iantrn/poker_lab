@@ -331,6 +331,7 @@ async function run() {
         const r = el => {
           const box = el.getBoundingClientRect();
           return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,
+            midX:box.left+box.width/2,midY:box.top+box.height/2,
             width:box.width,height:box.height};
         };
         const table = document.querySelector("#training-table .pl-table-container");
