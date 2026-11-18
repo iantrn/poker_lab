@@ -463,6 +463,14 @@
 /* The historical 320–600px six-max capsule rules have higher specificity
    than simple seat selectors. Explicitly neutralize their old offsets. */
 @media (max-width: 600px) {
+  /* Percent widths follow the actual table container (not vw). On 320px
+     phones the page gutters reduce the available canvas to ~270px. */
+  #app #training-game #training-table .pl-table-six-max .pl-seat {
+    width: clamp(76px, 23%, 104px) !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero {
+    width: clamp(84px, 27%, 120px) !important;
+  }
   #app #training-game #training-table .pl-table-six-max .pl-player-info,
   #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-info,
   #app #training-game #training-table .pl-table-six-max .pl-seat.is-active .pl-player-info {
