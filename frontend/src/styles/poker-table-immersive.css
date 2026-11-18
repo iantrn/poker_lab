@@ -214,13 +214,13 @@
   transform: translate(-50%, -50%) !important;
 }
 #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
-  top: 20% !important;
+  top: calc(29.75% - 70px) !important;
 }
 #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper.pl-seat-middle {
-  top: calc(20% + 55px) !important;
+  top: calc(36.625% - 70px) !important;
 }
 #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-lower {
-  top: calc(92% - 5px) !important;
+  top: calc(82.1% + 69px) !important;
 }
 #app #training-game #training-table .pl-table-container .pl-seat-hero {
   width: clamp(146px, 18vw, 195px) !important;
@@ -397,10 +397,10 @@
     height: 46px !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
-    top: calc(24.5% + 2px) !important;
+    top: calc(32.75% - 55.5px) !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper.pl-seat-middle {
-    top: calc(24.5% + 48px) !important;
+    top: calc(39.25% - 55.5px) !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-lower {
     top: 92% !important;
@@ -516,13 +516,13 @@
     width: clamp(103px, 16vw, 132px) !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
-    top: 19% !important;
+    top: calc(29.75% - 62px) !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper.pl-seat-middle {
-    top: calc(19% + 40px) !important;
+    top: calc(36.25% - 62px) !important;
   }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-lower {
-    top: calc(94% - 22px) !important;
+    top: calc(80.25% + 61px) !important;
   }
   #app #training-game #training-table .pl-player-info,
   #app #training-game #training-table .pl-seat-hero .pl-player-info,
