@@ -311,3 +311,17 @@ multi-winner results now use a **two-column summary** with slightly smaller
 reused card thumbnails, keeping the winner rows and the pot breakdown readily
 visible. On mobile, they remain a single, scrollable column with a sticky
 52px primary CTA.
+
+### Header overlap fix: 40px vertical lift, desktop only
+
+In the **Jouer** screen, the upper-centre player could overlap the
+`Votre main` summary and the adjacent `Solver` button. On viewports
+**768px and wider**, these controls retain their horizontal alignment but
+move vertically from `top:11px` to `top:-29px` (**exactly -40px**).
+The table frame is allowed to show overflow on desktop to avoid clipping
+the raised summary. No player, card, chip, action or solver logic changes.
+
+Mobile screens intentionally preserve their original `top:43px` second
+header row. Raising this row 40px would collide with the existing
+`MAIN #`, `6-MAX`, and blind badges above it. Chromium and WebKit
+browser tests measure both the desktop displacement and safe mobile row.

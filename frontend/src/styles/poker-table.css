@@ -926,6 +926,24 @@
   #app #training-game .pl-table-solver-dock > .pl-solve-button { transition: none !important; }
 }
 
+/* Desktop-only: align the hand summary and Solver exactly 40px higher
+   without shifting either control horizontally. The native table panel
+   used to clip its children, so the summary must be allowed to extend
+   beyond the top border; table cards, players and felt are unchanged.
+   Phone layout keeps its separate 43px header rail, avoiding the
+   blinds/6-MAX chips that occupy the row above the hand summary. */
+@media (min-width: 768px) {
+  #app #training-game #training-table .pl-table-container {
+    overflow: visible;
+  }
+  #app #training-game #training-table .pl-table-container > .pl-hand-strength {
+    top: -29px !important; /* 11px - 40px */
+  }
+  #app #training-game .pl-table-solver-dock {
+    top: -29px; /* 11px - 40px */
+  }
+}
+
 /* ================================================================
    Showdown / results: a real modal with readable winnings.
    All values are rendered from the original game engine's pot

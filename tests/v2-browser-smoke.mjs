@@ -195,6 +195,8 @@ async function run() {
             midX:r.left+r.width/2,midY:r.top+r.height/2,width:r.width,height:r.height};
         };
         const table = document.querySelector("#training-table .pl-table-container");
+        const tableBox = rect(table);
+        const tableOverflow = getComputedStyle(table).overflow;
         const felt = rect(table.querySelector(".pl-felt"));
         const upper = [...table.querySelectorAll(".pl-seat-upper .pl-player-info")].map(rect)
           .sort((a,b)=>a.midX-b.midX);
@@ -217,6 +219,7 @@ async function run() {
         const handValue = table.querySelector(".pl-hand-strength-value");
         return {
           felt,upper,lower,hand,solver,seatBets,
+          tableBox,tableOverflow,
           stage:rect(document.querySelector(".pl-live-table-stage")),
           solverOpacity:Number(getComputedStyle(solverButton).opacity),
           solverDisabled:solverButton.disabled,
@@ -267,6 +270,21 @@ async function run() {
         "Solver must sit to the right of the centred hand pill");
       assert.ok(Math.abs(geometry.solver.top-geometry.hand.top)<=3,
         "Solver must share the hand pill's header row");
+      if (mobile) {
+        assert.ok(Math.abs(geometry.hand.top-geometry.tableBox.top-43)<=2,
+          "On phones, preserve the hand summary's safe second header row");
+        assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-43)<=2,
+          "On phones, preserve the original solver header row");
+      } else {
+        assert.ok(Math.abs(geometry.hand.top-geometry.tableBox.top+29)<=2,
+          "Raise only the hand summary by exactly 40px on desktop");
+        assert.ok(Math.abs(geometry.solver.top-geometry.stage.top+29)<=2,
+          "Raise only the Solver by exactly 40px on desktop");
+        assert.equal(geometry.tableOverflow,"visible",
+          "The raised hand summary must not be clipped by the table border");
+        assert.ok(geometry.hand.bottom < geometry.upper[1].top,
+          "The hand summary must remain entirely above the central bot");
+      }
       assert.ok(geometry.solver.right<=geometry.stage.right+1,
         "Solver must stay within the table stage");
       assert.equal(geometry.solverDisabled,true);

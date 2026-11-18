@@ -276,3 +276,15 @@ test("Multi-winner modal is condensed only at desktop widths", () => {
   assert.match(css,/\.pl-result-winnings--multi\s*\{\s*grid-template-columns: repeat\(2/);
   assert.match(smoke,/both winners should be side-by-side/);
 });
+
+test("Play screen raises only desktop hand pill and Solver by exactly 40px", () => {
+  const css = read("frontend/src/styles/poker-table.css");
+  const smoke = read("tests/v2-browser-smoke.mjs");
+  assert.match(css, /@media \(min-width: 768px\)/);
+  assert.match(css, /\.pl-table-container > \.pl-hand-strength\s*\{\s*top: -29px !important/);
+  assert.match(css, /\.pl-table-solver-dock\s*\{\s*top: -29px/);
+  assert.match(css, /\.pl-table-container\s*\{\s*overflow: visible/);
+  assert.match(smoke, /Raise only the hand summary by exactly 40px on desktop/);
+  assert.match(smoke, /Raise only the Solver by exactly 40px on desktop/);
+  assert.match(smoke, /preserve the hand summary's safe second header row/);
+});
