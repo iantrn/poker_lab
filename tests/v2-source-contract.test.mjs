@@ -361,7 +361,7 @@ test("Reject the organic SVG table while keeping the rest of the modern UI", () 
   assert.doesNotMatch(table, /renderTableSilhouette|pl-table-silhouette/);
   assert.match(table, /felt\.appendChild\(center\)/);
   assert.doesNotMatch(css, /\.pl-table-silhouette|\.pl-table-silhouette-felt/);
-  assert.match(css, /top: calc\\(19% \\+ 108px\\) !important/);
+  assert.match(css, /top: calc\(19% \+ 108px\) !important/);
   assert.match(css, /\.pl-player-info/);
   assert.match(css, /\.pl-table-settings/);
   assert.match(css, /#training-actions\.pl-action-panel/);
