@@ -221,8 +221,8 @@ test("UI rail clearance and wagers stay central without moving cards or the engi
   const css = read("frontend/src/styles/poker-table.css");
   const smoke = read("tests/v2-browser-smoke.mjs");
   const table = read("frontend/src/components/table.ts");
-  assert.match(css, /top: calc\(12% \+ 97px\) !important/);
-  assert.match(css, /height: calc\(76% - 169px\) !important/);
+  assert.match(css, /top: calc\(12% \+ 117px\) !important/);
+  assert.match(css, /height: calc\(76% - 189px\) !important/);
   assert.match(css, /top: calc\(19% \+ 93px\) !important/);
   assert.match(css, /height: calc\(69% - 161px\) !important/);
   assert.match(css, /top: calc\(100% \+ 86px\)/);
@@ -285,8 +285,9 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
   assert.match(table,/index \* 140/);
   assert.match(table,/previousBoardCount/);
   assert.match(css,/@keyframes pl-board-deal-flop/);
-  assert.match(css,/@keyframes pl-board-deal-turn/);
-  assert.match(css,/@keyframes pl-board-deal-river/);
+  assert.doesNotMatch(css,/@keyframes pl-board-deal-turn|@keyframes pl-board-deal-river/,
+    "Turn and river must reuse the actual flop movement");
+  assert.match(css,/\.pl-card-deal--turn,[\s\S]*?\.pl-card-deal--river\s*\{\s*animation: pl-board-deal-flop 520ms/);
   assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);
   assert.match(smoke,/verifyBoardStreets\(1365\)/);
   assert.match(smoke,/verifyBoardStreets\(390\)/);
@@ -301,11 +302,23 @@ test("Jouer table is taller with the hand and Solver kept inside a clear upper l
   assert.match(css,/height: clamp\(620px, calc\(54vw \+ 120px\), 745px\) !important/);
   assert.match(css,/height: clamp\(640px, calc\(147vw \+ 100px\), 750px\) !important/);
   assert.match(css,/top: 4px !important/);
-  assert.match(css,/\.pl-table-solver-dock \{\s*position: absolute;[\s\S]*?top: 4px;/);
+  assert.match(css,/\.pl-table-solver-dock \{\s*position: absolute;[\s\S]*?top: 14px;/);
   assert.match(css,/top: 36px !important/);
-  assert.match(css,/top: calc\(var\(--seat-y\) \+ 25px\) !important/);
+  assert.match(css,/top: calc\(var\(--seat-y\) \+ 45px\) !important/);
   assert.match(css,/top: calc\(19% \+ 25px\) !important/);
   assert.match(browser,/Neither the hand summary nor Solver may overflow past the top frame/);
   assert.match(browser,/The hand summary must not cover any top-header badge/);
   assert.match(browser,/clearance above Bot 3/);
+});
+
+test("Jouer pill gains 20px in height while all community streets share one animation",()=>{
+  const css=read("frontend/src/styles/poker-table.css");
+  const smoke=read("tests/v2-browser-smoke.mjs");
+  assert.match(css,/height: 54px;\s*min-height: 54px;/);
+  assert.match(css,/\.pl-table-solver-dock \{\s*top: 46px;/);
+  assert.match(smoke,/Hand summary should be exactly 20px taller/);
+  assert.match(smoke,/Solver must be vertically centred beside the taller hand summary/);
+  assert.match(smoke,/Turn must use exactly the flop's 520ms duration/);
+  assert.match(smoke,/River must use exactly the flop's 520ms duration/);
+  assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "Leave card illustrations unchanged");
 });
