@@ -1304,6 +1304,112 @@
 }
 
 /* ================================================================
+   Landscape tablets: keep the full table and action controls available
+   in the same viewport. The old 620–745px table forced scrolling
+   below the felt. Keep desktop and portrait/tablet-phone layouts intact.
+   ================================================================ */
+@media (min-width: 1000px) and (max-width: 1280px) and (max-height: 900px) and (orientation: landscape),
+       (min-width: 1281px) and (max-width: 1450px) and (max-height: 1100px) and (orientation: landscape) and (pointer: coarse) {
+  /* The page-level title is useful for browsing but redundant once the
+     active game has its own labelled table heading. Recover this space
+     while a game is actually in progress; setup mode is unchanged. */
+  #app .pl-shell-main:has(#training-game:not(.hidden)) {
+    padding-top: 8px !important;
+    padding-bottom: 10px !important;
+  }
+  #app #training:has(#training-game:not(.hidden)) > .pl-page-panel {
+    padding: 12px !important;
+  }
+  #app #training:has(#training-game:not(.hidden)) .pl-page-header {
+    display: none;
+  }
+  /* Two balanced columns: the table stays legible at about 650px
+     wide on a 1024px tablet, while decisions need no vertical scroll. */
+  #app #training-game:not(.hidden) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(260px, 27vw, 300px);
+    grid-template-areas:
+      "heading heading"
+      "felt actions";
+    align-items: start;
+    column-gap: 14px;
+    row-gap: 8px;
+    margin-top: 0 !important;
+  }
+  #app #training-game:not(.hidden) > .pl-training-game-heading {
+    grid-area: heading;
+    margin: 0 0 2px !important;
+  }
+  #app #training-game:not(.hidden) > .pl-live-table-stage {
+    grid-area: felt;
+    width: 100%;
+    min-width: 0;
+  }
+  #app #training-game:not(.hidden) #training-table .pl-table-container {
+    /* Sized by remaining *height*, not width. Maintains enough room
+       for both card rows, the board, bets and the 54px hand summary. */
+    height: clamp(465px, calc(100dvh - 235px), 595px) !important;
+    min-height: clamp(465px, calc(100dvh - 235px), 595px) !important;
+    max-height: clamp(465px, calc(100dvh - 235px), 595px) !important;
+  }
+  /* Scale the visual footprint slightly, never change card graphics. */
+  #app #training-game #training-table .pl-seat .pl-player-cards > * {
+    width: 40px !important;
+    height: 58px !important;
+  }
+  #app #training-game #training-table .pl-board .pl-card {
+    width: clamp(38px, 3.8vw, 48px) !important;
+    height: clamp(56px, 5.2vw, 68px) !important;
+  }
+  #app #training-game #training-table .pl-table-center {
+    gap: 7px;
+  }
+  #app #training-game #training-table .pl-pot-display {
+    padding: 5px 13px;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel {
+    grid-area: actions;
+    align-self: start;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    min-width: 0;
+    max-width: none !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-buttons button {
+    min-height: 48px !important;
+    padding: 8px 5px !important;
+    font-size: .78rem !important;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-bet-controls {
+    grid-template-columns: minmax(0, 1fr) 78px !important;
+    gap: 8px !important;
+    padding: 10px 0 0 !important;
+    border-left: 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, .14);
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-bet-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-bet-presets button {
+    min-height: 44px !important;
+  }
+  /* Completed hands still use their own modal, not an empty sidebar. */
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel--complete {
+    display: none !important;
+  }
+}
+
+/* ================================================================
    Community-card dealing (flop / turn / river).
    Animation only: no edits to card symbols, backs, ranks or dimensions.
    Transform + opacity remain cheap on mobile; stagger belongs to the

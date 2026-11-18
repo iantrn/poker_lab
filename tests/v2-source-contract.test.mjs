@@ -322,3 +322,18 @@ test("Jouer pill gains 20px in height while all community streets share one anim
   assert.match(smoke,/River must use exactly the flop's 520ms duration/);
   assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "Leave card illustrations unchanged");
 });
+
+test("Landscape tablet can show six-max table and decisions together, without scrolling",()=>{
+  const css=read("frontend/src/styles/poker-table.css");
+  const browser=read("tests/v2-browser-smoke.mjs");
+  assert.match(css,/@media \(min-width: 1000px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
+  assert.match(css,/grid-template-areas:\s*"heading heading"\s*"felt actions"/);
+  assert.match(css,/height: clamp\(465px, calc\(100dvh - 235px\), 595px\) !important/);
+  assert.match(css,/\.pl-action-buttons \{\s*grid-template-columns: repeat\(2/);
+  assert.match(css,/\.pl-bet-presets \{\s*grid-template-columns: repeat\(2/);
+  for (const size of ["1024,768","1080,810","1180,820"])
+    assert.ok(browser.includes("verifyTabletLandscapeControls("+size+")"));
+  assert.match(browser,/All tablet landscape game actions must fit inside the visible viewport/);
+  assert.match(browser,/Entire tablet landscape table must fit inside the visible viewport/);
+  assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "No redesign of the cards");
+});

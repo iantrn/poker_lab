@@ -371,3 +371,24 @@ logic and Solver behaviour are unchanged.
 - Chromium and WebKit geometry checks cover the expanded summary,
   its centre alignment with Solver, header and Bot 3 clearances,
   shared animation names/durations and card identities.
+
+## Tablet landscape: simultaneous table and action controls
+
+On landscape tablet screens around **1024×768, 1080×810 and 1180×820**,
+the former 620–745px-tall table plus a bottom action panel exceeded the
+visible viewport. Gameplay now uses a **compact side-by-side layout**:
+a height-adaptive table to the left and the full touch-accessible
+decision/bet panel to the right. The redundant page intro is suppressed
+only for an active game in this landscape size range; setup, phone,
+portrait tablet and regular desktop remain unchanged.
+
+- Frame height: `clamp(465px, 100dvh - 235px, 595px)`
+- Action buttons: >=48px, two columns; bet presets >=44px
+- Community and private cards get a slightly smaller *rendered size* but
+  retain their existing artwork, suits and board-dealing animations.
+- No additional scrolling between table and action controls in common
+  landscape tablet sizes; screenshots and browser geometry tests check
+  their visibility, left/right order and absence of horizontal overflow.
+- An extra coarse-pointer landscape breakpoint extends the same design
+  to large iPad Pro widths without forcing desktop mouse layouts into
+  the tablet arrangement.
