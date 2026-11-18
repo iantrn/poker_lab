@@ -419,3 +419,19 @@ Note: the first run confirmed the enlarged table could exceed the real
 viewport once shell/navigation height was accounted for. The height
 reserve was increased to 165px, with measured viewport/table geometry
 reported in browser tests, before approving the change.
+
+### Private cards on tablet: deliberate half-on / half-off rail (desktop parity)
+
+The approved desktop look requires each two-card hand to straddle the gold
+felt border rather than sit fully inside it. Restore this same placement
+**on landscape tablets only**: top-row cards have a 15px top offset from
+their player capsule and bottom-row cards have the mirrored 15px bottom
+offset. At a rendered height of 58px, approximately **29px** of each
+card is outside and **29px inside** the rail. The deeper felt and
+side-by-side decision controls introduced in #33 remain unchanged.
+
+Browser regression checks assert the actual proportion (43–57% outside)
+for all **12 private cards**, ensure they do not collide with player
+capsules or each other, and retain the earlier exclusions for wagers,
+the pot and all community-card slots at 1024×768, 1080×810 and
+1180×820 in both Chromium and WebKit.

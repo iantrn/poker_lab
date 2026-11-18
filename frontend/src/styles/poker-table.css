@@ -1357,14 +1357,15 @@
     width: 40px !important;
     height: 58px !important;
   }
-  /* The compact landscape frame previously placed each hole-card pair
-     astride the gold rail. Give the felt real vertical space, then keep
-     private cards *inside* its boundary and bets beyond the card edges. */
+  /* Match desktop's straddling private-card placement: ~50% of each
+     58px card stays outside the golden felt edge, ~50% inside. Both
+     row offsets are mirrored; the player pills, frame and actions stay
+     unchanged. The 15px offsets were calibrated in real tablet captures. */
   #app #training-game #training-table .pl-seat-upper .pl-player-cards {
-    top: calc(100% + 42px);
+    top: calc(100% + 15px);
   }
   #app #training-game #training-table .pl-seat-lower .pl-player-cards {
-    bottom: calc(100% + 58px);
+    bottom: calc(100% + 15px);
   }
   #app #training-game #training-table .pl-player-bet {
     top: calc(100% + 112px);
