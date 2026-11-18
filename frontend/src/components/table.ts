@@ -987,18 +987,27 @@ function createTable() {
             gameState.result.type === "showdown"
         );
 
-        // Révélation du board : flop en cascade, puis turn et river.
+        // Only animate newly dealt community cards. The board is recreated
+        // after each betting action, so replaying existing cards would be a bug.
+        // The flop is deliberately staggered, while turn/river enter singly.
         if (boardCount > previousBoardCount) {
             const newCards = board.querySelectorAll<HTMLElement>(":scope > *");
             for (let index = previousBoardCount; index < boardCount; index++) {
                 const card = newCards[index];
-                if (!card) continue;
-                card.classList.add("pl-card-deal");
-                let delay = 0;
-                if (previousBoardCount === 0 && index < 3) delay = index * 145;
-                else if (previousBoardCount === 0 && index === 3) delay = 620;
-                else if (previousBoardCount === 0 && index === 4) delay = 900;
-                card.style.animationDelay = delay + "ms";
+                if (!card || card.classList.contains("pl-card--empty")) continue;
+
+                const street = index < 3 ? "flop" : index === 3 ? "turn" : "river";
+                card.classList.add("pl-card-deal", `pl-card-deal--${street}`);
+                card.dataset.dealStreet = street;
+
+                // 3 cards at the flop, with a rhythmic 140ms spacing. A
+                // normal turn or river starts immediately when it is dealt.
+                // For imported/fast-forwarded states, process any missing
+                // community cards in the canonical flop → turn → river order.
+                const dealDelay = index < 3 ? index * 140
+                    : previousBoardCount < 3 ? (index === 3 ? 570 : 850)
+                    : previousBoardCount < 4 && index === 4 ? 360 : 0;
+                card.style.animationDelay = `${dealDelay}ms`;
             }
         }
 

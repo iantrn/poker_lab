@@ -311,3 +311,24 @@ multi-winner results now use a **two-column summary** with slightly smaller
 reused card thumbnails, keeping the winner rows and the pot breakdown readily
 visible. On mobile, they remain a single, scrollable column with a sticky
 52px primary CTA.
+
+## Animated community dealing: flop, turn, river
+
+The existing single, subtle 420ms community-card appearance is now refined
+into **three dedicated card-dealing movements** in `poker-table.css`,
+without modifying the card illustrations or game engine.
+
+- **Flop:** the first three face-up cards glide down onto the board in
+  sequence (0 / 140 / 280ms), with a restrained rotation and settling.
+- **Turn:** one distinct 565ms slide-in with a short soft bounce.
+- **River:** one distinct 635ms entry with a slightly more pronounced
+  landing to mark the final community card.
+- Each animation runs **only for newly dealt cards**; re-rendering on bets,
+  folds or stack changes must not cause existing board cards to reappear.
+- The next hand resets naturally and shows its own flop. Direct state
+  reconstruction still uses the canonical flop → turn → river order.
+- Mobile motion is shorter; `prefers-reduced-motion: reduce` shows all
+  new cards immediately with no animation.
+- Automated real-browser checks cover 0→3→4→5, unchanged-street rerenders,
+  next-hand reset, the identities of dealt cards, desktop, mobile and
+  reduced-motion styling.

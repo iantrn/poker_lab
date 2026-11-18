@@ -276,3 +276,21 @@ test("Multi-winner modal is condensed only at desktop widths", () => {
   assert.match(css,/\.pl-result-winnings--multi\s*\{\s*grid-template-columns: repeat\(2/);
   assert.match(smoke,/both winners should be side-by-side/);
 });
+
+test("Flop, turn and river animate only newly dealt cards without card redesign", () => {
+  const table=read("frontend/src/components/table.ts");
+  const css=read("frontend/src/styles/poker-table.css");
+  const smoke=read("tests/v2-browser-smoke.mjs");
+  assert.match(table,/pl-card-deal--\$\{street\}/);
+  assert.match(table,/index \* 140/);
+  assert.match(table,/previousBoardCount/);
+  assert.match(css,/@keyframes pl-board-deal-flop/);
+  assert.match(css,/@keyframes pl-board-deal-turn/);
+  assert.match(css,/@keyframes pl-board-deal-river/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(smoke,/verifyBoardStreets\(1365\)/);
+  assert.match(smoke,/verifyBoardStreets\(390\)/);
+  assert.match(smoke,/Reduced-motion users should see their cards immediately/);
+  assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, 
+    "Keep the approved playing card graphics intact");
+});

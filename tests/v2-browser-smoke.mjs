@@ -302,6 +302,105 @@ async function run() {
     assert.equal(sampleLabels.tenHigh.label,"Hauteur 10");
     assert.equal(sampleLabels.aceHigh.label,"Hauteur As");
     assert.equal(sampleLabels.aceHigh.detail,"");
+
+    // Exercise all three community-card transitions in a real browser.
+    // The fixture changes *presentation state only*; it never manipulates
+    // the live game engine or advances any actual players.
+    const verifyBoardStreets = async (width) => {
+      await page.setViewportSize({width,height:844});
+      const observations = await page.evaluate(() => {
+        const api = window.PokerLabTable;
+        const original = window.PokerLabTraining.getGameState();
+        const mount = document.getElementById("training-table");
+        const fresh = { ...original, handNumber:(original.handNumber ?? 1)+100,
+          board:[],handComplete:false,result:null };
+        const cards=[
+          {value:14,suit:"spades"},{value:13,suit:"hearts"},
+          {value:12,suit:"diamonds"},{value:11,suit:"clubs"},
+          {value:10,suit:"spades"}
+        ];
+        const inspect=()=>{
+          const els=[...mount.querySelectorAll(".pl-board > *")];
+          return els.map(el=>({
+            street:el.dataset.dealStreet ?? null,
+            cls:el.classList.contains("pl-card-deal"),
+            delay:getComputedStyle(el).animationDelay,
+            name:getComputedStyle(el).animationName,
+            duration:getComputedStyle(el).animationDuration,
+            value:el.getAttribute("aria-label")
+          }));
+        };
+        api.render(mount,fresh);
+        const preflop=inspect();
+        api.render(mount,{...fresh,board:cards.slice(0,3)});
+        const flop=inspect();
+        api.render(mount,{...fresh,board:cards.slice(0,3)});
+        const flopRerender=inspect();
+        api.render(mount,{...fresh,board:cards.slice(0,4)});
+        const turn=inspect();
+        api.render(mount,{...fresh,board:cards.slice(0,4)});
+        const turnRerender=inspect();
+        api.render(mount,{...fresh,board:cards.slice(0,5)});
+        const river=inspect();
+        api.render(mount,{...fresh,board:cards.slice(0,5)});
+        const riverRerender=inspect();
+        api.render(mount,{...fresh,handNumber:fresh.handNumber+1,board:[]});
+        const newHand=inspect();
+        api.render(mount,{...fresh,handNumber:fresh.handNumber+1,board:cards.slice(0,3)});
+        const nextFlop=inspect();
+        api.render(mount,original);
+        return {preflop,flop,flopRerender,turn,turnRerender,river,riverRerender,newHand,nextFlop};
+      });
+      const dealt=a=>a.filter(c=>c.cls);
+      assert.equal(dealt(observations.preflop).length,0);
+      assert.deepEqual(dealt(observations.flop).map(c=>c.street),["flop","flop","flop"]);
+      assert.deepEqual(dealt(observations.flop).map(c=>c.delay),["0s","0.14s","0.28s"]);
+      assert.ok(dealt(observations.flop).every(c=>c.name==="pl-board-deal-flop"));
+      assert.equal(dealt(observations.flopRerender).length,0,
+        "A betting action should not replay the flop card animation");
+      assert.deepEqual(dealt(observations.turn).map(c=>c.street),["turn"]);
+      assert.equal(dealt(observations.turn)[0].name,"pl-board-deal-turn");
+      assert.equal(dealt(observations.turn)[0].delay,"0s");
+      assert.equal(dealt(observations.turnRerender).length,0,
+        "A betting action should not replay the turn card animation");
+      assert.deepEqual(dealt(observations.river).map(c=>c.street),["river"]);
+      assert.equal(dealt(observations.river)[0].name,"pl-board-deal-river");
+      assert.equal(dealt(observations.river)[0].delay,"0s");
+      assert.equal(dealt(observations.riverRerender).length,0,
+        "A betting action should not replay the river card animation");
+      assert.equal(dealt(observations.newHand).length,0);
+      assert.deepEqual(dealt(observations.nextFlop).map(c=>c.street),["flop","flop","flop"]);
+      assert.deepEqual(observations.river.map(c=>c.value).slice(0,5),
+        observations.riverRerender.map(c=>c.value).slice(0,5),
+        "Animation must never change the identity of the dealt cards");
+      assert.equal(await page.locator("#training-table .pl-board > *").count(),5);
+    };
+    await verifyBoardStreets(1365);
+    await verifyBoardStreets(390);
+    await page.emulateMedia({reducedMotion:"reduce"});
+    const reducedMotionBoard=await page.evaluate(() => {
+      const api=window.PokerLabTable;
+      const mount=document.getElementById("training-table");
+      const original=window.PokerLabTraining.getGameState();
+      const fresh={...original,handNumber:(original.handNumber??1)+505,board:[],result:null,handComplete:false};
+      api.render(mount,fresh);
+      api.render(mount,{...fresh,board:[
+        {value:2,suit:"clubs"},{value:3,suit:"hearts"},{value:4,suit:"spades"}
+      ]});
+      const result=[...mount.querySelectorAll(".pl-board .pl-card-deal")].map(el=>({
+        animation:getComputedStyle(el).animationName,
+        opacity:getComputedStyle(el).opacity,
+        label:el.getAttribute("aria-label")
+      }));
+      api.render(mount,original);
+      return result;
+    });
+    assert.equal(reducedMotionBoard.length,3);
+    assert.ok(reducedMotionBoard.every(card=>card.animation==="none" && card.opacity==="1"),
+      "Reduced-motion users should see their cards immediately");
+    await page.emulateMedia({reducedMotion:"no-preference"});
+    await page.setViewportSize({width:1365,height:768});
+
     // Render a representative engine result in a detached *test scenario*
     // attached to the real table. Assert that all payout lines match the
     // supplied split-pot shares including the 0.5 BB odd chip, and that the
