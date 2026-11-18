@@ -1348,9 +1348,9 @@
   #app #training-game:not(.hidden) #training-table .pl-table-container {
     /* Use previously wasted space *below* the table to regain 100px of
        felt depth without pushing the touch action panel off-screen. */
-    height: clamp(500px, calc(100dvh - 135px), 710px) !important;
-    min-height: clamp(500px, calc(100dvh - 135px), 710px) !important;
-    max-height: clamp(500px, calc(100dvh - 135px), 710px) !important;
+    height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+    min-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+    max-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
   }
   /* Scale the visual footprint slightly, never change card graphics. */
   #app #training-game #training-table .pl-seat .pl-player-cards > * {

@@ -328,7 +328,7 @@ test("Landscape tablet can show six-max table and decisions together, without sc
   const browser=read("tests/v2-browser-smoke.mjs");
   assert.match(css,/@media \(min-width: 1000px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
   assert.match(css,/grid-template-areas:\s*"heading heading"\s*"felt actions"/);
-  assert.match(css,/height: clamp\(500px, calc\(100dvh - 135px\), 710px\) !important/);
+  assert.match(css,/height: clamp\(500px, calc\(100dvh - 165px\), 710px\) !important/);
   assert.match(css,/\.pl-action-buttons \{\s*grid-template-columns: repeat\(2/);
   assert.match(css,/\.pl-bet-presets \{\s*grid-template-columns: repeat\(2/);
   for (const size of ["1024,768","1080,810","1180,820"])

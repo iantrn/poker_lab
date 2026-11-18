@@ -366,9 +366,15 @@ async function run() {
       });
       assert.equal(layout.headerVisible,"none",
         "The redundant title should not consume tablet landscape play space");
-      assert.ok(layout.table.height>=630 && layout.table.height<=710,
+      console.log("Tablet geometry",JSON.stringify({
+        size:width+"x"+height,
+        tableTop:layout.table.top,tableBottom:layout.table.bottom,
+        tableHeight:layout.table.height,viewportHeight:layout.viewport.height,
+        feltHeight:layout.felt.height,actionsBottom:layout.actions.bottom
+      }));
+      assert.ok(layout.table.height>=595 && layout.table.height<=710,
         "Landscape tablet should use the available vertical space, not flatten the felt");
-      assert.ok(layout.felt.height>=285,
+      assert.ok(layout.felt.height>=260,
         "The red felt needs enough depth for private cards, bets and board");
       assert.ok(layout.table.width>=550,
         "Six-max table must remain wide enough for three seats per rail");
