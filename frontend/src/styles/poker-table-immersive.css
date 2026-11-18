@@ -494,3 +494,67 @@
     bottom: calc(100% + 20px) !important;
   }
 }
+
+/* Jouer: shorten the over-tall stage by 100px, retaining the existing
+   rounded red felt and proportional seat/felt alignment. The narrower
+   landscape-tablet layout is explicitly exempt to protect touch controls. */
+@media (min-width: 768px) {
+  #app #training-game #training-table .pl-table-container {
+    height: clamp(620px, calc(54vw + 120px), 745px) !important;
+    min-height: clamp(620px, calc(54vw + 120px), 745px) !important;
+    max-height: clamp(620px, calc(54vw + 120px), 745px) !important;
+  }
+}
+@media (max-width: 767px) {
+  #app #training-game #training-table .pl-table-container {
+    height: clamp(640px, calc(147vw + 100px), 750px) !important;
+    min-height: clamp(640px, calc(147vw + 100px), 750px) !important;
+    max-height: clamp(640px, calc(147vw + 100px), 750px) !important;
+  }
+}
+@media (min-width: 1000px) and (max-width: 1280px) and (max-height: 900px) and (orientation: landscape),
+       (min-width: 1281px) and (max-width: 1450px) and (max-height: 1100px) and (orientation: landscape) and (pointer: coarse) {
+  #app #training-game:not(.hidden) #training-table .pl-table-container {
+    height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+    min-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+    max-height: clamp(500px, calc(100dvh - 165px), 710px) !important;
+  }
+}
+
+/* A folded opponent needs an unmistakable state: preserve the original
+   navy playing-card graphics, but dim the player's identity and display
+   a fully opaque high-contrast FOLD indicator above their name/avatar.
+   Do not dim the whole seat: that would recolour the navy card backs. */
+#app #training-game #training-table .pl-seat.is-folded:not(.pl-seat-hero) .pl-player-info {
+  opacity: .38 !important;
+  filter: grayscale(.85) !important;
+}
+#app #training-game #training-table .pl-seat.is-folded:not(.pl-seat-hero) .pl-player-badges {
+  opacity: 1 !important;
+  z-index: 45;
+}
+#app #training-game #training-table .pl-seat.is-folded:not(.pl-seat-hero) .pl-badge-folded {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  height: auto;
+  width: auto;
+  padding: 3px 10px;
+  border: 1px solid #e88e96 !important;
+  border-radius: 6px;
+  background: #a62736 !important;
+  color: #fff !important;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, .35);
+  font-size: .71rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: .07em;
+}
+@media (max-width: 767px) {
+  #app #training-game #training-table .pl-seat.is-folded:not(.pl-seat-hero) .pl-badge-folded {
+    min-height: 23px;
+    padding: 3px 7px;
+    font-size: .61rem;
+  }
+}
