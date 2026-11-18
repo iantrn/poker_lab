@@ -323,6 +323,31 @@ function createTable() {
     }
 
 
+
+    /** The Monopoly-inspired organic poker rail is presentational SVG only.
+     * The actual cards, pot and player overlays remain ordinary DOM nodes. */
+    function renderTableSilhouette(): SVGSVGElement {
+        const ns = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(ns, "svg");
+        svg.classList.add("pl-table-silhouette");
+        svg.setAttribute("viewBox", "0 0 1000 480");
+        svg.setAttribute("preserveAspectRatio", "none");
+        svg.setAttribute("aria-hidden", "true");
+        svg.setAttribute("focusable", "false");
+
+        const outer = document.createElementNS(ns, "path");
+        outer.setAttribute("class", "pl-table-silhouette-rail");
+        outer.setAttribute("d", "M150 38 C72 38 24 110 24 240 C24 370 72 442 150 442 H850 C928 442 976 370 976 240 C976 110 928 38 850 38 H675 C633 38 627 90 560 90 H440 C373 90 367 38 325 38 Z");
+        const inner = document.createElementNS(ns, "path");
+        inner.setAttribute("class", "pl-table-silhouette-felt");
+        inner.setAttribute("d", "M152 53 C82 53 40 120 40 240 C40 360 82 427 152 427 H848 C918 427 960 360 960 240 C960 120 918 53 848 53 H676 C640 53 630 105 559 105 H441 C370 105 360 53 324 53 Z");
+        const hairline = document.createElementNS(ns, "path");
+        hairline.setAttribute("class", "pl-table-silhouette-line");
+        hairline.setAttribute("d", "M154 65 C88 65 52 127 52 240 C52 353 88 415 154 415 H846 C912 415 948 353 948 240 C948 127 912 65 846 65 H676 C641 65 629 117 559 117 H441 C371 117 359 65 324 65 Z");
+        svg.append(outer, inner, hairline);
+        return svg;
+    }
+
     /* =====================================================
        4. CARTES COMMUNES
        ===================================================== */
@@ -490,11 +515,18 @@ function createTable() {
 
         const count = players.length;
 
-        players.forEach((player, index) => {
+        // Keep the human at the visually anchored bottom-centre seat, even
+        // when an imported state does not list that player first. The dealer
+        // is still evaluated against the engine's ORIGINAL player indices.
+        const visualPlayers = [
+            ...players.filter(player => player.isHuman),
+            ...players.filter(player => !player.isHuman)
+        ];
+        visualPlayers.forEach((player, index) => {
 
             const [x, y] = getPlayerSlot(index, count);
 
-            const isDealer = index === dealerIndex;
+            const isDealer = players.indexOf(player) === dealerIndex;
 
             const isActive =
                 player.id === currentPlayerId;
@@ -621,7 +653,7 @@ function createTable() {
                 const bet = createElement(
                     "div",
                     "pl-player-bet",
-                    `${formatAmount(player.streetBet)}`
+                    `${formatAmount(player.streetBet)} BB`
                 );
 
                 seat.appendChild(bet);
@@ -932,11 +964,14 @@ function createTable() {
             "0,5 / 1 BB"
         );
 
-        header.append(
-            handNumber,
-            format,
-            blinds
-        );
+        // Existing settings route, not a new game-mode control.
+        const settings = createElement("a", "pl-table-settings");
+        settings.href = "#settings";
+        settings.dataset.page = "settings";
+        settings.setAttribute("aria-label", "Paramètres");
+        settings.setAttribute("title", "Paramètres");
+        settings.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></svg>';
+        header.append(handNumber, format, blinds, settings);
 
         // Tapis.
 
@@ -1016,7 +1051,7 @@ function createTable() {
             board
         );
 
-        felt.appendChild(center);
+        felt.append(renderTableSilhouette(), center);
 
         // Sièges.
 
