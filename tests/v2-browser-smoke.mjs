@@ -176,6 +176,12 @@ async function run() {
     assert.equal(await page.locator("#training-table .pl-player-avatar").count(), 6);
     assert.equal(await page.locator("#training-table .pl-player-avatar svg").count(), 6);
     assert.equal(await page.locator("#training-table .pl-seat-hero").count(), 1);
+    assert.equal(await page.locator("#training-table .pl-table-silhouette").count(), 0,
+      "The rejected SVG table must not be rendered");
+    assert.equal(await page.locator('#training-table .pl-table-settings[href="#settings"]').count(), 1,
+      "The modern settings shortcut must be preserved");
+    assert.equal(await page.locator('#training-table .pl-felt').count(), 1,
+      "The previous real CSS poker felt must remain present");
     assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").count(), 1);
     assert.equal(await page.locator("#training-solver-dock > .pl-solve-dialog").count(), 1);
     assert.equal(await page.locator("#training-solver-dock > .pl-solve-button").isDisabled(), true);
@@ -275,7 +281,7 @@ async function run() {
       // The hand summary was 11px from the top on desktop and 43px on
       // phones: a literal -40px would clip it. Increase the panel and
       // give the header >=40px *additional separation from Bot 3* instead.
-      const headerY = mobile ? 36 : 4;
+      const headerY = mobile ? 53 : 5;
       assert.ok(Math.abs(geometry.hand.top-geometry.frame.top-headerY)<=2,
         "The hand summary must keep its dedicated top lane inside the frame");
       assert.ok(Math.abs(geometry.solver.top-geometry.stage.top-(headerY+10))<=2,

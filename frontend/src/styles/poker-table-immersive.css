@@ -1,0 +1,496 @@
+/**
+ * Poker Lab / Jouer - Modern UI over the approved red rounded-rectangle table.
+ * Retains the 2026 modern UI enhancements while leaving felt shape,
+ * container geometry, seat rails, private-card positions and original cards
+ * to poker-table.css. No render-time SVG table or speculative geometry.
+ */
+/* The functional leave-session action is kept, but no competing top-right
+   button appears beside the dedicated Settings icon in the table header. */
+#app #training-game .pl-training-game-heading {
+  justify-content: flex-start;
+  gap: 12px;
+}
+#app #training-game .pl-training-game-heading > [data-training-action="stop"] {
+  margin-left: 0;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+#app #training-game .pl-training-game-heading > [data-training-action="stop"]:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-light);
+}
+
+
+
+
+
+
+
+
+
+#app #training-game #training-table .pl-table-center {
+  position: relative;
+  z-index: 2;
+  gap: 12px;
+  padding: 20px 15px;
+}
+#app #training-game #training-table .pl-table-header {
+  min-height: 44px;
+  padding: 0 12px;
+  justify-content: flex-start;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font-size: .73rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+#app #training-game #training-table .pl-table-header > span {
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  min-height: auto;
+  font-weight: 600;
+}
+#app #training-game #training-table .pl-table-header .pl-table-format {
+  display: none !important;
+}
+#app #training-game #training-table .pl-table-header .pl-table-blinds {
+  color: var(--text-secondary);
+  border: 0 !important;
+}
+#app #training-game #training-table .pl-table-settings {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  margin-left: auto;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+#app #training-game #training-table .pl-table-settings svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+#app #training-game #training-table .pl-table-settings:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-light);
+}
+#app #training-game #training-table .pl-table-settings:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+#app #training-game #training-table .pl-pot-display {
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none;
+  background: none !important;
+  gap: 3px;
+}
+#app #training-game #training-table .pl-pot-label {
+  color: var(--text-secondary);
+  font-size: .65rem;
+  font-weight: 650;
+  letter-spacing: .13em;
+}
+#app #training-game #training-table .pl-pot-amount {
+  color: var(--text-primary);
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+#app #training-game #training-table .pl-table-container > .pl-hand-strength {
+  top: 5px !important;
+  width: clamp(156px, 23vw, 234px) !important;
+  max-width: 234px !important;
+  height: 54px;
+  min-height: 54px;
+  padding: 5px 4px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+#app #training-game #training-table .pl-hand-strength-label {
+  color: var(--text-secondary);
+  letter-spacing: .08em;
+}
+#app #training-game #training-table .pl-hand-strength-value {
+  color: var(--text-primary);
+}
+#app #training-game .pl-table-solver-dock {
+  top: 15px;
+  left: calc(50% + clamp(78px, 11.5vw, 117px) + 9px);
+}
+#app #training-game .pl-table-solver-dock > .pl-solve-button {
+  border-radius: 8px;
+  border-color: var(--border-medium);
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-primary);
+}
+#app #training-game .pl-table-solver-dock > .pl-solve-button:hover:not(:disabled) {
+  border-color: var(--accent-gold);
+  background: var(--bg-surface-light);
+  color: var(--text-primary);
+}
+#app #training-game #training-table .pl-table-container > .pl-seats {
+  inset: 0 !important;
+  overflow: visible;
+}
+#app #training-game #training-table .pl-table-container .pl-seat {
+  width: clamp(138px, 16vw, 182px) !important;
+  height: 52px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+
+
+#app #training-game #training-table .pl-table-container .pl-seat-hero {
+  width: clamp(146px, 18vw, 195px) !important;
+}
+#app #training-game #training-table .pl-player-info,
+#app #training-game #training-table .pl-seat-hero .pl-player-info,
+#app #training-game #training-table .pl-seat.is-active:not(.pl-seat-hero) .pl-player-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 52px;
+  padding: 2px 2px 2px 50px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+#app #training-game #training-table .pl-player-avatar {
+  left: 0;
+  width: 47px;
+  height: 47px;
+  color: var(--text-secondary);
+  border: 1.5px solid var(--text-muted);
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+#app #training-game #training-table .pl-seat-hero .pl-player-avatar {
+  border-color: var(--accent-gold);
+}
+#app #training-game #training-table .pl-seat.is-active .pl-player-avatar {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 2px rgba(201, 54, 69, .15);
+}
+#app #training-game #training-table .pl-player-details {
+  gap: 6px;
+  width: 100%;
+  align-items: baseline;
+}
+#app #training-game #training-table .pl-player-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: .82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#app #training-game #training-table .pl-player-stack {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+}
+#app #training-game #training-table .pl-player-position {
+  position: static;
+  display: inline !important;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--accent-gold);
+  font-size: .62rem;
+  line-height: inherit;
+}
+#app #training-game #training-table .pl-seat .pl-player-badges {
+  top: -19px;
+  right: 0;
+  display: flex;
+  gap: 5px;
+}
+#app #training-game #training-table .pl-seat .pl-badge {
+  min-width: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 3px;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: .57rem;
+  font-weight: 700;
+}
+#app #training-game #training-table .pl-seat .pl-badge-dealer {
+  border: 1px solid var(--accent-gold);
+  border-radius: 50%;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  color: var(--accent-gold);
+  line-height: 19px;
+}
+#app #training-game #training-table .pl-seat .pl-badge-active {
+  background: transparent;
+  color: var(--accent-red);
+}
+#app #training-game #training-table .pl-seat .pl-player-cards {
+  left: 50%;
+  margin: 0;
+}
+
+
+#app #training-game #training-table .pl-seat .pl-player-cards > * {
+  width: 46px !important;
+  height: 67px !important;
+}
+#app #training-game #training-table .pl-player-bet {
+  left: 50%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: .74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keep decisions clearly clickable, without the surrounding dashboard card. */
+#app #training-game > #training-actions.pl-action-panel {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 12px 0 !important;
+  margin-top: 2px !important;
+}
+#app #training-game > #training-actions .pl-action-bet-controls {
+  border-left-color: var(--border-subtle);
+}
+#app #training-game > #training-actions .pl-action-buttons button {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+@media (max-width: 767px) {
+
+
+  #app #training-game #training-table .pl-table-container > .pl-hand-strength {
+    top: 53px !important;
+    width: clamp(140px, 43vw, 180px) !important;
+    max-width: 180px !important;
+    padding-inline: 2px;
+  }
+  #app #training-game .pl-table-solver-dock {
+    top: 63px;
+    left: calc(50% + clamp(70px, 21.5vw, 90px) + 5px);
+  }
+  #app #training-game .pl-table-solver-dock > .pl-solve-button {
+    font-size: .71rem;
+    padding: 6px 7px;
+  }
+  #app #training-game #training-table .pl-table-container .pl-seat {
+    width: clamp(88px, 29vw, 122px) !important;
+    height: 46px !important;
+  }
+
+
+
+  #app #training-game #training-table .pl-table-container .pl-seat-hero {
+    width: clamp(102px, 30vw, 130px) !important;
+  }
+  #app #training-game #training-table .pl-player-info,
+  #app #training-game #training-table .pl-seat-hero .pl-player-info,
+  #app #training-game #training-table .pl-seat.is-active:not(.pl-seat-hero) .pl-player-info {
+    height: 46px;
+    padding: 2px 0 2px 31px;
+  }
+  #app #training-game #training-table .pl-player-avatar {
+    width: 35px;
+    height: 35px;
+    left: -4px;
+  }
+  #app #training-game #training-table .pl-player-name {
+    font-size: .64rem;
+  }
+  #app #training-game #training-table .pl-player-stack {
+    font-size: .62rem;
+  }
+  #app #training-game #training-table .pl-player-position {
+    font-size: .48rem;
+  }
+  #app #training-game #training-table .pl-seat .pl-player-cards > * {
+    width: 34px !important;
+    height: 49px !important;
+  }
+  #app #training-game #training-table .pl-seat-hero .pl-player-cards > * {
+    width: 38px !important;
+    height: 56px !important;
+  }
+
+
+#app #training-game #training-table .pl-player-bet {
+    font-size: .65rem;
+  }
+
+  #app #training-game #training-table .pl-seat .pl-player-badges {
+    top: -16px;
+  }
+  #app #training-game #training-table .pl-seat .pl-badge {
+    font-size: .49rem;
+  }
+  #app #training-game > #training-actions.pl-action-panel {
+    padding: 10px 0 !important;
+  }
+}
+/* The historical 320–600px six-max player rules have higher specificity
+   than simple seat selectors. Explicitly neutralize their old offsets. */
+@media (max-width: 600px) {
+  /* Percent widths follow the actual table container (not vw). On 320px
+     phones the page gutters reduce the available canvas to ~270px. */
+  #app #training-game #training-table .pl-table-six-max .pl-seat {
+    width: clamp(76px, 23%, 104px) !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero {
+    width: clamp(84px, 27%, 120px) !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-info,
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-info,
+  #app #training-game #training-table .pl-table-six-max .pl-seat.is-active .pl-player-info {
+    height: 46px !important;
+    padding: 2px 0 2px 31px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-player-avatar,
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-avatar,
+  #app #training-game #training-table .pl-table-six-max .pl-seat-lower:not(.pl-seat-hero) .pl-player-avatar {
+    width: 35px;
+    height: 35px;
+    left: -4px;
+  }
+
+
+  #app #training-game #training-table .pl-table-six-max .pl-player-position {
+    position: static !important;
+    display: inline !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    font-size: .48rem;
+  }
+  #app #training-game #training-table .pl-table-six-max .pl-seat-hero .pl-player-badges {
+    top: -22px;
+  }
+}
+
+/* Landscape tablet: the table and its existing touch actions stay side by side. */
+@media (min-width: 1000px) and (max-width: 1280px) and (max-height: 900px) and (orientation: landscape),
+       (min-width: 1281px) and (max-width: 1450px) and (max-height: 1100px) and (orientation: landscape) and (pointer: coarse) {
+
+
+  #app #training-game #training-table .pl-table-container .pl-seat {
+    height: 46px !important;
+    width: clamp(103px, 16vw, 132px) !important;
+  }
+
+
+
+  #app #training-game #training-table .pl-player-info,
+  #app #training-game #training-table .pl-seat-hero .pl-player-info,
+  #app #training-game #training-table .pl-seat.is-active:not(.pl-seat-hero) .pl-player-info {
+    height: 46px;
+    padding-left: 39px;
+  }
+  #app #training-game #training-table .pl-player-avatar {
+    width: 39px;
+    height: 39px;
+    left: -3px;
+  }
+  #app #training-game #training-table .pl-player-name { font-size: .68rem; }
+  #app #training-game #training-table .pl-player-stack { font-size: .68rem; }
+  #app #training-game #training-table .pl-seat .pl-player-cards > * {
+    width: 40px !important;
+    height: 58px !important;
+  }
+
+
+#app #training-game #training-table .pl-player-bet {
+  }
+
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 5px 0 !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app #training-game #training-table .pl-table-settings {
+    transition: none;
+  }
+}
+
+/* Restored red-rectangle table: maintain safe space under its lower rail.
+   These positions are relative to the original felt geometry, not SVG paths.
+   Cards retain their native component; only their rail overlap is aligned. */
+@media (min-width: 768px) {
+  #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-lower {
+    top: calc(var(--seat-y) + 20px) !important;
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 10px) !important;
+  }
+}
+@media (max-width: 767px) {
+  #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-lower {
+    top: calc(var(--seat-y) + 26px) !important;
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards,
+  #app #training-game #training-table .pl-table-six-max .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 10px) !important;
+  }
+}
+/* The side-by-side landscape tablet layout has a shorter felt; restore
+   tested edge spacing without pushing decisions below the viewport. */
+@media (min-width: 1000px) and (max-width: 1280px) and (max-height: 900px) and (orientation: landscape),
+       (min-width: 1281px) and (max-width: 1450px) and (max-height: 1100px) and (orientation: landscape) and (pointer: coarse) {
+  #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-lower {
+    top: var(--seat-y) !important;
+  }
+  #app #training-game #training-table .pl-seat-upper .pl-player-cards {
+    top: calc(100% + 20px) !important;
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 20px) !important;
+  }
+}

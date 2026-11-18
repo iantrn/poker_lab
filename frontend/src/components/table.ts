@@ -323,6 +323,7 @@ function createTable() {
     }
 
 
+
     /* =====================================================
        4. CARTES COMMUNES
        ===================================================== */
@@ -490,11 +491,18 @@ function createTable() {
 
         const count = players.length;
 
-        players.forEach((player, index) => {
+        // Keep the human at the visually anchored bottom-centre seat, even
+        // when an imported state does not list that player first. The dealer
+        // is still evaluated against the engine's ORIGINAL player indices.
+        const visualPlayers = [
+            ...players.filter(player => player.isHuman),
+            ...players.filter(player => !player.isHuman)
+        ];
+        visualPlayers.forEach((player, index) => {
 
             const [x, y] = getPlayerSlot(index, count);
 
-            const isDealer = index === dealerIndex;
+            const isDealer = players.indexOf(player) === dealerIndex;
 
             const isActive =
                 player.id === currentPlayerId;
@@ -621,7 +629,7 @@ function createTable() {
                 const bet = createElement(
                     "div",
                     "pl-player-bet",
-                    `${formatAmount(player.streetBet)}`
+                    `${formatAmount(player.streetBet)} BB`
                 );
 
                 seat.appendChild(bet);
@@ -932,11 +940,14 @@ function createTable() {
             "0,5 / 1 BB"
         );
 
-        header.append(
-            handNumber,
-            format,
-            blinds
-        );
+        // Existing settings route, not a new game-mode control.
+        const settings = createElement("a", "pl-table-settings");
+        settings.href = "#settings";
+        settings.dataset.page = "settings";
+        settings.setAttribute("aria-label", "Paramètres");
+        settings.setAttribute("title", "Paramètres");
+        settings.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></svg>';
+        header.append(handNumber, format, blinds, settings);
 
         // Tapis.
 

@@ -224,7 +224,7 @@ test("UI rail clearance and wagers stay central without moving cards or the engi
   assert.match(css, /top: calc\(12% \+ 117px\) !important/);
   assert.match(css, /height: calc\(76% - 189px\) !important/);
   assert.match(css, /top: calc\(19% \+ 93px\) !important/);
-  assert.match(css, /height: calc\(69% - 161px\) !important/);
+  assert.match(css, /height: calc\(69% - 130px\) !important/);
   assert.match(css, /top: calc\(100% \+ 86px\)/);
   assert.match(css, /bottom: calc\(100% \+ 105px\)/);
   assert.match(css, /bottom: calc\(100% \+ 125px\)/);
@@ -299,8 +299,8 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
 test("Jouer table is taller with the hand and Solver kept inside a clear upper lane", () => {
   const css=read("frontend/src/styles/poker-table.css");
   const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/height: clamp\(620px, calc\(54vw \+ 120px\), 745px\) !important/);
-  assert.match(css,/height: clamp\(640px, calc\(147vw \+ 100px\), 750px\) !important/);
+  assert.match(css,/height: clamp\(720px, calc\(54vw \+ 220px\), 845px\) !important/);
+  assert.match(css,/height: clamp\(740px, calc\(147vw \+ 200px\), 850px\) !important/);
   assert.match(css,/top: 4px !important/);
   assert.match(css,/\.pl-table-solver-dock \{\s*position: absolute;[\s\S]*?top: 14px;/);
   assert.match(css,/top: 36px !important/);
@@ -351,4 +351,18 @@ test("Tablet landscape private cards straddle the rail halfway like desktop",()=
   assert.match(smoke,/No private card should overlap another player's cards/);
   assert.match(smoke,/Player hole cards must never overlap community-card slots/);
   assert.match(smoke,/Bet chips must not overlap the community-card row/);
+});
+
+test("Reject the organic SVG table while keeping the rest of the modern UI", () => {
+  const table = read("frontend/src/components/table.ts");
+  const css = read("frontend/src/styles/poker-table-immersive.css");
+  const main = read("frontend/src/main.tsx");
+  assert.match(main, /poker-table-immersive\.css/);
+  assert.doesNotMatch(table, /renderTableSilhouette|pl-table-silhouette/);
+  assert.match(table, /felt\.appendChild\(center\)/);
+  assert.doesNotMatch(css, /\.pl-table-silhouette|\.pl-table-container > \.pl-felt\s*\{/);
+  assert.match(css, /\.pl-player-info/);
+  assert.match(css, /\.pl-table-settings/);
+  assert.match(css, /#training-actions\.pl-action-panel/);
+  assert.match(table, /formatAmount\(player\.streetBet\)\} BB/);
 });
