@@ -9,7 +9,7 @@ export function LessonsPage(){
      <button type="button" className="pl-learning-shortcut" onClick={()=>{
        const destination=document.getElementById("preflop-ranges-section");
        destination?.scrollIntoView({block:"start"});
-       destination?.focus({preventScroll:true});
+       destination?.focus({ preventScroll: true });
      }}>
        <PokerLabIcon name="ranges" size={18}/> Accéder aux ranges
        <PokerLabIcon name="arrow-right" size={16}/>

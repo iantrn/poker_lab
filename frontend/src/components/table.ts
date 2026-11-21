@@ -1063,7 +1063,31 @@ function createTable() {
             });
         }
 
-        table.append(header, felt, seats);
+        // Presentation-only street timeline and turn context. The labels
+        // are derived from actual board/player state, never synthetic solver data.
+        const flow = createElement("div", "pl-table-flow");
+        flow.setAttribute("aria-label", "Progression de la main");
+        const phases = ["Préflop", "Flop", "Turn", "River"];
+        const activePhase = boardCount < 3 ? 0 : boardCount === 3 ? 1 : boardCount === 4 ? 2 : 3;
+        const timeline = createElement("div", "pl-table-flow-steps");
+        phases.forEach((label, index) => {
+            const marker = createElement("span", "pl-table-flow-step", label);
+            if (index === activePhase) marker.classList.add("is-current");
+            if (index < activePhase) marker.classList.add("is-complete");
+            if (gameState.handComplete && index === activePhase) marker.classList.add("is-complete");
+            timeline.appendChild(marker);
+        });
+        const activePlayer = players.find(player => player.id === gameState.currentPlayerId);
+        const status = createElement(
+            "span",
+            "pl-table-flow-status",
+            gameState.handComplete ? "Main terminée" : activePlayer
+                ? (activePlayer.isHuman ? "À vous de jouer" : "Au tour de " + activePlayer.name)
+                : "En attente du prochain tour"
+        );
+        flow.append(timeline, status);
+
+        table.append(header, felt, seats, flow);
 
         if (handStrength.childNodes.length > 0) {
             table.appendChild(handStrength);

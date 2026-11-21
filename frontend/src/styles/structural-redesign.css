@@ -401,3 +401,32 @@
 @media(prefers-reduced-motion:reduce){
   #app .pl-home-card, #app .pl-sidebar-link {transition:none!important;}
 }
+
+
+/* Gameplay DOM refactor: a semantic street timeline and explicit actor status.
+ * This is filled with real render-state, no mocked betting values or chips. */
+#app #training-game #training-table .pl-table-flow {
+  position:absolute;left:20px;right:20px;bottom:11px;
+  z-index:4;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  pointer-events:none;
+  font-size:.67rem;font-weight:650;letter-spacing:.03em;color:#B6A99F;
+}
+#app #training-game #training-table .pl-table-flow-steps {display:flex;align-items:center;gap:12px;min-width:0;}
+#app #training-game #training-table .pl-table-flow-step {
+  position:relative;display:inline-flex;align-items:center;gap:6px;
+  color:#8D8887;white-space:nowrap;
+}
+#app #training-game #training-table .pl-table-flow-step::before {
+  content:"";width:5px;height:5px;background:#625F65;border-radius:50%;
+}
+#app #training-game #training-table .pl-table-flow-step.is-current {color:#F3D3A2;}
+#app #training-game #training-table .pl-table-flow-step.is-current::before {width:7px;height:7px;background:#CBA46B;box-shadow:0 0 0 4px rgba(203,164,107,.12);}
+#app #training-game #training-table .pl-table-flow-step.is-complete {color:#B4A694;}
+#app #training-game #training-table .pl-table-flow-step.is-complete::before {background:#3B9B81;}
+#app #training-game #training-table .pl-table-flow-status {color:#E7D1B2;text-align:right;}
+@media (max-width:767px) {
+  #app #training-game #training-table .pl-table-flow {bottom:7px;left:11px;right:11px;gap:5px;flex-direction:column;justify-content:center;align-items:center;font-size:.57rem;}
+  #app #training-game #training-table .pl-table-flow-steps {gap:9px;}
+  #app #training-game #training-table .pl-table-flow-status {text-align:center;}
+}
