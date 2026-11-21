@@ -1050,6 +1050,14 @@ function createTable() {
 
         // Indicateur de main.
 
+        // Animate hole cards only on the initial render of a new hand.
+        if (!sameHand || !container.firstElementChild) {
+            seats.querySelectorAll<HTMLElement>(".pl-player-cards > *").forEach((card, index) => {
+                card.classList.add("nct-hole-deal");
+                card.style.animationDelay = `${Math.floor(index / 2) * 55 + (index % 2) * 75}ms`;
+            });
+        }
+
         const handStrength = renderHandStrength(
             hero,
             gameState.board
