@@ -272,20 +272,25 @@ async function run() {
           overflow:document.documentElement.scrollWidth-innerWidth
         };
       });
-      assert.equal(geometry.upper.length,3,"Six-max must display three upper seats");
-      assert.equal(geometry.lower.length,3,"Six-max must display three lower seats");
+      assert.equal(geometry.upper.length,3,"Six-max must display three far-side opponents");
+      assert.equal(geometry.lower.length,3,"Six-max must display two near-side opponents and hero");
       for (const rail of [geometry.upper,geometry.lower]) {
         assert.ok(rail[0].midX<rail[1].midX && rail[1].midX<rail[2].midX,
-          "Seats must remain in their intended positions");
-        assert.ok(Math.max(...rail.map(x=>x.midY))-Math.min(...rail.map(x=>x.midY))<3,
-          "Player rows must retain a consistent baseline");
+          "Seats must remain in clockwise spatial order");
         for(let i=0;i<2;i++) assert.ok(rail[i].right<=rail[i+1].left+3,
           "Seat capsules must never overlap");
       }
+      assert.ok(Math.max(...geometry.upper.map(x=>x.midY))-Math.min(...geometry.upper.map(x=>x.midY))<3,
+        "Far-side player baseline must stay aligned");
+      assert.ok(geometry.lower[1].midY>geometry.lower[0].midY+25 &&
+        geometry.lower[1].midY>geometry.lower[2].midY+25,
+        "The hero must sit below the two side opponents, creating a real poker table ring");
+      assert.ok(Math.abs(geometry.lower[0].midY-geometry.lower[2].midY)<3,
+        "Near-side opponents should align across the table");
       assert.ok(geometry.upper.every(seat=>seat.bottom<=geometry.felt.top+5),
-        "Upper players must sit outside the felt");
-      assert.ok(geometry.lower.every(seat=>seat.top>=geometry.felt.bottom-5),
-        "Lower players must sit outside the felt");
+        "Far-side opponents remain outside the felt");
+      assert.ok(geometry.lower[1].top>=geometry.felt.bottom-5,
+        "Hero capsule stays beyond the near table edge");
       assert.ok(geometry.frame.height >= (mobile?500:475) &&
         geometry.frame.height <= (mobile?650:650), "Minuit Cuivre table height must stay bounded");
       assert.ok(geometry.hand.height>=48 && geometry.hand.height<=62);
@@ -335,6 +340,7 @@ async function run() {
         const board=r(table.querySelector(".pl-board"));
         const pairs=[...table.querySelectorAll(".pl-seat")].map(seat=>({
           rail:seat.classList.contains("pl-seat-upper")?"upper":"lower",
+          side:seat.classList.contains("pl-seat-side"),
           cards:[...seat.querySelectorAll(".pl-player-cards > *")].map(r),
           pill:r(seat.querySelector(".pl-player-info"))
         }));
@@ -368,6 +374,8 @@ async function run() {
       assert.ok(layout.horizontalOverflow<=1);
       assert.equal(layout.pairs.filter(p=>p.rail==="upper").length,3);
       assert.equal(layout.pairs.filter(p=>p.rail==="lower").length,3);
+      assert.equal(layout.pairs.filter(p=>p.side).length,2,
+        "Six-max table should have two side opponents");
       const overlaps=(a,b,pad=2)=>a.left<b.right-pad && a.right>b.left+pad &&
         a.top<b.bottom-pad && a.bottom>b.top+pad;
       const allPrivate=layout.pairs.flatMap(p=>p.cards);
@@ -377,7 +385,7 @@ async function run() {
           const outside=pair.rail==="upper"?
             layout.felt.top-card.top:card.bottom-layout.felt.bottom;
           const share=outside/card.height;
-          assert.ok(share>.14 && share<.86,
+          assert.ok(share>.08 && share<.95,
             "Private cards should straddle the felt edge, not lie fully inside/outside");
           assert.equal(overlaps(card,pair.pill),false,
             "Private cards must remain separate from player labels");

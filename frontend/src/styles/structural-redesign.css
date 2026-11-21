@@ -484,3 +484,29 @@
     min-height:42px;
   }
 }
+
+
+/* TRUE TABLE RECOMPOSITION: the six positions encircle the felt instead
+ * of forming two baseline-aligned player rows. These are presentation
+ * coordinates only; dealer and acting player still come from the engine. */
+#app #training-game #training-table .pl-seat.pl-seat-side .pl-player-cards {
+  top:calc(100% + 5px)!important;
+  bottom:auto!important;
+}
+#app #training-game #training-table .pl-seat.pl-seat-side .pl-player-badges {
+  top:-19px;
+}
+#app #training-game #training-table .pl-seat.pl-seat-side .pl-player-bet {
+  top:auto;
+  bottom:calc(100% + 72px);
+}
+@media (max-width:767px) {
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-cards {
+    top:calc(100% + 4px)!important;
+    bottom:auto!important;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-bet {
+    top:auto;
+    bottom:calc(100% + 40px);
+  }
+}

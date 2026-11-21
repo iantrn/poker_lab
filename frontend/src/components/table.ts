@@ -112,15 +112,16 @@ function createTable() {
 
     function getPlayerSlot(index: number, count: number): readonly [number,number] {
 
-        // Presentation-only seats: two horizontal rails, never the corners.
-        // Six-max: top 20/50/80 and bottom 15/50/85. Bottom centre is hero.
+        // Presentation-only elliptical seating, not two horizontal nameplate rails.
+        // Six-max: three opponents beyond the far edge, two at the near sides
+        // and the hero anchored centrally. Coordinates are percentages.
         const layouts: Record<number, Array<readonly [number, number]>> = {
 
             2: [[50, 88], [50, 12]],
-            3: [[50, 88], [20, 12], [80, 12]],
-            4: [[50, 88], [20, 88], [50, 12], [80, 12]],
-            5: [[50, 88], [20, 88], [20, 12], [50, 12], [80, 12]],
-            6: [[50, 88], [18, 88], [20, 12], [50, 12], [80, 12], [82, 88]]
+            3: [[50, 88], [24, 14], [76, 14]],
+            4: [[50, 88], [15, 66], [50, 12], [85, 66]],
+            5: [[50, 88], [15, 66], [29, 12], [71, 12], [85, 66]],
+            6: [[50, 88], [15, 66], [18, 12], [50, 12], [82, 12], [85, 66]]
 
         };
 
@@ -531,6 +532,11 @@ function createTable() {
                 seat.classList.add("pl-seat-hero");
             }
             seat.classList.add(y < 50 ? "pl-seat-upper" : "pl-seat-lower");
+            // A side-seat has its cards toward the near edge of the felt,
+            // leaving the board and the central hero cards unobstructed.
+            if (!isHuman && y >= 50 && y < 80) {
+                seat.classList.add("pl-seat-side");
+            }
 
             if (isActive) {
                 seat.classList.add("is-active");

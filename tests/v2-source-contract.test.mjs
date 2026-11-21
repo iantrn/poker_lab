@@ -191,10 +191,10 @@ test("Approved table design retains native playing cards and solver outputs", ()
   assert.match(solver, /GTO intégral non certifié/);
 });
 
-test("Final table review: two horizontal seat rails, numeric ranks, centred hand and Solver", () => {
+test("Circular table layout preserves numeric ranks, centred hand and Solver", () => {
   const table = read("frontend/src/components/table.ts");
   const css = read("frontend/src/styles/poker-table.css");
-  assert.match(table, /6: \[\[50, 88\], \[18, 88\], \[20, 12\], \[50, 12\], \[80, 12\], \[82, 88\]\]/);
+  assert.match(table, /6: \[\[50, 88\], \[15, 66\], \[18, 12\], \[50, 12\], \[82, 12\], \[85, 66\]\]/);
   assert.match(table, /numericRanks\(label: string\)/);
   assert.match(table, /Hauteur \$\{getRank\(high\)\}/);
   assert.doesNotMatch(table, /pl-hand-strength-detail",/);
@@ -204,6 +204,7 @@ test("Final table review: two horizontal seat rails, numeric ranks, centred hand
   assert.match(css, /\.pl-board \.pl-card--empty\s*\{\s*border-color:/);
   assert.match(css, /\.pl-table-container > \.pl-seats\s*\{\s*inset: 0 !important/);
   assert.match(css, /\.pl-seat \.pl-player-cards > \*/);
+  assert.match(table, /pl-seat-side/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Keep the existing blue card backs");
 });
 
