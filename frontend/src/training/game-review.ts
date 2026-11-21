@@ -686,7 +686,7 @@ function createReview() {
         }
 
         const header = createElement(
-            "div",
+            "header",
             "pl-review-header"
         );
 
@@ -816,8 +816,12 @@ function createReview() {
                 );
             }
 
-            actionElement.textContent =
-                description.join(" — ");
+            const ordinal = createElement("span", "nct-review-ordinal", description[0]);
+            ordinal.setAttribute("aria-hidden", "true");
+            const street = createElement("span", "nct-review-street", description[1]);
+            const actor = createElement("strong", "nct-review-actor", description[2]);
+            const decision = createElement("span", "nct-review-action", description.slice(3).join(" — "));
+            actionElement.append(ordinal, street, actor, decision);
 
             actionsSection.appendChild(actionElement);
 
@@ -955,9 +959,9 @@ function createReview() {
 
             });
 
-            item.appendChild(title);
-            item.appendChild(date);
-            item.appendChild(openButton);
+            const identity = createElement("div", "nct-history-identity");
+            identity.append(title, date);
+            item.append(identity, openButton);
 
             list.appendChild(item);
 
