@@ -25,20 +25,23 @@ function frequencyClass(value: number): string {
 export const RangeMatrix = memo(function RangeMatrix({ range, options, onToggle }: Props) {
   const selected = useMemo(() => new Set(options.selectedHands), [options.selectedHands]);
   return <>
-    <div className="pl-range-matrix" role="grid" aria-label="Matrice des 169 mains de poker">
+    <div className="pl-range-matrix nct-hand-grid" role="grid" aria-label="Matrice des 169 mains de poker">
       {RANKS.map((_, row) => <div key={row} role="row" className="pl-range-row">
         {RANKS.map((__, col) => {
           const hand = handAt(row, col);
           const frequency = range[hand] ?? 0;
           const pressed = selected.has(hand);
           return <button type="button" role="gridcell" key={hand} data-hand={hand}
-            className={`pl-range-cell pl-range-cell--${frequencyClass(frequency)}${pressed ? " is-selected" : ""}`}
+            className={`pl-range-cell nct-hand-cell pl-range-cell--${frequencyClass(frequency)}${pressed ? " is-selected" : ""}`}
             aria-label={`${hand} : fréquence ${Math.round(frequency)}%`}
             aria-pressed={pressed} disabled={!options.interactive}
             style={{ "--fill": `${frequency}%` } as CSSProperties}
             onClick={() => onToggle(hand)}>
-            <span className="pl-range-cell-hand">{hand}</span>
-            {options.showFrequencies && <span className="pl-range-cell-frequency">{Math.round(frequency)}%</span>}
+            <span className="nct-hand-cell-progress" aria-hidden="true"/>
+            <span className="nct-hand-cell-label">
+              <span className="pl-range-cell-hand">{hand}</span>
+              {options.showFrequencies && <span className="pl-range-cell-frequency">{Math.round(frequency)}%</span>}
+            </span>
           </button>;
         })}
       </div>)}
