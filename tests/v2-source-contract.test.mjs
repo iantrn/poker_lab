@@ -383,3 +383,32 @@ test("Compact Jouer table and clearly readable folded opponents", () => {
   assert.match(smoke, /The table must no longer be excessively tall/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Original card art remains unchanged");
 });
+
+
+test("Minuit Cuivre applies a single late-loading presentation layer across all original features", () => {
+  const main = read("frontend/src/main.tsx");
+  const theme = read("frontend/src/styles/minuit-cuivre.css");
+  const home = read("frontend/src/ui/HomePage.tsx");
+  const shell = read("frontend/src/ui/AppShell.tsx");
+  const mark = read("assets/icons/pokerlab-mark.svg");
+  assert.match(main, /styles\/minuit-cuivre\.css/);
+  assert.ok(main.indexOf("styles/minuit-cuivre.css") > main.indexOf("styles/poker-table-immersive.css"),
+    "The approved palette should be the final presentation layer");
+  for (const token of ["#101015", "#26232A", "#242B3A", "#CBA46B", "#E7BD82", "#F8F0E4"])
+    assert.ok(theme.includes(token), "Missing Minuit Cuivre token: " + token);
+  for (const section of ["home", "training", "tactics", "lessons", "review", "settings"])
+    assert.ok(shell.includes('data-module="' + section + '"'));
+  assert.match(home, /pl-home-primary-link/);
+  assert.match(home, /navigation\.navigateTo\(page\)/);
+  assert.match(theme, /prefers-reduced-motion:\s*reduce/);
+  assert.match(theme, /@container copper-stage/);
+  assert.match(theme, /pl-seat\.is-folded/);
+  assert.match(theme, /pl-action-btn-raise/);
+  assert.match(theme, /pl-solve-dialog/);
+  assert.match(theme, /pl-review-layout/);
+  assert.match(theme, /pl-rv-matrix/);
+  assert.match(mark, /#CBA46B/);
+  assert.doesNotMatch(theme, /https?:\/\/|@import\s+url/, "Offline UI must not load remote fonts or images");
+  for (const hook of ["#training-table", "#training-actions", "#training-solver-dock"])
+    assert.ok(theme.includes(hook), "Missing table presentation coverage: " + hook);
+});
