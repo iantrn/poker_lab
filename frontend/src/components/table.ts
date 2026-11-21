@@ -521,8 +521,10 @@ function createTable() {
 
             const seat = createElement(
                 "div",
-                "pl-seat"
+                "pl-seat nct-seat"
             );
+            seat.setAttribute("role", "group");
+            seat.setAttribute("aria-label", player.name + (isFolded ? " — couché" : isAllIn ? " — all-in" : isActive ? " — à jouer" : ""));
 
             seat.classList.add(
                 `pl-seat-${index + 1}`
@@ -915,14 +917,14 @@ function createTable() {
         const isHeadsUp = players.length === 2;
 
         const table = createElement(
-            "div",
-            `pl-table-container ${isHeadsUp ? "pl-table-heads-up" : "pl-table-six-max"}`
+            "section",
+            `nct-table pl-table-container ${isHeadsUp ? "pl-table-heads-up" : "pl-table-six-max"}`
         );
 
-        // En-tête.
+        table.setAttribute("aria-label", "Table de No-Limit Hold'em");
 
         const header = createElement(
-            "div",
+            "header",
             "pl-table-header"
         );
 
@@ -963,9 +965,10 @@ function createTable() {
         );
 
         const center = createElement(
-            "div",
-            "pl-table-center"
+            "section",
+            "pl-table-center nct-board-stage"
         );
+        center.setAttribute("aria-label", "Cartes communes et pot");
 
         const pot = createElement(
             "div",
@@ -1028,10 +1031,10 @@ function createTable() {
             }
         }
 
-        center.append(
-            pot,
-            board
-        );
+        center.append(pot, board);
+        const tableMark = createElement("span", "nct-table-mark", "POKERLAB");
+        tableMark.setAttribute("aria-hidden", "true");
+        felt.appendChild(tableMark);
 
         felt.appendChild(center);
 
