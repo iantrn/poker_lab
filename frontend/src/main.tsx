@@ -13,3 +13,4 @@ if (!root) throw new Error("Racine React introuvable.");
 createRoot(root).render(<LegacyApplication />);
 
 import "./styles/structural-redesign.css";
+import "./styles/nocturne.css";
