@@ -161,3 +161,5 @@ button,a,input,select{ -webkit-tap-highlight-color:transparent }
 #app .pl-range-legend-swatch.pl-range-cell--medium{background:#23725F}
 #app .pl-range-legend-swatch.pl-range-cell--high{background:#1D8E72}
 #app .pl-range-legend-swatch.pl-range-cell--very-high{background:#43B38D}
+
+#app .nct-review-community{display:flex;flex-wrap:wrap;gap:5px}
