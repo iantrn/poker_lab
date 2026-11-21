@@ -59,14 +59,42 @@ test("V2-generated PWA manifest uses valid icons of the expected dimensions", ()
     assert.ok(decoded.palette.length >= 3);
     const rowBytes = 1 + Math.ceil(decoded.width * decoded.bitDepth / 8);
     assert.equal(decoded.pixels.length, rowBytes * decoded.height);
+    // PNG compression may choose any standard adaptive scanline filter
+    // (None, Sub, Up, Average, Paeth). Reconstruct indexed pixels before
+    // checking palette bounds; do not reject otherwise-valid offline icons.
+    const stride = rowBytes - 1;
+    let previous = Buffer.alloc(stride);
     for (let y = 0; y < decoded.height; y++) {
-      const row = y * rowBytes;
-      assert.equal(decoded.pixels[row], 0);
-      for (let x = 0; x < decoded.width; x++) {
-        const packed = decoded.pixels[row + 1 + Math.floor(x / 2)];
-        const paletteIndex = x % 2 === 0 ? packed >> 4 : packed & 0x0f;
-        assert.ok(paletteIndex < decoded.palette.length / 3);
+      const offset = y * rowBytes;
+      const filter = decoded.pixels[offset];
+      assert.ok(filter >= 0 && filter <= 4, "Unsupported PNG scanline filter");
+      const row = Buffer.alloc(stride);
+      for (let index = 0; index < stride; index++) {
+        const raw = decoded.pixels[offset + 1 + index];
+        const left = index > 0 ? row[index - 1] : 0;
+        const up = previous[index];
+        const upperLeft = index > 0 ? previous[index - 1] : 0;
+        let predictor = 0;
+        if (filter === 1) predictor = left;
+        if (filter === 2) predictor = up;
+        if (filter === 3) predictor = Math.floor((left + up) / 2);
+        if (filter === 4) {
+          const p = left + up - upperLeft;
+          const dl = Math.abs(p - left);
+          const du = Math.abs(p - up);
+          const dul = Math.abs(p - upperLeft);
+          predictor = dl <= du && dl <= dul ? left
+            : du <= dul ? up : upperLeft;
+        }
+        row[index] = (raw + predictor) & 0xff;
       }
+      for (let x = 0; x < decoded.width; x++) {
+        const packed = row[Math.floor(x / 2)];
+        const paletteIndex = x % 2 === 0 ? packed >> 4 : packed & 0x0f;
+        assert.ok(paletteIndex < decoded.palette.length / 3,
+          "An icon pixel must reference an available palette color");
+      }
+      previous = row;
     }
   }
 });
