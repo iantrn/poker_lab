@@ -579,3 +579,13 @@
     padding:8px 9px!important;
   }
 }
+
+
+/* The original engine hides the action tray when a hand finishes. This rule
+ * must override the desktop flex cockpit: NEVER expose betting buttons after
+ * showdown, even if they are disabled by the engine. */
+#app #training-game:not(.hidden) > #training-actions.pl-action-panel.pl-action-panel--complete,
+#app #training-game:not(.hidden) > #training-actions.pl-action-panel.hidden,
+#app #training-game:not(.hidden) > #training-actions.pl-action-panel[hidden] {
+  display:none!important;
+}
