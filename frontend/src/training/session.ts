@@ -821,6 +821,8 @@ function renderGame(state: GameState | null = null): void {
         );
 
         button.type = "button";
+        const caption = createElement("span", "nct-action-label", label);
+        button.replaceChildren(caption);
         button.addEventListener("click", action);
 
         return button;
@@ -871,6 +873,8 @@ function renderGame(state: GameState | null = null): void {
 
         // Les quatre actions sont regroupées sur une seule ligne.
         const buttonsContainer = createElement("div", "pl-action-buttons");
+        buttonsContainer.setAttribute("role", "group");
+        buttonsContainer.setAttribute("aria-label", "Actions possibles");
 
         if (actionOptions.canFold) {
             buttonsContainer.appendChild(
@@ -936,7 +940,8 @@ function renderGame(state: GameState | null = null): void {
 
     function renderBetControls(options: GameActionOptions, state: GameState): {element:HTMLElement;submit():void} {
 
-        const betContainer = createElement("div", "pl-action-bet-controls");
+        const betContainer = createElement("section", "pl-action-bet-controls");
+        betContainer.setAttribute("aria-label", "Taille de mise");
         const actionType = options.canBet ? "bet" : "raise";
         const minimum = options.canBet ? options.minimumBet : options.minimumRaiseTo;
         const maximum = options.canBet ? options.maximumBet : options.maximumRaiseTo;
