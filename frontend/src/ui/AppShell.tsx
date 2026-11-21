@@ -15,11 +15,11 @@ const destinations: ReadonlyArray<{page:string;label:string;mobile:string;icon:P
 ];
 
 function NavigationLinks({mobile=false}:{mobile?:boolean}){
-  return <>{destinations.map(item=><a key={item.page} href={"#"+item.page} data-page={item.page}
+  return <>{destinations.map(item=>{const ariaLabel=item.page==="tactics"?"Tactiques et exercices":item.page==="review"?"Game Review":item.page==="lessons"?"Apprentissage et ranges":item.label;return <a key={item.page} href={"#"+item.page} data-page={item.page}
     className={mobile?"pl-mobile-link nct-mobile-link":"pl-sidebar-link nct-nav-link"}
-    aria-label={item.label} title={item.label}>
+    aria-label={ariaLabel} title={ariaLabel}>
     <PokerLabIcon name={item.icon} size={20}/><span>{mobile?item.mobile:item.label}</span>
-  </a>)}</>;
+  </a>})}</>;
 }
 
 export function AppShell(){
