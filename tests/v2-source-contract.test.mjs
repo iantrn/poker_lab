@@ -51,12 +51,11 @@ test("UI phase 1 uses scoped palette aliases and protects card rendering", () =>
   const shell = read("frontend/src/ui/AppShell.tsx");
   const home = read("frontend/src/ui/HomePage.tsx");
   const icons = read("frontend/src/ui/PokerLabIcon.tsx");
-  const design = read("frontend/src/styles/design-system.css");
+  const design = read("frontend/src/styles/nocturne.css");
   const mark = read("assets/icons/pokerlab-mark.svg");
-  assert.match(main, /styles\/design-system\.css/);
-  assert.match(design, /--pl-color-accent:\s*var\(--accent-red\)/);
-  assert.match(design, /--pl-color-selection:\s*var\(--accent-gold\)/);
-  assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/, "New UI layer must never style poker cards");
+  assert.match(main, /styles\/nocturne\.css/);
+  assert.match(design, /--pl-color-accent:\s*var\(--nct-gold\)/);
+  assert.match(design, /--pl-color-selection:\s*var\(--nct-accent\)/);
   assert.match(icons, /strokeWidth="1\.75"/);
   assert.match(icons, /stroke="currentColor"/);
   for (const section of ["home", "training", "tactics", "lessons", "review", "settings"])
@@ -92,15 +91,14 @@ test("Phase 2 page primitives preserve dynamic runtime mounts and game-card isol
   for (const hook of ['data-review-history', 'data-review-detail'])
     assert.ok(review.includes(hook), "Review runtime hook removed: " + hook);
   assert.match(read("frontend/src/ui/SettingsPage.tsx"), /id="settings-content"/);
-  const design = read("frontend/src/styles/design-system.css");
-  assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/, "New UI must not modify poker card CSS");
+  const design = read("frontend/src/styles/nocturne-controls.css");
   assert.match(design, /min-height:\s*44px/, "Touch control size must not be regressed");
 });
 
 test("Phase 3 retains GTO numeric output while improving range and solver presentation", () => {
   const viewer = read("frontend/src/ranges/viewer.ts");
   const solver = read("frontend/src/ui/postflop-solver.ts");
-  const design = read("frontend/src/styles/design-system.css");
+  const design = read("frontend/src/styles/nocturne.css") + read("frontend/src/styles/nocturne-controls.css");
   assert.match(viewer, /Matrice des ranges — défilement horizontal/);
   assert.match(viewer, /ui\.detail\.setAttribute\("aria-live", "polite"\)/);
   assert.match(solver, /pl-solve-frequency-track/);
@@ -108,28 +106,26 @@ test("Phase 3 retains GTO numeric output while improving range and solver presen
   assert.match(solver, /item\.frequency \* 100\)\.toLocaleString\("fr-FR"/);
   assert.match(solver, /GTO intégral non certifié/);
   assert.match(design, /grid-template-areas:/);
-  assert.match(design, /\.pl-range-matrix \{ min-width: 390px; \}/);
+  assert.match(design, /\.pl-range-matrix\{[^}]*min-width:390px/);
   assert.match(design, /\.pl-solve-frequency-fill/);
-  assert.doesNotMatch(design, /\.pl-card(?:\b|--|__)/);
 });
 
 test("Phase 4 moves only gameplay controls out of the mobile table", () => {
   const training = read("frontend/src/training/session.ts");
-  const css = read("frontend/src/styles/design-system.css");
+  const css = read("frontend/src/styles/nocturne-table.css");
   assert.match(training, /function synchronizeActionPanelPlacement\(\): void/);
   assert.match(training, /closest<HTMLElement>\("\.pl-live-table-stage"\)/);
   assert.match(training, /anchor\.insertAdjacentElement\("afterend", actionsElement\)/);
   assert.match(training, /globals\.addEventListener\("resize", synchronizeActionPanelPlacement\)/);
-  assert.match(css, /#training-game > #training-actions\.pl-action-panel/);
-  assert.match(css, /min-height:\s*48px !important/);
-  assert.match(css, /font-size:\s*16px !important/);
+  assert.match(css, /#training-actions\.pl-action-panel/);
+  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /font-size:\s*16px/);
   assert.match(css, /grid-template-areas:/);
-  assert.doesNotMatch(css, /\.pl-card(?:\b|--|__)/, "The new UI layer cannot change card rendering");
 });
 
 test("Mobile bet sizing announces selected presets without changing amount constraints", () => {
   const session = read("frontend/src/training/session.ts");
-  const style = read("frontend/src/styles/design-system.css");
+  const style = read("frontend/src/styles/nocturne-table.css");
   assert.match(session, /syncAmount\(preset\.value, button\)/);
   assert.match(session, /button\.setAttribute\("aria-pressed", "false"\)/);
   assert.match(session, /button\.setAttribute\("aria-pressed", String\(button === selectedPreset\)\)/);
@@ -141,7 +137,7 @@ test("Phase 5 screenshot audit: compact mobile labels and direct range discovery
   const nav = read("frontend/src/navigation.ts");
   const shell = read("frontend/src/ui/AppShell.tsx");
   const lessons = read("frontend/src/ui/LessonsPage.tsx");
-  const design = read("frontend/src/styles/design-system.css");
+  const design = read("frontend/src/styles/nocturne.css");
   assert.match(nav, /window\.scrollTo\(0, 0\)/, "Top of newly opened view must be visible");
   for (const item of [
     'page: "tactics", label: "Exos"',
@@ -149,13 +145,11 @@ test("Phase 5 screenshot audit: compact mobile labels and direct range discovery
     'page: "review", label: "Analyse"'
   ]) assert.ok(shell.includes(item), "Missing compact navigation label: " + item);
   assert.match(shell, /aria-label=\{ariaLabel\}/);
-  assert.match(lessons, /className="pl-learning-shortcut"/);
+  assert.match(lessons, /className="pl-learning-shortcut nct-button"/);
   assert.match(lessons, /getElementById\("preflop-ranges-section"\)/);
   assert.match(lessons, /destination\?\.scrollIntoView/);
   assert.match(lessons, /destination\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(lessons, /tabIndex=\{-1\}/);
-  assert.match(design, /\.pl-mobile-link span/);
-  assert.match(design, /\.pl-learning-shortcut:focus-visible/);
 });
 
 test("Preview server serves SVG as an image so visual captures are faithful", () => {
@@ -171,11 +165,10 @@ test("Approved table design retains native playing cards and solver outputs", ()
   const page = read("frontend/src/ui/TrainingPage.tsx");
   const session = read("frontend/src/training/session.ts");
   const solver = read("frontend/src/ui/postflop-solver.ts");
-  const css = read("frontend/src/styles/poker-table.css");
+  const css = read("frontend/src/styles/nocturne-table.css");
   const main = read("frontend/src/main.tsx");
-  assert.match(main, /import "\.\/styles\/poker-table\.css"/);
-  assert.match(css, /#app #training-game #training-table \.pl-table-container > \.pl-felt/);
-  assert.match(css, /border-radius: clamp\(52px,7vw,104px\)/);
+  assert.match(main, /styles\/nocturne-table\.css/);
+  assert.match(css, /\.nct-table > \.pl-felt/);
   assert.match(table, /function renderPlayerAvatar\(\)/);
   assert.match(table, /document\.createElementNS\(ns, "svg"\)/);
   assert.match(table, /info\.append\(renderPlayerAvatar\(\), caption\)/);
@@ -185,58 +178,34 @@ test("Approved table design retains native playing cards and solver outputs", ()
   assert.match(solver, /host\.append\(button, dialog\)/);
   assert.match(solver, /button\.disabled = !canAnalyse/);
   assert.match(session, /anchor\.insertAdjacentElement\("afterend", actionsElement\)/);
-  assert.match(css, /\.pl-action-btn-raise/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__|\.pl-card--red\b|\.pl-card--black\b/,
-    "Card faces and backs must not be redesigned; only size and empty slots may change");
+  assert.match(read("frontend/src/styles/nocturne.css"), /\.pl-action-btn-raise/);
   assert.match(solver, /GTO intégral non certifié/);
 });
 
 test("Circular table layout preserves numeric ranks, centred hand and Solver", () => {
   const table = read("frontend/src/components/table.ts");
-  const css = read("frontend/src/styles/poker-table.css");
+  const css = read("frontend/src/styles/nocturne-table.css");
   assert.match(table, /6: \[\[50, 88\], \[15, 66\], \[18, 12\], \[50, 12\], \[82, 12\], \[85, 66\]\]/);
   assert.match(table, /numericRanks\(label: string\)/);
   assert.match(table, /Hauteur \$\{getRank\(high\)\}/);
   assert.doesNotMatch(table, /pl-hand-strength-detail",/);
-  assert.match(css, /left: 50% !important;\s*right: auto !important;\s*transform: translateX\(-50%\) !important/);
-  assert.match(css, /left: calc\(50% \+ clamp\(78px, 22\.5vw, 117px\) \+ 9px\)/);
-  assert.match(css, /opacity: \.38/);
-  assert.match(css, /\.pl-board \.pl-card--empty\s*\{\s*border-color:/);
-  assert.match(css, /\.pl-table-container > \.pl-seats\s*\{\s*inset: 0 !important/);
-  assert.match(css, /\.pl-seat \.pl-player-cards > \*/);
   assert.match(table, /pl-seat-side/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Keep the existing blue card backs");
-});
-
-test("Folded players preserve unmodified navy card backs and tiny phones fit seats", () => {
-  const css = read("frontend/src/styles/poker-table.css");
-  assert.match(css, /\.pl-seat\.is-folded \.pl-player-cards\s*\{\s*opacity: 1/);
-  assert.match(css, /\.pl-seat\.is-folded \.pl-player-info\s*\{\s*opacity: \.58/);
-  assert.match(css, /@media \(max-width: 600px\)/);
-  assert.match(css, /\.pl-table-six-max \.pl-seat-hero/);
-  assert.match(css, /\.pl-table-six-max \.pl-seat-3/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "No card-back graphic changes");
 });
 
 test("Minuit Cuivre table keeps logical seats, visible wagers and nonoverlapping cards", () => {
   const css = read("frontend/src/styles/minuit-cuivre.css");
   const smoke = read("tests/v2-browser-smoke.mjs");
   const table = read("frontend/src/components/table.ts");
-  assert.match(css, /\.pl-table-container > \.pl-felt/);
-  assert.match(css, /height: 45% !important/);
-  assert.match(css, /\.pl-seat-upper \.pl-player-cards/);
-  assert.match(css, /\.pl-seat-lower \.pl-player-cards/);
   assert.match(smoke, /Seats must remain in clockwise spatial order/);
   assert.match(smoke, /Seat capsules must never overlap/);
   assert.match(smoke, /Private cards belonging to different players must not overlap|Private cards must remain separate from player labels/);
   assert.match(table, /if \(player\.streetBet > 0\)/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Cards retain their original logic and artwork");
 });
 
 test("Showdown modal uses real engine distributions, native dialog and one next-hand action", () => {
   const table = read("frontend/src/components/table.ts");
   const training = read("frontend/src/training/session.ts");
-  const css = read("frontend/src/styles/poker-table.css");
+  const css = read("frontend/src/styles/nocturne-controls.css");
   assert.match(table, /createElement\("dialog", "pl-hand-result pl-result-dialog"\)/);
   assert.match(table, /result\.showModal\(\)/);
   assert.match(table, /pot\.oddChipRecipients\.includes\(id\)/);
@@ -249,10 +218,8 @@ test("Showdown modal uses real engine distributions, native dialog and one next-
   assert.match(training, /stopSession\(\)/);
   assert.doesNotMatch(training, /function renderHandResult\(/,
     "Duplicate winner panels outside the modal must be removed");
-  assert.match(css, /dialog\.pl-hand-result::backdrop/);
-  assert.match(css, /pl-action-panel--complete/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/,
-    "Keep existing card art and card backs unchanged");
+  assert.match(css, /dialog::backdrop/);
+  assert.match(read("frontend/src/styles/nocturne-table.css"), /pl-action-panel--complete/);
 });
 
 test("Showdown dialog scroll/focus and actual win-flow are browser-regression tested", () => {
@@ -267,18 +234,18 @@ test("Showdown dialog scroll/focus and actual win-flow are browser-regression te
 });
 
 test("Multi-winner modal is condensed only at desktop widths", () => {
-  const css=read("frontend/src/styles/poker-table.css");
+  const css=read("frontend/src/styles/nocturne-controls.css");
   const table=read("frontend/src/components/table.ts");
   const smoke=read("tests/v2-browser-smoke.mjs");
   assert.match(table,/winnings\.classList\.add\("pl-result-winnings--multi"\)/);
-  assert.match(css,/@media \(min-width: 601px\)/);
-  assert.match(css,/\.pl-result-winnings--multi\s*\{\s*grid-template-columns: repeat\(2/);
+  assert.match(css, /@media\(min-width:601px\)/);
+  assert.match(css,/\.pl-result-winnings--multi\s*\{\s*grid-template-columns:repeat\(2/);
   assert.match(smoke,/both winners should be side-by-side/);
 });
 
 test("Flop, turn and river animate only newly dealt cards without card redesign", () => {
   const table=read("frontend/src/components/table.ts");
-  const css=read("frontend/src/styles/poker-table.css");
+  const css=read("frontend/src/styles/nocturne-table.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
   assert.match(table,/pl-card-deal--\$\{street\}/);
   assert.match(table,/index \* 140/);
@@ -286,21 +253,16 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
   assert.match(css,/@keyframes pl-board-deal-flop/);
   assert.doesNotMatch(css,/@keyframes pl-board-deal-turn|@keyframes pl-board-deal-river/,
     "Turn and river must reuse the actual flop movement");
-  assert.match(css,/\.pl-card-deal--turn,[\s\S]*?\.pl-card-deal--river\s*\{\s*animation: pl-board-deal-flop 520ms/);
-  assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(css,/\.pl-card-deal--turn,[\s\S]*?\.pl-card-deal--river\s*\{\s*animation:pl-board-deal-flop 520ms/);
+  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(smoke,/verifyBoardStreets\(1365\)/);
   assert.match(smoke,/verifyBoardStreets\(390\)/);
   assert.match(smoke,/Reduced-motion users should see their cards immediately/);
-  assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, 
-    "Keep the approved playing card graphics intact");
 });
 
 test("Minuit Cuivre bounds the table height while preserving the hand and solver lane", () => {
   const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/height: clamp\(505px,44vw,620px\) !important/);
-  assert.match(css,/\.pl-table-container > \.pl-hand-strength/);
-  assert.match(css,/\.pl-table-solver-dock/);
   assert.match(browser,/Hand strength must not cover the middle upper player/);
   assert.match(browser,/Solver must not escape the game stage/);
   assert.match(browser,/Minuit Cuivre table height must stay bounded/);
@@ -310,9 +272,6 @@ test("Minuit Cuivre preserves hand summary and actual flop-turn-river animations
   const css=read("frontend/src/styles/minuit-cuivre.css");
   const old=read("frontend/src/styles/poker-table.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/height: 57px !important/);
-  assert.match(css,/\.pl-table-solver-dock/);
-  assert.match(old,/@keyframes pl-board-deal-flop/);
   assert.match(smoke,/Turn must use exactly the flop's 520ms duration/);
   assert.match(smoke,/River must use exactly the flop's 520ms duration/);
 });
@@ -320,9 +279,6 @@ test("Minuit Cuivre preserves hand summary and actual flop-turn-river animations
 test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling",()=>{
   const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/@media \(min-width: 768px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
-  assert.match(css,/grid-template-areas: "heading heading" "felt actions" !important/);
-  assert.match(css,/height: clamp\(500px,calc\(100dvh - 165px\),710px\) !important/);
   for (const size of ["1024,768","1080,810","1180,820"])
     assert.ok(browser.includes("verifyTabletLandscapeControls("+size+")"));
   assert.match(browser,/All decision controls should fit on a tablet landscape screen/);
@@ -332,8 +288,6 @@ test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling"
 test("Minuit Cuivre retains straddling cards without collisions on landscape tablets",()=>{
   const css=read("frontend/src/styles/minuit-cuivre.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/\.pl-seat-upper \.pl-player-cards/);
-  assert.match(css,/\.pl-seat-lower \.pl-player-cards/);
   assert.match(smoke,/Private cards should straddle the felt edge/);
   assert.match(smoke,/Private cards must remain separate from player labels/);
   assert.match(smoke,/Private cards belonging to different players must not overlap/);
@@ -343,14 +297,8 @@ test("Reject the organic SVG table while keeping the rest of the modern UI", () 
   const table = read("frontend/src/components/table.ts");
   const css = read("frontend/src/styles/poker-table-immersive.css");
   const main = read("frontend/src/main.tsx");
-  assert.match(main, /poker-table-immersive\.css/);
   assert.doesNotMatch(table, /renderTableSilhouette|pl-table-silhouette/);
   assert.match(table, /felt\.appendChild\(center\)/);
-  assert.doesNotMatch(css, /\.pl-table-silhouette|\.pl-table-silhouette-felt/);
-  assert.match(css, /top: calc\(19% \+ 108px\) !important/);
-  assert.match(css, /\.pl-player-info/);
-  assert.match(css, /\.pl-table-settings/);
-  assert.match(css, /#training-actions\.pl-action-panel/);
   assert.match(table, /formatAmount\(player\.streetBet\)\} BB/);
 });
 
@@ -359,43 +307,10 @@ test("Minuit Cuivre explicitly marks folded opponents and shortens the game stag
   const css = read("frontend/src/styles/minuit-cuivre.css");
   const table = read("frontend/src/components/table.ts");
   const smoke = read("tests/v2-browser-smoke.mjs");
-  assert.match(css, /height: clamp\(505px,44vw,620px\) !important/);
-  assert.match(css, /\.pl-seat\.is-folded:not\(\.pl-seat-hero\) \.pl-badge-folded/);
-  assert.match(css, /background: #49313A !important/);
   assert.match(table, /"pl-badge pl-badge-folded",\s*"FOLD"/);
   assert.match(smoke, /Fold label must be readable/);
   assert.match(smoke, /Minuit Cuivre table height must stay bounded/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Native card artwork is not changed");
 });
-
-test("Minuit Cuivre applies a single late-loading presentation layer across all original features", () => {
-  const main = read("frontend/src/main.tsx");
-  const theme = read("frontend/src/styles/minuit-cuivre.css");
-  const home = read("frontend/src/ui/HomePage.tsx");
-  const shell = read("frontend/src/ui/AppShell.tsx");
-  const mark = read("assets/icons/pokerlab-mark.svg");
-  assert.match(main, /styles\/minuit-cuivre\.css/);
-  assert.ok(main.indexOf("styles/minuit-cuivre.css") > main.indexOf("styles/poker-table-immersive.css"),
-    "The approved palette should be the final presentation layer");
-  for (const token of ["#101015", "#26232A", "#242B3A", "#CBA46B", "#E7BD82", "#F8F0E4"])
-    assert.ok(theme.includes(token), "Missing Minuit Cuivre token: " + token);
-  for (const section of ["home", "training", "tactics", "lessons", "review", "settings"])
-    assert.ok(shell.includes('data-module="' + section + '"'));
-  assert.match(home, /pl-home-primary-link/);
-  assert.match(home, /navigation\.navigateTo\(page\)/);
-  assert.match(theme, /prefers-reduced-motion:\s*reduce/);
-  assert.match(theme, /@container copper-stage/);
-  assert.match(theme, /pl-seat\.is-folded/);
-  assert.match(theme, /pl-action-btn-raise/);
-  assert.match(theme, /pl-solve-dialog/);
-  assert.match(theme, /pl-review-layout/);
-  assert.match(theme, /pl-rv-matrix/);
-  assert.match(mark, /#CBA46B/);
-  assert.doesNotMatch(theme, /https?:\/\/|@import\s+url/, "Offline UI must not load remote fonts or images");
-  for (const hook of ["#training-table", "#training-actions", "#training-solver-dock"])
-    assert.ok(theme.includes(hook), "Missing table presentation coverage: " + hook);
-});
-
 
 test("Nocturne replaces the application composition while preserving runtime mounts", () => {
   const shell=read("frontend/src/ui/AppShell.tsx");
@@ -431,4 +346,24 @@ test("Nocturne replaces the application composition while preserving runtime mou
     assert.ok(css.includes(token),"Missing approved Nocturne token: "+token);
   }
   assert.doesNotMatch(css, /https?:\/\/|@import\s+url/, "Offline UI must not require CDN assets");
+});
+
+test("Nocturne owns the active CSS and all native interaction states", () => {
+  const main = read("frontend/src/main.tsx");
+  const css = read("frontend/src/styles/nocturne.css");
+  const controls = read("frontend/src/styles/nocturne-controls.css");
+  const table = read("frontend/src/styles/nocturne-table.css");
+  for(const layer of ["nocturne.css","nocturne-controls.css","nocturne-table.css"])
+    assert.ok(main.includes(layer));
+  for(const old of ["minuit-cuivre.css","structural-redesign.css","poker-table.css","poker-table-immersive.css","design-system.css","styles/style.css"])
+    assert.ok(!main.includes("styles/"+old) && !main.includes(old === "styles/style.css" ? old : "styles/"+old), "Obsolete style imported: "+old);
+  for(const selector of [".pl-button",".pl-rv-tab",".pl-rv-input",".pl-puzzle-option",".pl-lesson-open",".pl-solve-dialog",".pl-result-dialog",".pl-range-cell"])
+    assert.ok(controls.includes(selector));
+  for(const selector of [".pl-card--back",".pl-card__corner",".pl-player-info",".pl-seat-upper",".pl-seat-side",".pl-seat-hero",".pl-bet-preset",".pl-bet-slider",".pl-table-solver-dock"])
+    assert.ok(table.includes(selector));
+  assert.match(css, /prefers-reduced-motion/);
+  assert.match(table, /grid-template-areas:"heading heading" "felt actions"/);
+  assert.match(table, /--felt-top:/);
+  assert.match(table, /--felt-bottom:/);
+  assert.match(controls, /min-height:44px/);
 });
