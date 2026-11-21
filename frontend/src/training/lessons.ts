@@ -695,10 +695,10 @@ function createLessons() {
 
         container.replaceChildren();
 
-        container.classList.add("pl-lesson-container");
+        container.classList.add("pl-lesson-container", "nct-lesson-reader");
 
         const header = createElement(
-            "div",
+            "header",
             "pl-lesson-header"
         );
 
@@ -737,7 +737,7 @@ function createLessons() {
         container.appendChild(header);
 
         const content = createElement(
-            "div",
+            "article",
             "pl-lesson-content"
         );
 
@@ -793,7 +793,9 @@ function createLessons() {
 
         });
 
-        container.appendChild(completeButton);
+        const footer = createElement("footer", "nct-lesson-footer");
+        footer.appendChild(completeButton);
+        container.appendChild(footer);
 
     }
 
@@ -922,12 +924,16 @@ function createLessons() {
                 lesson.title
             );
 
-            card.appendChild(number);
-            card.appendChild(title);
+            const meta = createElement("div", "nct-lesson-meta");
+            meta.appendChild(number);
+            card.appendChild(meta);
+            const summary = createElement("div", "nct-lesson-summary");
+            summary.appendChild(title);
+            card.appendChild(summary);
 
             if (lesson.description) {
 
-                card.appendChild(
+                summary.appendChild(
                     createElement(
                         "p",
                         "pl-lesson-card-description",
@@ -943,7 +949,7 @@ function createLessons() {
                 completed ? "Terminée" : "À découvrir"
             );
 
-            card.appendChild(status);
+            meta.appendChild(status);
 
             const button = createElement(
                 "button",
