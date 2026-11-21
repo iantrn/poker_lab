@@ -666,6 +666,24 @@ async function run() {
       s.cardsOpacity===1), "Only folded identities, not their card backs, should be muted");
     await page.setViewportSize({ width: 320, height: 844 });
     await verifyTableGeometry(true);
+    const compactRing = await page.evaluate(() => {
+      const sides = [...document.querySelectorAll("#training-table .pl-seat.pl-seat-side")];
+      const hand = document.querySelector("#training-table .pl-hand-strength");
+      return {
+        sideCount:sides.length,
+        sideBackground:sides.map(seat=>getComputedStyle(seat.querySelector(".pl-player-info")).backgroundColor),
+        streetVisible:getComputedStyle(document.querySelector("#training-table .pl-table-flow")).display!=="none",
+        handClipped:hand.scrollWidth>hand.clientWidth+2
+      };
+    });
+    assert.equal(compactRing.sideCount,2);
+    assert.ok(compactRing.sideBackground.every(color=>color!=="rgba(0, 0, 0, 0)"),
+      "Side opponents need opaque nameplates on narrow phones");
+    assert.equal(compactRing.streetVisible,false,
+      "Mobile street strip must not cover the hero's name");
+    assert.equal(compactRing.handClipped,false,
+      "Hero hand label must remain readable at 320px");
+
     const narrowSeats = await page.evaluate(() => {
       const bounds = el => {
         const r=el.getBoundingClientRect();

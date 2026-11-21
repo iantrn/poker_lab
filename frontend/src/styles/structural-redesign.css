@@ -589,3 +589,44 @@
 #app #training-game:not(.hidden) > #training-actions.pl-action-panel[hidden] {
   display:none!important;
 }
+
+
+/* Visual inspection at 320/390px: real cards stay intact, but the new ring
+ * needs opaque compact side-seat identities and no street-strip collision with
+ * the hero's name. Hand strength must remain legible beside Solver. */
+@media(max-width:767px) {
+  #app #training-game #training-table .pl-table-flow {
+    display:none!important;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-info {
+    height:40px!important;
+    min-height:40px!important;
+    padding:3px 4px!important;
+    border:1px solid rgba(232,214,192,.23)!important;
+    border-radius:9px!important;
+    background:rgba(24,23,30,.96)!important;
+    box-shadow:0 4px 11px rgba(0,0,0,.31)!important;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-caption {
+    width:100%;
+    min-width:0;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-name,
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-stack {
+    color:#F7EDDE;
+    font-size:.63rem;
+    line-height:1.1;
+    white-space:nowrap;
+  }
+  #app #training-game #training-table .pl-table-container > .pl-hand-strength {
+    left:42%!important;
+    width:clamp(145px,45vw,185px)!important;
+    max-width:185px!important;
+  }
+}
+@media(max-width:360px) {
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-name,
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-stack {
+    font-size:.59rem;
+  }
+}
