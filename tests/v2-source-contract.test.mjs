@@ -193,7 +193,6 @@ test("Circular table layout preserves numeric ranks, centred hand and Solver", (
 });
 
 test("Minuit Cuivre table keeps logical seats, visible wagers and nonoverlapping cards", () => {
-  const css = read("frontend/src/styles/minuit-cuivre.css");
   const smoke = read("tests/v2-browser-smoke.mjs");
   const table = read("frontend/src/components/table.ts");
   assert.match(smoke, /Seats must remain in clockwise spatial order/);
@@ -261,7 +260,6 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
 });
 
 test("Minuit Cuivre bounds the table height while preserving the hand and solver lane", () => {
-  const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
   assert.match(browser,/Hand strength must not cover the middle upper player/);
   assert.match(browser,/Solver must not escape the game stage/);
@@ -269,15 +267,12 @@ test("Minuit Cuivre bounds the table height while preserving the hand and solver
 });
 
 test("Minuit Cuivre preserves hand summary and actual flop-turn-river animations",()=>{
-  const css=read("frontend/src/styles/minuit-cuivre.css");
-  const old=read("frontend/src/styles/poker-table.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
   assert.match(smoke,/Turn must use exactly the flop's 520ms duration/);
   assert.match(smoke,/River must use exactly the flop's 520ms duration/);
 });
 
 test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling",()=>{
-  const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
   for (const size of ["1024,768","1080,810","1180,820"])
     assert.ok(browser.includes("verifyTabletLandscapeControls("+size+")"));
@@ -286,7 +281,6 @@ test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling"
 });
 
 test("Minuit Cuivre retains straddling cards without collisions on landscape tablets",()=>{
-  const css=read("frontend/src/styles/minuit-cuivre.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
   assert.match(smoke,/Private cards should straddle the felt edge/);
   assert.match(smoke,/Private cards must remain separate from player labels/);
@@ -295,7 +289,6 @@ test("Minuit Cuivre retains straddling cards without collisions on landscape tab
 
 test("Reject the organic SVG table while keeping the rest of the modern UI", () => {
   const table = read("frontend/src/components/table.ts");
-  const css = read("frontend/src/styles/poker-table-immersive.css");
   const main = read("frontend/src/main.tsx");
   assert.doesNotMatch(table, /renderTableSilhouette|pl-table-silhouette/);
   assert.match(table, /felt\.appendChild\(center\)/);
@@ -304,7 +297,6 @@ test("Reject the organic SVG table while keeping the rest of the modern UI", () 
 
 
 test("Minuit Cuivre explicitly marks folded opponents and shortens the game stage", () => {
-  const css = read("frontend/src/styles/minuit-cuivre.css");
   const table = read("frontend/src/components/table.ts");
   const smoke = read("tests/v2-browser-smoke.mjs");
   assert.match(table, /"pl-badge pl-badge-folded",\s*"FOLD"/);
