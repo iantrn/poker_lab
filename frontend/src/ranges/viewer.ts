@@ -304,7 +304,7 @@ export function installRangesViewer(): RangesViewerApi {
 
     function buildUi(): void {
         root!.replaceChildren();
-        root!.classList.add("pl-rv");
+        root!.classList.add("pl-rv", "nct-ranges");
 
         ui.positions = el("div", "pl-rv-tabs");
         ui.positions.setAttribute("role", "group");
@@ -354,9 +354,15 @@ export function installRangesViewer(): RangesViewerApi {
         legend.appendChild(el("span", "pl-rv-legend-bar"));
         legend.appendChild(el("span", "", "100 %"));
 
-        panel.append(ui.title, ui.summary, ui.matrix, legend, ui.detail, ui.error);
-
-        root!.append(ui.positions, filters, ui.count, ui.list, panel);
+        const matrixHeader = el("header", "nct-matrix-heading");
+        matrixHeader.append(ui.title, ui.summary);
+        const matrixFooter = el("footer", "nct-matrix-footer");
+        matrixFooter.append(legend, ui.detail, ui.error);
+        panel.append(matrixHeader, ui.matrix, matrixFooter);
+        const controls = el("aside", "nct-range-controls");
+        controls.setAttribute("aria-label", "Sélection du spot");
+        controls.append(ui.positions, filters, ui.count, ui.list);
+        root!.append(panel, controls);
     }
 
 
