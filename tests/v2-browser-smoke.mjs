@@ -142,10 +142,10 @@ async function run() {
     assert.equal(await page.locator("#home").isVisible(), true);
     // Home is now React-owned. Duplicate legacy markup or missing card
     // navigation would invalidate the incremental component migration.
-    assert.equal(await page.locator("#home > .mb-8").count(), 1);
+    assert.equal(await page.locator("#home > .nct-home").count(), 1);
     assert.equal(await page.locator("#home .pl-home-card").count(), 5);
     assert.equal(await page.locator("#home .pl-home-primary-link").count(), 1);
-    assert.match(await page.locator("#home h2").textContent(), /Progresse avec méthode/);
+    assert.match(await page.locator("#home h1").textContent(), /Maîtrise.*décision/);
 
     await page.locator('#home .pl-home-primary-link').click();
     assert.equal(await page.locator("#training").isVisible(), true);
