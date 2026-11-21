@@ -136,3 +136,5 @@
 #app .nct-hole-deal{animation:nct-hole-deal .24s ease-out both}
 @media(prefers-reduced-motion:reduce){#app .nct-hole-deal{animation:none!important}}
 @media(min-width:768px) and (max-width:1023px){#app .nct-table{height:560px}}
+
+#app .pl-bet-slider{min-height:44px;height:44px;margin:0;touch-action:pan-x}
