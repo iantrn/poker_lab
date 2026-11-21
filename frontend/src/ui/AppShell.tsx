@@ -13,8 +13,6 @@ const destinations: ReadonlyArray<{page:string;label:string;mobile:string;icon:P
   {page: "lessons", label: "Leçons",mobile:"Leçons",icon:"learn"},
   {page: "review", label: "Analyse",mobile:"Analyse",icon:"review"}
 ];
-const views = [HomePage, TrainingPage, TacticsPage, LessonsPage, ReviewPage, SettingsPage];
-const modules = ["home","training","tactics","lessons","review","settings"];
 
 function NavigationLinks({mobile=false}:{mobile?:boolean}){
   return <>{destinations.map(item=><a key={item.page} href={"#"+item.page} data-page={item.page}
@@ -28,7 +26,7 @@ export function AppShell(){
   return <div id="app" className="pl-app-frame nct-app">
     <aside className="nct-rail" aria-label="Espace de travail">
       <a href="#home" className="nct-brand" data-page="home">
-        <img src={import.meta.env.BASE_URL+"assets/icons/pokerlab-mark.svg"} width={36} height={36} alt=""/>
+        <img src={import.meta.env.BASE_URL+"assets/icons/pokerlab-mark.svg"} width={36} height={36} alt="" className="pl-brand-mark"/>
         <span>PokerLab<small>NOCTURNE</small></span>
       </a>
       <div className="nct-nav-label">ESPACE DE JEU</div>
@@ -41,14 +39,19 @@ export function AppShell(){
     <div className="nct-workspace">
       <header className="nct-topbar">
         <a href="#home" className="nct-brand nct-compact-brand" data-page="home">
-          <img src={import.meta.env.BASE_URL+"assets/icons/pokerlab-mark.svg"} width={30} height={30} alt=""/>
+          <img src={import.meta.env.BASE_URL+"assets/icons/pokerlab-mark.svg"} width={30} height={30} alt="" className="pl-brand-mark"/>
           <span>PokerLab</span>
         </a>
         <span className="nct-topbar-caption">LABORATOIRE STRATÉGIQUE</span>
         <a href="#settings" data-page="settings" className="nct-settings" aria-label="Paramètres" title="Paramètres"><PokerLabIcon name="settings" size={20}/></a>
       </header>
       <main className="nct-main">
-        {views.map((View,index)=><section key={modules[index]} id={modules[index]} data-module={modules[index]} hidden={index!==0}><View/></section>)}
+        <section id="home" data-module="home"><HomePage/></section>
+        <section id="training" data-module="training" hidden><TrainingPage/></section>
+        <section id="tactics" data-module="tactics" hidden><TacticsPage/></section>
+        <section id="lessons" data-module="lessons" hidden><LessonsPage/></section>
+        <section id="review" data-module="review" hidden><ReviewPage/></section>
+        <section id="settings" data-module="settings" hidden><SettingsPage/></section>
       </main>
     </div>
     <nav className="pl-mobile-nav nct-mobile" aria-label="Navigation mobile"><NavigationLinks mobile/></nav>
