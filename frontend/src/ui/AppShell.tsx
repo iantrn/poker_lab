@@ -21,9 +21,9 @@ const DESKTOP_NAV: ReadonlyArray<{page:string;label:string;icon:PokerLabIconName
 const MOBILE_NAV: ReadonlyArray<{page:string;label:string;ariaLabel:string;icon:PokerLabIconName}> = [
   {page:"home",label:"Accueil",ariaLabel:"Accueil",icon:"home"},
   {page:"training",label:"Jouer",ariaLabel:"Jouer",icon:"play"},
-  {page:"tactics",label:"Exos",ariaLabel:"Tactiques et exercices",icon:"tactics"},
-  {page:"lessons",label:"Leçons",ariaLabel:"Apprentissage et ranges",icon:"learn"},
-  {page:"review",label:"Analyse",ariaLabel:"Game Review",icon:"review"}
+  {page: "tactics", label: "Exos",ariaLabel:"Tactiques et exercices",icon:"tactics"},
+  {page: "lessons", label: "Leçons",ariaLabel:"Apprentissage et ranges",icon:"learn"},
+  {page: "review", label: "Analyse",ariaLabel:"Game Review",icon:"review"}
 ];
 const pageClass = "mb-10 scroll-mt-6";
 

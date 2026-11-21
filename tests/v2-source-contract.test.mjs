@@ -394,3 +394,34 @@ test("Minuit Cuivre applies a single late-loading presentation layer across all 
   for (const hook of ["#training-table", "#training-actions", "#training-solver-dock"])
     assert.ok(theme.includes(hook), "Missing table presentation coverage: " + hook);
 });
+
+
+test("Structural redesign replaces the old horizontal-only page composition", () => {
+  const shell=read("frontend/src/ui/AppShell.tsx");
+  const home=read("frontend/src/ui/HomePage.tsx");
+  const training=read("frontend/src/ui/TrainingPage.tsx");
+  const tactics=read("frontend/src/ui/TacticsPage.tsx");
+  const lessons=read("frontend/src/ui/LessonsPage.tsx");
+  const review=read("frontend/src/ui/ReviewPage.tsx");
+  const css=read("frontend/src/styles/structural-redesign.css");
+  const main=read("frontend/src/main.tsx");
+  assert.match(main,/styles\/structural-redesign\.css/);
+  assert.match(shell,/pl-app-frame/);
+  assert.match(shell,/pl-sidebar-nav/);
+  assert.match(shell,/pl-sidebar-link/);
+  assert.match(home,/pl-home-visual/);
+  assert.match(home,/pl-preview-felt/);
+  assert.match(home,/pl-home-card--/);
+  assert.match(training,/pl-training-setup-layout/);
+  assert.match(training,/pl-training-briefing/);
+  assert.match(tactics,/pl-tactics-workspace/);
+  assert.match(tactics,/pl-tactics-stage/);
+  assert.match(lessons,/pl-learning-reader/);
+  assert.match(lessons,/pl-learning-catalog-rail/);
+  assert.match(lessons,/pl-learning-reading-stage/);
+  assert.match(review,/pl-review-history-rail/);
+  assert.match(review,/pl-review-decision-stage/);
+  assert.match(css,/grid-template-columns:232px minmax\(0,1fr\)/);
+  assert.match(css,/@media\(max-width:767px\)/);
+  assert.doesNotMatch(css, /https?:\/\/|@import\s+url/, "Offline UI must not require CDN assets");
+});
