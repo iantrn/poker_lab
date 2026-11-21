@@ -6,6 +6,7 @@ import "./tailwind.css";
 import "./styles/design-system.css";
 import "./styles/poker-table.css";
 import "./styles/poker-table-immersive.css";
+import "./styles/minuit-cuivre.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Racine React introuvable.");
