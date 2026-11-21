@@ -763,17 +763,16 @@ function createReview() {
             createElement("h3", "", "Cartes communes")
         );
 
-        boardSection.appendChild(
-            createElement(
-                "p",
-                "",
-                hand.board.length
-                    ? hand.board.map(card => {
-                        return `${card.value}${card.suit}`;
-                    }).join(" ")
-                    : "Aucune carte commune"
-            )
-        );
+        const cardRenderer = (window as Window & {PokerLabCards?: {create: (card: unknown, options?: {compact?: boolean}) => HTMLElement}}).PokerLabCards;
+        const community = createElement("div", "nct-review-community");
+        if (hand.board.length && cardRenderer) {
+            hand.board.forEach(card => community.appendChild(cardRenderer.create(card, {compact:true})));
+        } else {
+            community.appendChild(createElement("p", "", hand.board.length
+                ? hand.board.map(card => `${card.value}${card.suit}`).join(" ")
+                : "Aucune carte commune"));
+        }
+        boardSection.appendChild(community);
 
         container.appendChild(boardSection);
 
