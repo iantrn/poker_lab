@@ -319,7 +319,7 @@ test("Minuit Cuivre preserves hand summary and actual flop-turn-river animations
 test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling",()=>{
   const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/@media \(min-width: 768px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
+  assert.match(css,/@media \(min-width: 768px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
   assert.match(css,/grid-template-areas: none !important/);
   assert.match(css,/height: clamp\(400px,calc\(100dvh - 310px\),520px\) !important/);
   for (const size of ["1024,768","1080,810","1180,820"])
