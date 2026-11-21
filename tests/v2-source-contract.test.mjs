@@ -397,32 +397,38 @@ test("Minuit Cuivre applies a single late-loading presentation layer across all 
 });
 
 
-test("Structural redesign replaces the old horizontal-only page composition", () => {
+test("Nocturne replaces the application composition while preserving runtime mounts", () => {
   const shell=read("frontend/src/ui/AppShell.tsx");
   const home=read("frontend/src/ui/HomePage.tsx");
   const training=read("frontend/src/ui/TrainingPage.tsx");
   const tactics=read("frontend/src/ui/TacticsPage.tsx");
   const lessons=read("frontend/src/ui/LessonsPage.tsx");
   const review=read("frontend/src/ui/ReviewPage.tsx");
-  const css=read("frontend/src/styles/structural-redesign.css");
+  const settings=read("frontend/src/ui/SettingsPage.tsx");
+  const css=read("frontend/src/styles/nocturne.css");
   const main=read("frontend/src/main.tsx");
-  assert.match(main,/styles\/structural-redesign\.css/);
-  assert.match(shell,/pl-app-frame/);
-  assert.match(shell,/pl-sidebar-nav/);
-  assert.match(shell,/pl-sidebar-link/);
-  assert.match(home,/pl-home-visual/);
-  assert.match(home,/pl-preview-felt/);
-  assert.match(home,/pl-home-card--/);
-  assert.match(training,/pl-training-setup-layout/);
-  assert.match(training,/pl-training-briefing/);
-  assert.match(tactics,/pl-tactics-workspace/);
-  assert.match(tactics,/pl-tactics-stage/);
-  assert.match(lessons,/pl-learning-reader/);
-  assert.match(lessons,/pl-learning-catalog-rail/);
-  assert.match(lessons,/pl-learning-reading-stage/);
-  assert.match(review,/pl-review-history-rail/);
-  assert.match(review,/pl-review-decision-stage/);
-  assert.match(css,/grid-template-columns:232px minmax\(0,1fr\)/);
+  assert.match(main,/styles\/nocturne\.css/);
+  assert.match(shell,/nct-rail/);
+  assert.match(shell,/nct-workspace/);
+  assert.match(shell,/nct-mobile/);
+  assert.match(home,/nct-hero-art/);
+  assert.match(home,/nct-module-list/);
+  assert.match(training,/nct-setup-fields/);
+  assert.match(training,/nct-game-header/);
+  assert.match(tactics,/nct-filterbar/);
+  assert.match(tactics,/nct-stage/);
+  assert.match(lessons,/nct-reading-catalog/);
+  assert.match(lessons,/nct-range-section/);
+  assert.match(review,/nct-review-detail/);
+  assert.match(review,/nct-review-history/);
+  assert.match(settings,/nct-settings-row/);
+  assert.match(read("frontend/src/ranges/viewer.ts"),/nct-range-controls/);
+  assert.match(read("frontend/src/ui/postflop-solver.ts"),/nct-solver-overview/);
+  assert.match(read("frontend/src/components/table.ts"),/nct-board-stage/);
+  assert.match(css,/grid-template-columns:216px minmax\(0,1fr\)/);
   assert.match(css,/@media\(max-width:767px\)/);
+  for(const token of ["#0B1016","#111B24","#1B2A32","#0D6256","#D7B56D","#F1CF88","#F3F5F2","#AAB8BB","#2D4147","#C39A4D","#53616A","#43B38D","#EF6672"]) {
+    assert.ok(css.includes(token),"Missing approved Nocturne token: "+token);
+  }
   assert.doesNotMatch(css, /https?:\/\/|@import\s+url/, "Offline UI must not require CDN assets");
 });
