@@ -112,15 +112,16 @@ function createTable() {
 
     function getPlayerSlot(index: number, count: number): readonly [number,number] {
 
-        // Presentation-only seats: two horizontal rails, never the corners.
-        // Six-max: top 20/50/80 and bottom 15/50/85. Bottom centre is hero.
+        // Presentation-only elliptical seating, not two horizontal nameplate rails.
+        // Six-max: three opponents beyond the far edge, two at the near sides
+        // and the hero anchored centrally. Coordinates are percentages.
         const layouts: Record<number, Array<readonly [number, number]>> = {
 
             2: [[50, 88], [50, 12]],
-            3: [[50, 88], [20, 12], [80, 12]],
-            4: [[50, 88], [20, 88], [50, 12], [80, 12]],
-            5: [[50, 88], [20, 88], [20, 12], [50, 12], [80, 12]],
-            6: [[50, 88], [18, 88], [20, 12], [50, 12], [80, 12], [82, 88]]
+            3: [[50, 88], [24, 14], [76, 14]],
+            4: [[50, 88], [15, 66], [50, 12], [85, 66]],
+            5: [[50, 88], [15, 66], [29, 12], [71, 12], [85, 66]],
+            6: [[50, 88], [15, 66], [18, 12], [50, 12], [82, 12], [85, 66]]
 
         };
 
@@ -531,6 +532,11 @@ function createTable() {
                 seat.classList.add("pl-seat-hero");
             }
             seat.classList.add(y < 50 ? "pl-seat-upper" : "pl-seat-lower");
+            // A side-seat has its cards toward the near edge of the felt,
+            // leaving the board and the central hero cards unobstructed.
+            if (!isHuman && y >= 50 && y < 80) {
+                seat.classList.add("pl-seat-side");
+            }
 
             if (isActive) {
                 seat.classList.add("is-active");
@@ -1063,7 +1069,31 @@ function createTable() {
             });
         }
 
-        table.append(header, felt, seats);
+        // Presentation-only street timeline and turn context. The labels
+        // are derived from actual board/player state, never synthetic solver data.
+        const flow = createElement("div", "pl-table-flow");
+        flow.setAttribute("aria-label", "Progression de la main");
+        const phases = ["Préflop", "Flop", "Turn", "River"];
+        const activePhase = boardCount < 3 ? 0 : boardCount === 3 ? 1 : boardCount === 4 ? 2 : 3;
+        const timeline = createElement("div", "pl-table-flow-steps");
+        phases.forEach((label, index) => {
+            const marker = createElement("span", "pl-table-flow-step", label);
+            if (index === activePhase) marker.classList.add("is-current");
+            if (index < activePhase) marker.classList.add("is-complete");
+            if (gameState.handComplete && index === activePhase) marker.classList.add("is-complete");
+            timeline.appendChild(marker);
+        });
+        const activePlayer = players.find(player => player.id === gameState.currentPlayerId);
+        const status = createElement(
+            "span",
+            "pl-table-flow-status",
+            gameState.handComplete ? "Main terminée" : activePlayer
+                ? (activePlayer.isHuman ? "À vous de jouer" : "Au tour de " + activePlayer.name)
+                : "En attente du prochain tour"
+        );
+        flow.append(timeline, status);
+
+        table.append(header, felt, seats, flow);
 
         if (handStrength.childNodes.length > 0) {
             table.appendChild(handStrength);

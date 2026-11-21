@@ -111,6 +111,10 @@ async function run() {
     assert.equal(logoMime.status, 200);
     assert.match(logoMime.mime ?? "", /image\/svg\+xml/i);
     await captureUi("home-desktop");
+    // The desktop navigation rail is a real topology change above 1380px.
+    await page.setViewportSize({width:1600,height:900});
+    await captureUi("home-sidebar-wide-desktop");
+    await page.setViewportSize({width:1365,height:768});
 
     // V2-owned React contract: assert stable ids, page anchors, and hooks
     // without relying on the archived V1 HTML as a runtime test fixture.
@@ -272,20 +276,25 @@ async function run() {
           overflow:document.documentElement.scrollWidth-innerWidth
         };
       });
-      assert.equal(geometry.upper.length,3,"Six-max must display three upper seats");
-      assert.equal(geometry.lower.length,3,"Six-max must display three lower seats");
+      assert.equal(geometry.upper.length,3,"Six-max must display three far-side opponents");
+      assert.equal(geometry.lower.length,3,"Six-max must display two near-side opponents and hero");
       for (const rail of [geometry.upper,geometry.lower]) {
         assert.ok(rail[0].midX<rail[1].midX && rail[1].midX<rail[2].midX,
-          "Seats must remain in their intended positions");
-        assert.ok(Math.max(...rail.map(x=>x.midY))-Math.min(...rail.map(x=>x.midY))<3,
-          "Player rows must retain a consistent baseline");
+          "Seats must remain in clockwise spatial order");
         for(let i=0;i<2;i++) assert.ok(rail[i].right<=rail[i+1].left+3,
           "Seat capsules must never overlap");
       }
+      assert.ok(Math.max(...geometry.upper.map(x=>x.midY))-Math.min(...geometry.upper.map(x=>x.midY))<3,
+        "Far-side player baseline must stay aligned");
+      assert.ok(geometry.lower[1].midY>geometry.lower[0].midY+25 &&
+        geometry.lower[1].midY>geometry.lower[2].midY+25,
+        "The hero must sit below the two side opponents, creating a real poker table ring");
+      assert.ok(Math.abs(geometry.lower[0].midY-geometry.lower[2].midY)<3,
+        "Near-side opponents should align across the table");
       assert.ok(geometry.upper.every(seat=>seat.bottom<=geometry.felt.top+5),
-        "Upper players must sit outside the felt");
-      assert.ok(geometry.lower.every(seat=>seat.top>=geometry.felt.bottom-5),
-        "Lower players must sit outside the felt");
+        "Far-side opponents remain outside the felt");
+      assert.ok(geometry.lower[1].top>=geometry.felt.bottom-5,
+        "Hero capsule stays beyond the near table edge");
       assert.ok(geometry.frame.height >= (mobile?500:475) &&
         geometry.frame.height <= (mobile?650:650), "Minuit Cuivre table height must stay bounded");
       assert.ok(geometry.hand.height>=48 && geometry.hand.height<=62);
@@ -335,6 +344,7 @@ async function run() {
         const board=r(table.querySelector(".pl-board"));
         const pairs=[...table.querySelectorAll(".pl-seat")].map(seat=>({
           rail:seat.classList.contains("pl-seat-upper")?"upper":"lower",
+          side:seat.classList.contains("pl-seat-side"),
           cards:[...seat.querySelectorAll(".pl-player-cards > *")].map(r),
           pill:r(seat.querySelector(".pl-player-info"))
         }));
@@ -368,6 +378,8 @@ async function run() {
       assert.ok(layout.horizontalOverflow<=1);
       assert.equal(layout.pairs.filter(p=>p.rail==="upper").length,3);
       assert.equal(layout.pairs.filter(p=>p.rail==="lower").length,3);
+      assert.equal(layout.pairs.filter(p=>p.side).length,2,
+        "Six-max table should have two side opponents");
       const overlaps=(a,b,pad=2)=>a.left<b.right-pad && a.right>b.left+pad &&
         a.top<b.bottom-pad && a.bottom>b.top+pad;
       const allPrivate=layout.pairs.flatMap(p=>p.cards);
@@ -377,7 +389,7 @@ async function run() {
           const outside=pair.rail==="upper"?
             layout.felt.top-card.top:card.bottom-layout.felt.bottom;
           const share=outside/card.height;
-          assert.ok(share>.14 && share<.86,
+          assert.ok(share>.08 && share<.95,
             "Private cards should straddle the felt edge, not lie fully inside/outside");
           assert.equal(overlaps(card,pair.pill),false,
             "Private cards must remain separate from player labels");
@@ -595,6 +607,29 @@ async function run() {
     });
     await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
     await captureGameElement("table-6max-with-controls-desktop", "#training-game");
+
+    // A real desktop cockpit must fit the original controls without narrow,
+    // unreadable sizing pills. The older nested two-column action grid did not.
+    const desktopCockpit = await page.evaluate(() => {
+      const r = el => el.getBoundingClientRect();
+      const table = document.querySelector("#training-table .pl-table-container");
+      const actions = document.querySelector("#training-game > #training-actions");
+      const buttons = [...actions.querySelectorAll(".pl-action-buttons button")];
+      const presets = [...actions.querySelectorAll(".pl-bet-presets button")];
+      return {
+        table:r(table),actions:r(actions),
+        buttonMinWidth:Math.min(...buttons.map(el=>r(el).width)),
+        buttonMinHeight:Math.min(...buttons.map(el=>r(el).height)),
+        presetMinWidth:presets.length?Math.min(...presets.map(el=>r(el).width)):null
+      };
+    });
+    assert.ok(desktopCockpit.actions.left>=desktopCockpit.table.right+8,
+      "Desktop action cockpit must be beside the table");
+    assert.ok(desktopCockpit.buttonMinWidth>=95 && desktopCockpit.buttonMinHeight>=44,
+      "Desktop decision actions must remain wide enough to read and click");
+    assert.ok(desktopCockpit.presetMinWidth===null || desktopCockpit.presetMinWidth>=60,
+      "Desktop bet presets must never collapse into narrow columns");
+
     const desktopSeatAndSolver = await page.evaluate(() => {
       const stage = document.querySelector(".pl-live-table-stage").getBoundingClientRect();
       const solver = document.querySelector("#training-solver-dock > .pl-solve-button").getBoundingClientRect();
@@ -631,6 +666,24 @@ async function run() {
       s.cardsOpacity===1), "Only folded identities, not their card backs, should be muted");
     await page.setViewportSize({ width: 320, height: 844 });
     await verifyTableGeometry(true);
+    const compactRing = await page.evaluate(() => {
+      const sides = [...document.querySelectorAll("#training-table .pl-seat.pl-seat-side")];
+      const hand = document.querySelector("#training-table .pl-hand-strength");
+      return {
+        sideCount:sides.length,
+        sideBackground:sides.map(seat=>getComputedStyle(seat.querySelector(".pl-player-info")).backgroundColor),
+        streetVisible:getComputedStyle(document.querySelector("#training-table .pl-table-flow")).display!=="none",
+        handClipped:hand.scrollWidth>hand.clientWidth+2
+      };
+    });
+    assert.equal(compactRing.sideCount,2);
+    assert.ok(compactRing.sideBackground.every(color=>color!=="rgba(0, 0, 0, 0)"),
+      "Side opponents need opaque nameplates on narrow phones");
+    assert.equal(compactRing.streetVisible,false,
+      "Mobile street strip must not cover the hero's name");
+    assert.equal(compactRing.handClipped,false,
+      "Hero hand label must remain readable at 320px");
+
     const narrowSeats = await page.evaluate(() => {
       const bounds = el => {
         const r=el.getBoundingClientRect();

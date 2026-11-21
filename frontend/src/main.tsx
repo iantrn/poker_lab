@@ -11,3 +11,5 @@ import "./styles/minuit-cuivre.css";
 const root = document.getElementById("root");
 if (!root) throw new Error("Racine React introuvable.");
 createRoot(root).render(<LegacyApplication />);
+
+import "./styles/structural-redesign.css";

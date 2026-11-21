@@ -1,0 +1,632 @@
+/**
+ * POKERLAB — structural redesign / 2026
+ * This stylesheet is NOT a recoloring layer. It defines application topology,
+ * layouts, workspaces, reading panes, navigation rails and a visual table demo.
+ * It runs after the validated copper theme without altering game mechanics.
+ */
+#app.pl-app-frame {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto;
+  min-height:100dvh;
+  width:100%;
+}
+#app .pl-shell-header {
+  grid-column:1/-1;
+  position:relative;
+  z-index:50;
+}
+#app .pl-shell-header-inner {
+  width:100%;
+  max-width:none;
+  margin:0 auto;
+  min-height:74px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:0 clamp(16px,3.5vw,52px);
+}
+#app .pl-shell-main {
+  grid-column:1;
+  width:100%;
+  min-width:0;
+  max-width:1500px;
+  margin:0 auto;
+  padding:clamp(22px,3.4vw,46px) clamp(16px,3vw,48px) 56px;
+}
+#app .pl-shell-footer {
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin:0;
+  padding:16px clamp(18px,4vw,52px);
+  border-color:rgba(232,214,192,.08);
+  background:rgba(12,12,17,.4);
+  color:#8F8784;
+  font-size:.72rem;
+  letter-spacing:.02em;
+}
+#app .pl-shell-footer p {margin:0}
+#app .pl-shell-footer span {color:#C3A77F;letter-spacing:.15em;font-size:.63rem}
+#app .pl-sidebar { display:none; }
+#app .pl-sidebar-link, #app .pl-sidebar-bottom a {text-decoration:none}
+@media (min-width: 1380px) {
+  #app.pl-app-frame {
+    grid-template-columns:232px minmax(0,1fr);
+    grid-template-rows:74px minmax(0,1fr) auto;
+  }
+  #app .pl-shell-header-inner {padding-left:27px;padding-right:39px;}
+  #app .pl-desktop-nav {display:none!important;}
+  #app .pl-sidebar {
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    grid-column:1;
+    grid-row:2;
+    background:linear-gradient(180deg,rgba(37,33,39,.81),rgba(20,19,24,.58));
+    border-right:1px solid rgba(203,164,107,.13);
+    padding:33px 16px 30px;
+  }
+  #app .pl-sidebar-top {display:grid;gap:13px;padding:0 14px 21px}
+  #app .pl-sidebar-label, #app .pl-layout-overline {
+    font-size:.67rem;font-weight:750;letter-spacing:.15em;color:#CCA777;
+  }
+  #app .pl-sidebar-edition {font-size:1.13rem;font-weight:800;letter-spacing:-.035em;color:#F8F0E4;}
+  #app .pl-sidebar-edition span {display:block;color:#8D837F;font-size:.6rem;font-weight:650;letter-spacing:.18em;margin-top:4px;}
+  #app .pl-sidebar-nav {display:grid;gap:5px;margin:0 -3px;}
+  #app .pl-sidebar-link {
+    display:grid;grid-template-columns:34px minmax(0,1fr) auto;
+    align-items:center;gap:9px;min-height:64px;padding:9px 11px;
+    color:#C6B9AD;border:1px solid transparent;border-radius:12px;
+    transition:background .16s ease, border-color .16s ease,color .16s ease;
+  }
+  #app .pl-sidebar-link:hover {background:rgba(255,255,255,.035);color:#F8F0E4}
+  #app .pl-sidebar-link.is-active {
+    background:rgba(203,164,107,.10);
+    color:#F6D8AD;
+    border-color:rgba(203,164,107,.20);
+  }
+  #app .pl-sidebar-link-icon {display:flex;align-items:center;justify-content:center;color:#CBA46B}
+  #app .pl-sidebar-link-copy {display:grid;gap:3px;min-width:0}
+  #app .pl-sidebar-link-copy strong {font-size:.85rem;font-weight:720;line-height:1.1}
+  #app .pl-sidebar-link-copy small {font-size:.64rem;color:#9B928C;white-space:nowrap}
+  #app .pl-sidebar-index {font-size:.61rem;letter-spacing:.03em;color:#87796E;}
+  #app .pl-sidebar-bottom {
+    display:flex;flex-direction:column;gap:8px;
+    margin-top:auto;padding:24px 14px 2px;border-top:1px solid rgba(232,214,192,.13);
+  }
+  #app .pl-sidebar-study-mark {font-size:1.6rem;color:#CBA46B;margin-bottom:5px}
+  #app .pl-sidebar-bottom strong {font-size:.94rem;line-height:1.35;color:#E9DDCE}
+  #app .pl-sidebar-bottom p {font-size:.75rem;line-height:1.5;color:#ADA19B;margin:0}
+  #app .pl-sidebar-bottom a {display:flex;align-items:center;gap:8px;color:#D8B98C;margin-top:18px;font-size:.76rem}
+  #app .pl-shell-main {grid-column:2;max-width:none;}
+  #app .pl-shell-footer {grid-column:1/-1;}
+}
+#app .pl-layout-overline {display:block;font-size:.68rem;font-weight:750;letter-spacing:.15em;color:#D4AA77;}
+#app .pl-layout-section-head {max-width:620px;}
+#app .pl-layout-section-head h3 {margin:9px 0 12px;color:#F8F0E4;font-size:clamp(1.45rem,2.8vw,2.25rem);font-weight:760;letter-spacing:-.05em;line-height:1.08;}
+#app .pl-layout-section-head p {margin:0;color:#BFB2A5;font-size:.89rem;line-height:1.65;}
+
+/* HOME: split editorial cover and genuine CSS table visualization. */
+#app .pl-home-intro {
+  display:grid;
+  grid-template-columns:minmax(0,1.1fr) minmax(350px,.9fr);
+  gap:clamp(28px,5vw,78px);
+  align-items:center;
+  max-width:none;
+  padding:clamp(26px,4vw,62px) 0 clamp(24px,4vw,54px);
+  margin:0 0 40px;
+  border-bottom:1px solid rgba(232,214,192,.13);
+}
+#app .pl-home-intro::after {display:none;}
+#app .pl-home-hero-copy {position:relative;z-index:2;min-width:0;}
+#app .pl-status-dot {display:inline-block;width:7px;height:7px;margin-right:9px;border-radius:50%;background:#CBA46B;box-shadow:0 0 0 5px rgba(203,164,107,.10);vertical-align:middle;}
+#app .pl-home-title {
+  max-width:850px;
+  font-size:clamp(2.75rem,4.5vw,5.4rem);
+  line-height:1.05;
+  letter-spacing:-.065em;
+  margin:20px 0 23px;
+}
+#app .pl-home-description {max-width:590px;line-height:1.7;}
+#app .pl-home-meta {margin-top:48px;}
+#app .pl-home-visual {
+  position:relative;
+  z-index:1;
+  min-width:0;
+  aspect-ratio:1/.94;
+  padding:20px;
+  display:flex;flex-direction:column;
+  border-radius:22px;
+  border:1px solid rgba(203,164,107,.22);
+  background:radial-gradient(ellipse at 30% 15%,rgba(203,164,107,.09),transparent 52%),linear-gradient(146deg,#26262F,#17171C 66%,#17151A);
+  box-shadow:0 35px 65px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.05);
+}
+#app .pl-preview-label {display:flex;justify-content:space-between;gap:10px;color:#A9A39F;font-size:.62rem;letter-spacing:.17em;font-weight:750;}
+#app .pl-preview-label span:first-child {color:#E7BD82;}
+#app .pl-preview-arena {position:relative;display:flex;align-items:center;justify-content:center;flex:1;min-height:240px;}
+#app .pl-preview-felt {
+  position:relative;width:100%;aspect-ratio:1.85;
+  border:4px solid #B68D5D;border-radius:50%;
+  background:radial-gradient(ellipse at 44% 38%,#334356,#212938 72%,#1D2430 100%);
+  box-shadow:inset 0 0 0 6px #171923,inset 0 0 0 7px rgba(232,214,192,.13),0 0 0 8px #13151C,0 26px 35px rgba(0,0,0,.30);
+}
+#app .pl-preview-seat {
+  position:absolute;left:50%;transform:translateX(-50%);
+  min-width:95px;padding:9px 13px;text-align:center;z-index:2;
+  color:#E4D9CA;background:#191920;border:1px solid rgba(203,164,107,.25);
+  border-radius:10px;font-size:.68rem;font-weight:750;box-shadow:0 8px 20px rgba(0,0,0,.3);
+}
+#app .pl-preview-seat-a {top:-29px}
+#app .pl-preview-seat-b {bottom:-29px;left:22%}
+#app .pl-preview-seat-c {bottom:-29px;left:80%}
+#app .pl-preview-board {position:absolute;left:50%;top:50%;display:flex;gap:5px;transform:translate(-50%,-48%);}
+#app .pl-preview-card {
+  display:grid;place-items:center;align-content:center;
+  width:clamp(30px,3.7vw,51px);height:clamp(43px,5vw,70px);
+  border-radius:5px;background:#FCF7F0;color:#1F2430;box-shadow:0 3px 7px rgba(0,0,0,.22);
+  font-size:clamp(14px,1.45vw,22px);font-weight:850;line-height:1.05;
+}
+#app .pl-preview-card span {font-size:1.05em;color:#152330;}
+#app .pl-preview-card:nth-child(2) span {color:#D94750;}
+#app .pl-preview-card-dim {background:rgba(241,234,226,.07);border:1px solid rgba(241,234,226,.29);box-shadow:none;}
+#app .pl-preview-pot {position:absolute;left:50%;top:17%;transform:translateX(-50%);font-size:.67rem;letter-spacing:.13em;color:#F3D7AC;font-weight:800;}
+#app .pl-preview-bottom {display:flex;align-items:center;gap:10px;color:#B3A99F;border-top:1px solid rgba(232,214,192,.10);padding-top:15px;font-size:.61rem;letter-spacing:.13em;white-space:nowrap}
+#app .pl-preview-bottom strong {margin-left:auto;color:#E7BD82;font-size:.64rem}
+#app .pl-preview-pulse {width:7px;height:7px;border-radius:50%;background:#3AB591;box-shadow:0 0 0 5px rgba(58,181,145,.12);}
+#app .pl-home-discover {margin-top:5px;}
+#app .pl-home-section-heading {display:flex;align-items:end;justify-content:space-between;gap:15px;margin:0 0 21px}
+#app .pl-home-section-count {color:#9F9389;font-size:.68rem;letter-spacing:.15em;font-weight:700;}
+#app .pl-home-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-rows:auto auto;
+  gap:13px;
+  border:0;
+}
+#app .pl-home-card {
+  display:flex;flex-direction:column;justify-content:space-between;
+  min-height:220px;
+  padding:21px;gap:28px;position:relative;
+  border:1px solid rgba(232,214,192,.13);
+  border-radius:16px;
+  background:#211F26;
+  color:#F8F0E4;
+  transition:transform .2s ease,background .2s ease,border-color .2s ease;
+}
+#app .pl-home-card--training {grid-column:span 2;grid-row:span 2;min-height:453px;background:radial-gradient(ellipse at 70% 90%,rgba(203,164,107,.13),transparent 65%),#29242A;}
+#app .pl-home-card-top {display:flex;justify-content:space-between;align-items:center;gap:8px;color:#AB9C8C;font-size:.61rem;font-weight:700;letter-spacing:.14em}
+#app .pl-home-card-tag {color:#CBA46B;text-align:right;}
+#app .pl-home-card-content {display:block;min-width:0;}
+#app .pl-home-card-icon {
+  display:grid;place-items:center;
+  width:45px;height:45px;
+  background:transparent;border:1px solid rgba(203,164,107,.37);
+  border-radius:13px;margin-bottom:14px;color:#E7BD82;
+}
+#app .pl-home-card--training .pl-home-card-icon {width:67px;height:67px;border-radius:19px;transform:scale(1.15);transform-origin:left bottom;}
+#app .pl-home-card-title {font-size:clamp(1.08rem,1.5vw,1.5rem);line-height:1.2;}
+#app .pl-home-card--training .pl-home-card-title {font-size:clamp(1.7rem,3.2vw,3.3rem);}
+#app .pl-home-card-description {margin:9px 0 0;color:#B9AEA6;line-height:1.5;font-size:.77rem;}
+#app .pl-home-card--training .pl-home-card-description {max-width:340px;font-size:.96rem;line-height:1.58;}
+#app .pl-home-card-arrow {
+  position:absolute;bottom:19px;right:20px;display:grid;place-items:center;
+  width:33px;height:33px;border:1px solid rgba(232,214,192,.16);border-radius:50%;color:#E7BD82;
+}
+#app .pl-home-card:hover {transform:translateY(-3px);border-color:rgba(203,164,107,.58);background:#2B2730;}
+#app .pl-home-card--training:hover {background:#302831;}
+#app .pl-home-card:hover .pl-home-card-arrow {transform:none;border-color:#CBA46B;}
+
+/* PLAY SETUP: actual independent control pane + a briefing pane. */
+#app .pl-training-setup-layout {
+  display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.7fr);
+  gap:clamp(20px,4vw,52px);align-items:stretch;
+}
+#app .pl-training-setup-primary {
+  padding:clamp(23px,3vw,38px);min-width:0;
+  border:1px solid rgba(232,214,192,.16);
+  border-radius:19px;
+  background:linear-gradient(150deg,#29262D,#1B1A20);
+}
+#app .pl-training-fields {margin-top:32px;gap:20px 24px}
+#app .pl-training-fields .pl-form-control {width:100%;}
+#app .pl-training-setup-primary .pl-setup-actions {margin-top:39px;padding-top:22px;border-top:1px solid rgba(232,214,192,.13);}
+#app .pl-training-briefing {
+  position:relative;overflow:hidden;min-width:0;
+  display:flex;flex-direction:column;
+  padding:26px;
+  border:1px solid rgba(203,164,107,.23);
+  border-radius:19px;
+  background:radial-gradient(ellipse at 60% 8%,rgba(203,164,107,.14),transparent 55%),#201E25;
+}
+#app .pl-training-briefing-head {min-height:245px;position:relative;}
+#app .pl-training-briefing-head strong {display:block;font-size:clamp(1.65rem,2.6vw,2.75rem);line-height:1.03;letter-spacing:-.05em;margin-top:16px;color:#F8F0E4}
+#app .pl-briefing-table {position:absolute;right:-28px;bottom:-14px;width:min(85%,300px);aspect-ratio:2.05;border:3px solid #CBA46B;border-radius:50%;background:radial-gradient(ellipse,#3A4554,#262E3C);transform:rotate(-15deg);box-shadow:inset 0 0 0 6px #181923,0 12px 20px rgba(0,0,0,.18);}
+#app .pl-briefing-table span {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:rgba(232,214,192,.28);font-size:.9rem;font-weight:800;letter-spacing:.2em;}
+#app .pl-training-briefing .pl-training-notes {
+  display:block;margin-top:auto;
+  border:0;border-top:1px solid rgba(232,214,192,.19);
+  border-radius:0;background:transparent;
+}
+#app .pl-training-briefing .pl-training-note {padding:16px 0;}
+#app .pl-training-briefing .pl-training-note+.pl-training-note {border-left:0;border-top:1px solid rgba(232,214,192,.12);}
+/* Game markup remains stable for original session's action mounting. */
+#app .pl-game-heading-copy {display:grid;gap:4px}
+#app .pl-game-heading-copy .pl-section-heading {font-size:1.15rem;color:#F8F0E4;letter-spacing:-.02em}
+#app .pl-training-game-heading {align-items:center;}
+#app #training-game .pl-training-game-heading {margin-bottom:12px;}
+#app #training-game .pl-live-table-stage {border-radius:20px;}
+
+/* TACTICS: tools in the rail, a distinct stage for the exercise itself. */
+#app .pl-tactics-workspace {display:grid;grid-template-columns:minmax(240px,.38fr) minmax(0,1fr);align-items:start;gap:20px;}
+#app .pl-tactics-controls {border:1px solid rgba(232,214,192,.13);border-radius:17px;background:#222127;padding:27px;min-width:0;}
+#app .pl-tactics-controls .pl-form-grid {display:grid;grid-template-columns:1fr;margin-top:26px;gap:16px;}
+#app .pl-tactics-controls .pl-inline-actions {margin-top:26px;}
+#app .pl-tactics-controls .pl-button {width:100%;}
+#app .pl-tactics-controls .pl-session-stats {margin-top:27px;padding-top:18px;border-top:1px solid rgba(232,214,192,.16);}
+#app .pl-tactics-stage {min-height:520px;border:1px solid rgba(203,164,107,.20);border-radius:17px;overflow:hidden;min-width:0;background:radial-gradient(ellipse at 65% -25%,rgba(203,164,107,.08),transparent 63%),#1C1B22;}
+#app .pl-tactics-stage-head {display:flex;justify-content:space-between;align-items:center;gap:16px;padding:23px 28px;border-bottom:1px solid rgba(232,214,192,.12);color:#A8A09A;font-size:.64rem;letter-spacing:.15em;font-weight:700;}
+#app .pl-tactics-content {padding:clamp(20px,3vw,35px);min-height:390px;min-width:0;}
+
+/* LEARNING: catalog + active reading surface, ranges in dedicated full-width section. */
+#app .pl-learning-shortcuts {margin-bottom:22px;}
+#app .pl-learning-reader {
+  display:grid;grid-template-columns:minmax(240px,.38fr) minmax(0,1fr);gap:18px;align-items:stretch;
+  margin:0;padding:0;border:0;
+}
+#app .pl-learning-catalog-rail {
+  min-width:0;padding:24px;
+  border:1px solid rgba(232,214,192,.13);border-radius:17px;background:#222127;
+}
+#app .pl-learning-catalog-rail .pl-section-topline {display:flex;flex-direction:column;align-items:stretch;gap:12px}
+#app .pl-learning-catalog-rail .pl-section-heading {margin:0}
+#app .pl-learning-catalog-rail .pl-lesson-progress-slot {width:100%;max-width:100%;min-width:0;flex-basis:auto;}
+#app .pl-learning-rail-subtitle {margin:15px 0 22px;color:#ACA097;font-size:.78rem;line-height:1.6;}
+#app .pl-learning-reading-stage {
+  min-height:530px;min-width:0;
+  border:1px solid rgba(203,164,107,.19);
+  border-radius:17px;overflow:hidden;background:#1C1B22;
+}
+#app .pl-reading-stage-head {
+  display:flex;justify-content:space-between;align-items:center;
+  min-height:62px;padding:18px 27px;
+  border-bottom:1px solid rgba(232,214,192,.12);
+  color:#D2A978;letter-spacing:.15em;font-size:.66rem;font-weight:740;
+}
+#app .pl-learning-reading-stage .pl-lesson-detail {
+  margin:0;padding:clamp(22px,3vw,40px);
+  background:transparent;border:0;min-width:0;
+}
+#app .pl-learning-ranges {margin-top:44px;padding-top:38px;border-top:1px solid rgba(232,214,192,.13);}
+#app .pl-learning-ranges-heading {display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:20px;}
+#app .pl-learning-ranges-heading .pl-section-heading {font-size:clamp(1.45rem,2.4vw,2.25rem);margin:7px 0 0;letter-spacing:-.05em}
+#app .pl-learning-ranges-heading p {max-width:360px;margin:0;color:#B6A99D;font-size:.83rem;line-height:1.6;}
+
+/* GAME REVIEW: a narrow scrolling history explorer and a wide hand timeline. */
+#app .pl-review-layout {
+  display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);
+  gap:18px;align-items:start;
+}
+#app .pl-review-column {min-width:0;}
+#app .pl-review-history-rail,#app .pl-review-decision-stage {
+  border:1px solid rgba(232,214,192,.13);
+  background:#1E1D24;border-radius:17px;min-height:470px;overflow:hidden;
+}
+#app .pl-review-history-rail {background:#25232B;}
+#app .pl-review-pane-heading {padding:24px;border-bottom:1px solid rgba(232,214,192,.14);}
+#app .pl-review-pane-heading .pl-section-heading {margin:8px 0 0;}
+#app .pl-review-history-rail [data-review-history] {padding:14px;max-height:65vh;overflow:auto;}
+#app .pl-review-decision-stage [data-review-detail] {padding:24px;min-width:0;}
+
+/* SETTINGS: descriptive strip + a real empty state in the editable mount. */
+#app .pl-settings-layout {display:grid;grid-template-columns:minmax(220px,.37fr) minmax(0,1fr);gap:22px;}
+#app .pl-settings-information {min-height:365px;display:flex;flex-direction:column;padding:30px;border-radius:17px;border:1px solid rgba(203,164,107,.24);background:radial-gradient(ellipse at 100% 100%,rgba(203,164,107,.12),transparent 60%),#262129;}
+#app .pl-settings-information h3 {margin:16px 0 13px;font-size:clamp(1.5rem,2.2vw,2.4rem);letter-spacing:-.05em;line-height:1.12;color:#F4E8DA;}
+#app .pl-settings-information p {margin:0;color:#B7AAA1;font-size:.83rem;line-height:1.65;}
+#app .pl-settings-information svg {color:#CBA46B;margin-top:auto;}
+#app .pl-settings-content {margin:0;padding:30px;border:1px solid rgba(232,214,192,.14);border-radius:17px;background:#1F1E25;}
+#app .pl-settings-content h3 {font-size:1.5rem;color:#F8F0E4;margin:12px 0 18px;letter-spacing:-.025em;}
+
+/* Responsive layout actually changes the topology, not just the colors. */
+@media(max-width:1180px){
+  #app .pl-home-intro {grid-template-columns:minmax(0,1fr) minmax(280px,.72fr);gap:26px;}
+  #app .pl-home-title {font-size:clamp(2.5rem,5.1vw,4.1rem);}
+  #app .pl-home-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+  #app .pl-home-card--training {grid-row:span 2;grid-column:span 1;min-height:420px;}
+  #app .pl-home-card {min-height:200px;}
+}
+@media(max-width:900px){
+  #app .pl-home-intro {grid-template-columns:minmax(0,1fr);max-width:760px;margin-inline:auto;}
+  #app .pl-home-visual {max-width:570px;width:100%;justify-self:center;aspect-ratio:1.8;padding:17px 24px;}
+  #app .pl-preview-arena {min-height:205px;}
+  #app .pl-home-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+  #app .pl-training-setup-layout {grid-template-columns:minmax(0,1fr);}
+  #app .pl-training-briefing {display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1fr);gap:18px;}
+  #app .pl-training-briefing-head {min-height:190px;}
+  #app .pl-tactics-workspace {grid-template-columns:minmax(0,1fr);}
+  #app .pl-tactics-controls .pl-form-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+  #app .pl-learning-reader {grid-template-columns:minmax(0,1fr);}
+  #app .pl-learning-catalog-rail {padding:22px;}
+  #app .pl-learning-reading-stage {min-height:320px;}
+  #app .pl-review-layout {grid-template-columns:minmax(0,1fr);}
+  #app .pl-review-history-rail {min-height:0;}
+  #app .pl-review-history-rail [data-review-history] {max-height:300px;}
+  #app .pl-settings-layout {grid-template-columns:minmax(0,1fr);}
+  #app .pl-settings-information {min-height:250px;}
+}
+@media(max-width:767px){
+  #app .pl-shell-main {padding:22px 15px 100px;}
+  #app .pl-shell-header-inner {min-height:62px;padding-inline:15px;}
+  #app .pl-home-intro {gap:20px;padding:24px 0 30px;margin-bottom:26px;}
+  #app .pl-home-title {font-size:clamp(2.45rem,10.1vw,3.7rem);}
+  #app .pl-home-visual {max-width:100%;min-height:0;aspect-ratio:1.42;padding:15px;}
+  #app .pl-preview-arena {min-height:188px;}
+  #app .pl-preview-seat {padding:6px 9px;min-width:65px;font-size:.54rem;}
+  #app .pl-preview-seat-a {top:-18px;}
+  #app .pl-preview-seat-b,#app .pl-preview-seat-c {bottom:-18px;}
+  #app .pl-preview-card {width:clamp(25px,7.2vw,39px);height:clamp(35px,10vw,53px);font-size:.86rem;}
+  #app .pl-preview-pot {top:11%;font-size:.55rem;}
+  #app .pl-home-meta {margin-top:29px;}
+  #app .pl-home-grid {grid-template-columns:minmax(0,1fr);gap:10px;}
+  #app .pl-home-card,
+  #app .pl-home-card--training {
+    grid-column:auto;grid-row:auto;min-height:175px;padding:20px 19px;gap:19px;
+  }
+  #app .pl-home-card--training {min-height:245px;}
+  #app .pl-home-card-top {font-size:.57rem;}
+  #app .pl-home-card--training .pl-home-card-title {font-size:2rem;}
+  #app .pl-home-card-description {max-width:calc(100% - 40px);}
+  #app .pl-home-card--training .pl-home-card-icon {width:45px;height:45px;transform:none;border-radius:13px;}
+  #app .pl-home-section-count {display:none;}
+  #app .pl-training-setup-primary {padding:23px 19px;}
+  #app .pl-training-fields {margin-top:22px;grid-template-columns:1fr;}
+  #app .pl-training-briefing {display:block;padding:22px;}
+  #app .pl-training-briefing-head {min-height:174px;}
+  #app .pl-briefing-table {width:220px;}
+  #app .pl-tactics-controls {padding:22px 17px;}
+  #app .pl-tactics-controls .pl-form-grid {grid-template-columns:minmax(0,1fr);}
+  #app .pl-tactics-stage {min-height:370px;}
+  #app .pl-tactics-content {padding:19px;}
+  #app .pl-learning-catalog-rail {padding:20px;}
+  #app .pl-learning-reading-stage .pl-lesson-detail {padding:21px;}
+  #app .pl-learning-ranges-heading {display:block;}
+  #app .pl-learning-ranges-heading p {margin-top:13px;}
+  #app .pl-review-pane-heading {padding:20px;}
+  #app .pl-review-decision-stage [data-review-detail] {padding:20px;}
+  #app .pl-settings-information {padding:23px;min-height:270px;}
+  #app .pl-settings-content {padding:23px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #app .pl-home-card, #app .pl-sidebar-link {transition:none!important;}
+}
+
+
+/* Gameplay DOM refactor: a semantic street timeline and explicit actor status.
+ * This is filled with real render-state, no mocked betting values or chips. */
+#app #training-game #training-table .pl-table-flow {
+  position:absolute;left:20px;right:20px;bottom:11px;
+  z-index:4;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  pointer-events:none;
+  font-size:.67rem;font-weight:650;letter-spacing:.03em;color:#B6A99F;
+}
+#app #training-game #training-table .pl-table-flow-steps {display:flex;align-items:center;gap:12px;min-width:0;}
+#app #training-game #training-table .pl-table-flow-step {
+  position:relative;display:inline-flex;align-items:center;gap:6px;
+  color:#8D8887;white-space:nowrap;
+}
+#app #training-game #training-table .pl-table-flow-step::before {
+  content:"";width:5px;height:5px;background:#625F65;border-radius:50%;
+}
+#app #training-game #training-table .pl-table-flow-step.is-current {color:#F3D3A2;}
+#app #training-game #training-table .pl-table-flow-step.is-current::before {width:7px;height:7px;background:#CBA46B;box-shadow:0 0 0 4px rgba(203,164,107,.12);}
+#app #training-game #training-table .pl-table-flow-step.is-complete {color:#B4A694;}
+#app #training-game #training-table .pl-table-flow-step.is-complete::before {background:#3B9B81;}
+#app #training-game #training-table .pl-table-flow-status {color:#E7D1B2;text-align:right;}
+@media (max-width:767px) {
+  #app #training-game #training-table .pl-table-flow {bottom:7px;left:11px;right:11px;gap:5px;flex-direction:column;justify-content:center;align-items:center;font-size:.57rem;}
+  #app #training-game #training-table .pl-table-flow-steps {gap:9px;}
+  #app #training-game #training-table .pl-table-flow-status {text-align:center;}
+}
+
+
+/* Desktop playing workspace: the action cockpit now lives beside the table.
+ * This is a layout change rather than a new theme; same buttons and bet rules. */
+@media(min-width:1281px) {
+  #app #training-game:not(.hidden) {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(268px,318px);
+    grid-template-areas:"heading heading" "felt actions";
+    align-items:start;
+    gap:14px 22px;
+    margin-top:0!important;
+  }
+  #app #training-game:not(.hidden) > .pl-training-game-heading {
+    grid-area:heading;
+    margin:0!important;
+  }
+  #app #training-game:not(.hidden) > .pl-live-table-stage {
+    grid-area:felt;
+    width:100%;
+    min-width:0;
+    max-width:none;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel {
+    grid-area:actions;
+    position:relative;
+    top:auto;bottom:auto;
+    width:100%;
+    min-width:0;
+    margin:0!important;
+    padding:20px!important;
+    border:1px solid rgba(203,164,107,.20)!important;
+    border-radius:17px!important;
+    background:linear-gradient(150deg,#29262E,#1B1A20)!important;
+    box-shadow:none!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-buttons {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-buttons button {
+    width:100%;min-width:0;min-height:48px;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-bet-controls {
+    margin-top:18px;padding-top:17px;
+    padding-left:0;border-left:0!important;
+    border-top:1px solid rgba(232,214,192,.15);
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-bet-presets {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-bet-presets button {
+    min-height:42px;
+  }
+}
+
+
+/* TRUE TABLE RECOMPOSITION: the six positions encircle the felt instead
+ * of forming two baseline-aligned player rows. These are presentation
+ * coordinates only; dealer and acting player still come from the engine. */
+#app #training-game #training-table .pl-seat.pl-seat-side .pl-player-cards {
+  top:calc(100% + 5px)!important;
+  bottom:auto!important;
+}
+#app #training-game #training-table .pl-seat.pl-seat-side .pl-player-badges {
+  top:-19px;
+}
+#app #training-game #training-table .pl-seat.pl-seat-side .pl-player-bet {
+  top:auto;
+  bottom:calc(100% + 72px);
+}
+@media (max-width:767px) {
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-cards {
+    top:calc(100% + 4px)!important;
+    bottom:auto!important;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-bet {
+    top:auto;
+    bottom:calc(100% + 40px);
+  }
+}
+
+
+/* Visual QA: raw record UUIDs remain in the DOM, but the history no longer
+ * turns each item into a giant multi-line identifier. No data is removed. */
+#app .pl-review-history-rail .pl-review-history-item {
+  min-width:0;
+  padding:14px 15px;
+  border-radius:11px;
+}
+#app .pl-review-history-rail .pl-review-history-item h3 {
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  overflow-wrap:normal;
+  font-size:.83rem;
+  line-height:1.4;
+}
+#app .pl-review-history-rail .pl-review-history-item span {
+  color:#A69B93;
+  font-size:.72rem;
+}
+#app .pl-review-history-rail .pl-review-history-item button {
+  min-height:40px;
+}
+
+
+/* QA regression fix: the legacy action panel was still forcing a two-column
+ * INTERNAL grid inside a narrow sidebar, squeezing preset buttons to 20px.
+ * Give the existing real controls their own full-width rows instead. */
+@media(min-width:1281px) {
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel {
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:14px!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-action-buttons {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    width:100%!important;
+    gap:9px!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-action-bet-controls {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 78px!important;
+    grid-template-areas:"label label" "presets presets" "slider amount"!important;
+    width:100%!important;
+    margin:0!important;
+    padding:15px 0 0!important;
+    border-left:0!important;
+    border-top:1px solid rgba(232,214,192,.15)!important;
+    box-sizing:border-box;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-bet-presets {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    width:100%!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-bet-presets button {
+    min-height:43px!important;
+    padding:8px 9px!important;
+  }
+}
+
+
+/* The original engine hides the action tray when a hand finishes. This rule
+ * must override the desktop flex cockpit: NEVER expose betting buttons after
+ * showdown, even if they are disabled by the engine. */
+#app #training-game:not(.hidden) > #training-actions.pl-action-panel.pl-action-panel--complete,
+#app #training-game:not(.hidden) > #training-actions.pl-action-panel.hidden,
+#app #training-game:not(.hidden) > #training-actions.pl-action-panel[hidden] {
+  display:none!important;
+}
+
+
+/* Visual inspection at 320/390px: real cards stay intact, but the new ring
+ * needs opaque compact side-seat identities and no street-strip collision with
+ * the hero's name. Hand strength must remain legible beside Solver. */
+@media(max-width:767px) {
+  #app #training-game #training-table .pl-table-flow {
+    display:none!important;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-info {
+    height:40px!important;
+    min-height:40px!important;
+    padding:3px 4px!important;
+    border:1px solid rgba(232,214,192,.23)!important;
+    border-radius:9px!important;
+    background:rgba(24,23,30,.96)!important;
+    box-shadow:0 4px 11px rgba(0,0,0,.31)!important;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-caption {
+    width:100%;
+    min-width:0;
+  }
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-name,
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-stack {
+    color:#F7EDDE;
+    font-size:.63rem;
+    line-height:1.1;
+    white-space:nowrap;
+  }
+  #app #training-game #training-table .pl-table-container > .pl-hand-strength {
+    left:42%!important;
+    width:clamp(145px,45vw,185px)!important;
+    max-width:185px!important;
+  }
+}
+@media(max-width:360px) {
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-name,
+  #app #training-game #training-table .pl-seat.pl-seat-side .pl-player-stack {
+    font-size:.59rem;
+  }
+}

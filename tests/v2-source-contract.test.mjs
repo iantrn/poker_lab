@@ -191,10 +191,10 @@ test("Approved table design retains native playing cards and solver outputs", ()
   assert.match(solver, /GTO intégral non certifié/);
 });
 
-test("Final table review: two horizontal seat rails, numeric ranks, centred hand and Solver", () => {
+test("Circular table layout preserves numeric ranks, centred hand and Solver", () => {
   const table = read("frontend/src/components/table.ts");
   const css = read("frontend/src/styles/poker-table.css");
-  assert.match(table, /6: \[\[50, 88\], \[18, 88\], \[20, 12\], \[50, 12\], \[80, 12\], \[82, 88\]\]/);
+  assert.match(table, /6: \[\[50, 88\], \[15, 66\], \[18, 12\], \[50, 12\], \[82, 12\], \[85, 66\]\]/);
   assert.match(table, /numericRanks\(label: string\)/);
   assert.match(table, /Hauteur \$\{getRank\(high\)\}/);
   assert.doesNotMatch(table, /pl-hand-strength-detail",/);
@@ -204,6 +204,7 @@ test("Final table review: two horizontal seat rails, numeric ranks, centred hand
   assert.match(css, /\.pl-board \.pl-card--empty\s*\{\s*border-color:/);
   assert.match(css, /\.pl-table-container > \.pl-seats\s*\{\s*inset: 0 !important/);
   assert.match(css, /\.pl-seat \.pl-player-cards > \*/);
+  assert.match(table, /pl-seat-side/);
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Keep the existing blue card backs");
 });
 
@@ -225,7 +226,7 @@ test("Minuit Cuivre table keeps logical seats, visible wagers and nonoverlapping
   assert.match(css, /height: 45% !important/);
   assert.match(css, /\.pl-seat-upper \.pl-player-cards/);
   assert.match(css, /\.pl-seat-lower \.pl-player-cards/);
-  assert.match(smoke, /Seats must remain in their intended positions/);
+  assert.match(smoke, /Seats must remain in clockwise spatial order/);
   assert.match(smoke, /Seat capsules must never overlap/);
   assert.match(smoke, /Private cards belonging to different players must not overlap|Private cards must remain separate from player labels/);
   assert.match(table, /if \(player\.streetBet > 0\)/);
@@ -393,4 +394,35 @@ test("Minuit Cuivre applies a single late-loading presentation layer across all 
   assert.doesNotMatch(theme, /https?:\/\/|@import\s+url/, "Offline UI must not load remote fonts or images");
   for (const hook of ["#training-table", "#training-actions", "#training-solver-dock"])
     assert.ok(theme.includes(hook), "Missing table presentation coverage: " + hook);
+});
+
+
+test("Structural redesign replaces the old horizontal-only page composition", () => {
+  const shell=read("frontend/src/ui/AppShell.tsx");
+  const home=read("frontend/src/ui/HomePage.tsx");
+  const training=read("frontend/src/ui/TrainingPage.tsx");
+  const tactics=read("frontend/src/ui/TacticsPage.tsx");
+  const lessons=read("frontend/src/ui/LessonsPage.tsx");
+  const review=read("frontend/src/ui/ReviewPage.tsx");
+  const css=read("frontend/src/styles/structural-redesign.css");
+  const main=read("frontend/src/main.tsx");
+  assert.match(main,/styles\/structural-redesign\.css/);
+  assert.match(shell,/pl-app-frame/);
+  assert.match(shell,/pl-sidebar-nav/);
+  assert.match(shell,/pl-sidebar-link/);
+  assert.match(home,/pl-home-visual/);
+  assert.match(home,/pl-preview-felt/);
+  assert.match(home,/pl-home-card--/);
+  assert.match(training,/pl-training-setup-layout/);
+  assert.match(training,/pl-training-briefing/);
+  assert.match(tactics,/pl-tactics-workspace/);
+  assert.match(tactics,/pl-tactics-stage/);
+  assert.match(lessons,/pl-learning-reader/);
+  assert.match(lessons,/pl-learning-catalog-rail/);
+  assert.match(lessons,/pl-learning-reading-stage/);
+  assert.match(review,/pl-review-history-rail/);
+  assert.match(review,/pl-review-decision-stage/);
+  assert.match(css,/grid-template-columns:232px minmax\(0,1fr\)/);
+  assert.match(css,/@media\(max-width:767px\)/);
+  assert.doesNotMatch(css, /https?:\/\/|@import\s+url/, "Offline UI must not require CDN assets");
 });
