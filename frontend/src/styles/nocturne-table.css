@@ -2,7 +2,7 @@
    Positions follow the actual clockwise logical order; all values are BB. */
 #app #training-game {display:grid;gap:12px;min-width:0;align-items:start}
 #app #training-table,#app .pl-live-table-stage{width:100%;min-width:0;position:relative}
-#app .nct-table{--felt-top:186px;--felt-bottom:112px;--seat-w:clamp(94px,15%,145px);--seat-h:48px;--hole-w:clamp(39px,5.5vw,48px);--hole-h:calc(var(--hole-w) * 1.44);position:relative;isolation:isolate;width:100%;height:clamp(505px,43vw,620px);min-width:0;overflow:visible;border:1px solid var(--nct-line);border-radius:13px}
+#app .nct-table{--felt-top:205px;--felt-bottom:128px;--seat-w:clamp(94px,15%,145px);--seat-h:48px;--hole-w:clamp(39px,5.5vw,48px);--hole-h:calc(var(--hole-w) * 1.44);position:relative;isolation:isolate;width:100%;height:clamp(505px,43vw,620px);min-width:0;overflow:visible;border:1px solid var(--nct-line);border-radius:13px}
 #app .nct-table > .pl-felt{position:absolute;inset:var(--felt-top) 7% var(--felt-bottom);border:2px solid var(--nct-gold);border-radius:120px}
 #app .pl-table-center{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px}
 #app .pl-table-header{position:absolute;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:.71rem;font-weight:650;letter-spacing:.05em}
@@ -37,9 +37,9 @@
 #app .pl-card--selected{outline:2px solid var(--nct-gold);outline-offset:2px}
 #app .pl-seats{position:absolute;inset:0;pointer-events:none}
 #app .pl-seat{position:absolute;width:var(--seat-w);height:var(--seat-h);transform:translateX(-50%);top:auto!important;pointer-events:auto}
-#app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - 16px)!important}
-#app .pl-seat-hero{top:calc(100% - var(--felt-bottom) + 13px)!important}
-#app .pl-seat-side{top:calc(100% - var(--felt-bottom) - var(--seat-h) - 23px)!important}
+#app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - var(--hole-h) / 2 - 3px)!important}
+#app .pl-seat-hero{top:calc(100% - var(--felt-bottom) + var(--hole-h) / 2 + 3px)!important}
+#app .pl-seat-side{top:calc(100% - var(--felt-bottom) - var(--seat-h) - var(--hole-h) / 2 - 3px)!important}
 #app .pl-player-info{width:100%;height:100%;display:flex;align-items:center;gap:7px;padding:5px 7px;border:1px solid var(--nct-line);border-radius:8px}
 #app .pl-player-avatar{flex:none;width:28px;height:28px;display:grid;place-items:center;color:var(--nct-muted);border:1px solid var(--nct-line);border-radius:50%}
 #app .pl-player-avatar svg{width:24px;height:24px}
@@ -93,10 +93,10 @@
  #app .nct-main:has(#training.is-active #training-game:not(.hidden)){padding-top:8px}
 }
 @media(max-width:767px){
- #app .nct-table{--felt-top:175px;--felt-bottom:100px;--seat-w:clamp(78px,26%,105px);--seat-h:40px;--hole-w:clamp(29px,8.5vw,34px);height:clamp(510px,132vw,590px)}
+ #app .nct-table{--felt-top:190px;--felt-bottom:108px;--seat-w:clamp(78px,26%,105px);--seat-h:40px;--hole-w:clamp(29px,8.5vw,34px);height:clamp(510px,132vw,590px)}
  #app .nct-table > .pl-felt{inset:var(--felt-top) 3% var(--felt-bottom)}
  #app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - 16px)!important}
- #app .pl-seat-side{top:calc(100% - var(--felt-bottom) - var(--seat-h) - 15px)!important}
+ #app .pl-seat-side{top:calc(100% - var(--felt-bottom) - var(--seat-h) - var(--hole-h) / 2 - 3px)!important}
  #app .pl-table-heads-up .pl-seat-upper{left:50%!important}
  #app .pl-player-avatar{display:none}
  #app .pl-player-info{padding:4px}
@@ -131,3 +131,8 @@
 #app .pl-card__center{opacity:.95}
 #app .pl-card--compact .pl-card__rank{font-size:.8rem}
 @media(max-width:767px){#app .pl-card__corner--top{flex-direction:column;gap:1px}#app .pl-card__center{transform:translateY(6px)}}
+
+@keyframes nct-hole-deal{from{opacity:0;transform:translateY(-9px) scale(.93)}to{opacity:1;transform:translateY(0) scale(1)}}
+#app .nct-hole-deal{animation:nct-hole-deal .24s ease-out both}
+@media(prefers-reduced-motion:reduce){#app .nct-hole-deal{animation:none!important}}
+@media(min-width:768px) and (max-width:1023px){#app .nct-table{height:560px}}
