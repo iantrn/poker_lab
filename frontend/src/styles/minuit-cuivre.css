@@ -461,7 +461,7 @@ body {
   top: 31% !important;
   left: 50% !important;
   width: 90% !important;
-  height: 48% !important;
+  height: 45% !important;
   max-height: none !important;
   min-height: 0 !important;
   transform: translateX(-50%) !important;
@@ -604,11 +604,11 @@ body {
   box-shadow: 0 0 0 2px rgba(203,164,107,.22) !important;
 }
 #app #training-game #training-table .pl-seat.is-folded:not(.pl-seat-hero) .pl-player-info {
-  opacity: .47 !important;
+  opacity: .35 !important;
   filter: grayscale(.75) !important;
 }
 #app #training-game #training-table .pl-seat.is-folded:not(.pl-seat-hero) .pl-badge-folded {
-  min-height: 22px;
+  min-height: 24px;
   background: #49313A !important;
   border: 1px solid #D59B98 !important;
   border-radius: 6px !important;
@@ -631,12 +631,12 @@ body {
   height: clamp(54px,5.4vw,65px) !important;
 }
 #app #training-game #training-table .pl-seat-upper .pl-player-cards {
-  top: calc(100% - 12px) !important;
+  top: calc(100% + 10px) !important;
   bottom: auto !important;
 }
 #app #training-game #training-table .pl-seat-lower .pl-player-cards {
   top: auto !important;
-  bottom: calc(100% + 26px) !important;
+  bottom: calc(100% + 10px) !important;
 }
 #app #training-game #training-table .pl-player-bet {
   color: #F3DAAC;
@@ -644,7 +644,7 @@ body {
   font-weight: 780;
   text-shadow: 0 1px 5px rgba(0,0,0,.65);
 }
-#app #training-game #training-table .pl-board .pl-card--empty { border-color: rgba(232,214,192,.30); }
+#app #training-game #training-table .pl-board .pl-card--empty { border-color: rgba(232,214,192,.43); }
 #app #training-game #training-table .pl-board .pl-card--empty::after { background: rgba(232,214,192,.23); }
 
 /* Action bar is integrated with the game, not a competing casino panel. */
@@ -742,10 +742,12 @@ body {
   }
   #app #training-game:not(.hidden) > .pl-live-table-stage { width: 100% !important; }
   #app #training-game #training-table .pl-table-container {
-    height: clamp(395px,calc(100dvh - 245px),540px) !important;
+    height: clamp(400px,calc(100dvh - 310px),520px) !important;
     min-height: 0 !important;
     max-height: none !important;
   }
+  #app #training-game #training-table .pl-table-container > .pl-felt { top: 34% !important; height: 42% !important; }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards { bottom: calc(100% + 5px) !important; }
   #app #training-game:not(.hidden) > #training-actions {
     width: 100% !important;
     margin-top: 6px !important;
@@ -785,8 +787,8 @@ body {
     border-radius: 18px !important;
   }
   #app #training-game #training-table .pl-table-container > .pl-felt {
-    top: 34% !important;
-    height: 43% !important;
+    top: 38% !important;
+    height: 39% !important;
     width: 92% !important;
     border-width: 2px !important;
   }
@@ -796,7 +798,7 @@ body {
   }
   #app #training-game #training-table .pl-table-container .pl-seat-hero { width: clamp(97px,29vw,130px) !important; }
   #app #training-game #training-table .pl-table-container .pl-seat.pl-seat-upper {
-    top: calc(var(--seat-y) + 33px) !important;
+    top: calc(19% + 45px) !important;
   }
   #app #training-game #training-table .pl-player-info,
   #app #training-game #training-table .pl-seat-hero .pl-player-info,
@@ -815,16 +817,16 @@ body {
     height: clamp(43px,12.7vw,56px) !important;
   }
   #app #training-game #training-table .pl-seat-upper .pl-player-cards { top: calc(100% + 8px) !important; }
-  #app #training-game #training-table .pl-seat-lower .pl-player-cards { bottom: calc(100% + 29px) !important; }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards { bottom: calc(100% + 15px) !important; }
   #app #training-game #training-table .pl-table-container > .pl-hand-strength {
-    top: 55px !important;
+    top: 40px !important;
     width: clamp(120px,37vw,178px) !important;
     max-width: 178px !important;
     height: 53px !important;
     min-height: 53px !important;
   }
   #app #training-game .pl-table-solver-dock {
-    top: 60px !important;
+    top: 45px !important;
     left: calc(50% + clamp(60px,18.5vw,89px) + 5px) !important;
   }
   #app #training-game #training-table .pl-table-header {
