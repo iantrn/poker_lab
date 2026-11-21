@@ -510,3 +510,31 @@
     bottom:calc(100% + 40px);
   }
 }
+
+
+/* Visual QA: raw record UUIDs remain in the DOM, but the history no longer
+ * turns each item into a giant multi-line identifier. No data is removed. */
+#app .pl-review-history-rail .pl-review-history-item {
+  min-width:0;
+  padding:14px 15px;
+  border-radius:11px;
+}
+#app .pl-review-history-rail .pl-review-history-item h3 {
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  overflow-wrap:normal;
+  font-size:.83rem;
+  line-height:1.4;
+}
+#app .pl-review-history-rail .pl-review-history-item span {
+  color:#A69B93;
+  font-size:.72rem;
+}
+#app .pl-review-history-rail .pl-review-history-item button {
+  min-height:40px;
+}

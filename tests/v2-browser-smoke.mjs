@@ -111,6 +111,10 @@ async function run() {
     assert.equal(logoMime.status, 200);
     assert.match(logoMime.mime ?? "", /image\/svg\+xml/i);
     await captureUi("home-desktop");
+    // The desktop navigation rail is a real topology change above 1380px.
+    await page.setViewportSize({width:1600,height:900});
+    await captureUi("home-sidebar-wide-desktop");
+    await page.setViewportSize({width:1365,height:768});
 
     // V2-owned React contract: assert stable ids, page anchors, and hooks
     // without relying on the archived V1 HTML as a runtime test fixture.
