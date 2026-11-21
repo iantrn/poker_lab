@@ -226,7 +226,7 @@ test("Minuit Cuivre table keeps logical seats, visible wagers and nonoverlapping
   assert.match(css, /height: 45% !important/);
   assert.match(css, /\.pl-seat-upper \.pl-player-cards/);
   assert.match(css, /\.pl-seat-lower \.pl-player-cards/);
-  assert.match(smoke, /Seats must remain in their intended positions/);
+  assert.match(smoke, /Seats must remain in clockwise spatial order/);
   assert.match(smoke, /Seat capsules must never overlap/);
   assert.match(smoke, /Private cards belonging to different players must not overlap|Private cards must remain separate from player labels/);
   assert.match(table, /if \(player\.streetBet > 0\)/);
