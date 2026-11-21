@@ -316,8 +316,8 @@ async function run() {
     // The user should never have to scroll down from the table to reach
     // the decision buttons on a landscape iPad. Verify geometry with the
     // actual game, not just the configured CSS or detached mock elements.
-    // On landscape tablets the table and decisions share the usable viewport.
-    // Unlike the previous red-rail side panel, controls follow the compact felt.
+    // On landscape tablets, actions sit beside the felt so both can remain visible.
+    // Assert real geometry, card clearance and touch targets.
     const verifyTabletLandscapeControls = async (width, height) => {
       await page.setViewportSize({width,height});
       await page.evaluate(() => window.scrollTo(0,0));
@@ -353,11 +353,13 @@ async function run() {
         tableBottom:layout.table.bottom,actionsBottom:layout.actions.bottom
       }));
       assert.equal(layout.headerVisible,"none");
-      assert.ok(layout.table.height>=390 && layout.table.height<=550);
-      assert.ok(layout.felt.height>=170,"Felt must retain depth for board and bets");
+      assert.ok(layout.table.height>=495 && layout.table.height<=710);
+      assert.ok(layout.felt.height>=220,"Felt must retain depth for board and bets");
       assert.ok(layout.table.width>=650,"All six player positions need usable width");
-      assert.ok(layout.actions.top>=layout.table.bottom-2,
-        "Touch decisions should follow the table without overlap");
+      assert.ok(layout.actions.left>=layout.table.right+6,
+        "Touch decisions must sit beside the felt without overlap");
+      assert.ok(Math.abs(layout.actions.top-layout.table.top)<5,
+        "Table and touch decisions should share a horizontal row");
       assert.ok(layout.actions.bottom<=layout.viewport.height-6,
         "All decision controls should fit on a tablet landscape screen");
       assert.ok(layout.table.bottom<=layout.viewport.height-6);

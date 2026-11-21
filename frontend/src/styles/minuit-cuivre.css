@@ -733,25 +733,42 @@ body {
   #app #training:has(#training-game:not(.hidden)) > .pl-page-panel { padding: 0 !important; }
   #app #training:has(#training-game:not(.hidden)) .pl-page-header { display: none; }
   #app #training-game:not(.hidden) {
-    display: flex !important;
-    flex-direction: column;
-    grid-template-columns: none !important;
-    grid-template-areas: none !important;
-    align-items: stretch !important;
-    gap: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) clamp(250px,27vw,300px) !important;
+    grid-template-areas: "heading heading" "felt actions" !important;
+    align-items: start !important;
+    gap: 8px 13px !important;
   }
-  #app #training-game:not(.hidden) > .pl-live-table-stage { width: 100% !important; }
-  #app #training-game #training-table .pl-table-container {
-    height: clamp(400px,calc(100dvh - 310px),520px) !important;
+  #app #training-game:not(.hidden) > .pl-training-game-heading {
+    grid-area: heading;
+    margin-bottom: 0 !important;
+  }
+  #app #training-game:not(.hidden) > .pl-live-table-stage {
+    grid-area: felt;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  #app #training-game:not(.hidden) #training-table .pl-table-container {
+    height: clamp(500px,calc(100dvh - 165px),710px) !important;
     min-height: 0 !important;
     max-height: none !important;
   }
-  #app #training-game #training-table .pl-table-container > .pl-felt { top: 34% !important; height: 42% !important; }
-  #app #training-game #training-table .pl-seat-lower .pl-player-cards { bottom: calc(100% + 5px) !important; }
+  #app #training-game #training-table .pl-table-container > .pl-felt {
+    top: 34% !important;
+    height: 42% !important;
+  }
+  #app #training-game #training-table .pl-seat-upper .pl-player-cards {
+    top: calc(100% + 32px) !important;
+  }
+  #app #training-game #training-table .pl-seat-lower .pl-player-cards {
+    bottom: calc(100% + 5px) !important;
+  }
   #app #training-game:not(.hidden) > #training-actions {
+    grid-area: actions;
     width: 100% !important;
-    margin-top: 6px !important;
-    padding-top: 10px !important;
+    margin-top: 0 !important;
+    padding-top: 8px !important;
+    border-top: 0 !important;
   }
 }
 @media (max-width: 767px) {

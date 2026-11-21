@@ -320,12 +320,12 @@ test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling"
   const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
   assert.match(css,/@media \(min-width: 768px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
-  assert.match(css,/grid-template-areas: none !important/);
-  assert.match(css,/height: clamp\(400px,calc\(100dvh - 310px\),520px\) !important/);
+  assert.match(css,/grid-template-areas: "heading heading" "felt actions" !important/);
+  assert.match(css,/height: clamp\(500px,calc\(100dvh - 165px\),710px\) !important/);
   for (const size of ["1024,768","1080,810","1180,820"])
     assert.ok(browser.includes("verifyTabletLandscapeControls("+size+")"));
   assert.match(browser,/All decision controls should fit on a tablet landscape screen/);
-  assert.match(browser,/Touch decisions should follow the table without overlap/);
+  assert.match(browser,/Touch decisions must sit beside the felt without overlap/);
 });
 
 test("Minuit Cuivre retains straddling cards without collisions on landscape tablets",()=>{
