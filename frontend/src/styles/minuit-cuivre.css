@@ -214,10 +214,10 @@ body {
   text-transform: uppercase;
 }
 #app .pl-home-title {
-  max-width: 920px;
+  max-width: 1080px;
   margin: 18px 0 24px;
   color: #F8F0E4;
-  font-size: clamp(2.65rem, 7vw, 6.25rem);
+  font-size: clamp(2.65rem, 5.4vw, 4.7rem);
   font-weight: 770;
   line-height: .99;
   letter-spacing: -.066em;
@@ -376,6 +376,13 @@ body {
   border-color: rgba(232,214,192,.14);
   background: #1A1A21;
   border-radius: 15px;
+}
+#app .pl-review-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 #app .pl-review-action {
   border-color: rgba(232,214,192,.13);

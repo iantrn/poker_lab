@@ -51,3 +51,9 @@ Rust, parités WASM, tests TypeScript, build Vite, PWA, Chromium/WebKit,
 et les captures de revue. Si GitHub Actions n'aboutit pas, indiquer
 explicitement les tests non validés. Les captures exigent examen visuel :
 un test statique ne prouve pas un rendu responsive correct.
+
+## Identité installable
+Les icônes PWA `assets/icons/icon-192.png`, `icon-512.png` et
+`apple-touch-icon.png` ont été recréées en cuivre et anthracite pour
+s'accorder avec la marque SVG. Elles sont rasterisées et intégrées aux
+ressources locales, sans CDN ni modification de la logique d'installation.
