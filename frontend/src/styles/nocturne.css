@@ -209,3 +209,55 @@ html,body {background:var(--nct-bg);color:var(--nct-text)}
 @media(prefers-reduced-motion:reduce){
   #app.nct-app *,#app.nct-app *::before,#app.nct-app *::after {scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-delay:0ms!important}
 }
+
+/* Compact game navigation: reserve the full viewport width for 6-max. */
+@media(min-width:768px) and (max-width:1280px) and (orientation:landscape) {
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) {grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) .nct-rail {position:relative;top:auto;height:auto;min-height:48px;display:flex;flex-direction:row;justify-content:space-between;gap:10px;padding:4px 16px;border-right:0;border-bottom:1px solid var(--nct-line)}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) .nct-navigation {flex-direction:row;justify-content:center;gap:6px;width:auto;margin:0}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) .nct-nav-link {min-height:40px;width:auto;padding:8px 12px;justify-content:center}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) .nct-nav-link>span {display:inline}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) :is(.nct-topbar,.nct-nav-label,.nct-rail-bottom small,.nct-rail .nct-brand>span) {display:none}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) .nct-rail-bottom {width:auto;margin:0}
+  #app.nct-app:has(#training.is-active #training-game:not(.hidden)) .nct-main {padding:8px 16px 8px;max-width:none}
+  #app #training:has(#training-game:not(.hidden)) .nct-page-intro {display:none}
+}
+#app .nct-game-header .nct-section-heading {margin:0}
+#app .nct-game-header .nct-button {min-height:38px}
+#app #training-game #training-table .nct-table > .pl-felt {border-radius:clamp(65px,10vw,150px)!important}
+#app .nct-table-mark {position:absolute;left:50%;bottom:8%;transform:translateX(-50%);font-weight:700;letter-spacing:.26em;color:rgba(215,181,109,.19);font-size:clamp(.5rem,1vw,.83rem);pointer-events:none;white-space:nowrap}
+#app #training-table .nct-board-stage {z-index:1}
+#app #training-table .nct-table .pl-seat.is-folded .pl-player-info{filter:saturate(.3)}
+#app .pl-rv.nct-ranges {display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.52fr);grid-template-areas:"matrix controls";align-items:start;gap:20px;color:var(--nct-text)}
+#app .nct-ranges .pl-rv-panel {grid-area:matrix;min-width:0;box-shadow:none;border:0;border-radius:8px;background:var(--nct-secondary);padding:16px}
+#app .nct-range-controls {grid-area:controls;display:grid;gap:12px;min-width:0}
+#app .nct-ranges :is(.pl-rv-tabs,.pl-rv-filters,.pl-rv-count,.pl-rv-list) {grid-area:auto;min-width:0}
+#app .nct-ranges :is(.pl-rv-input,.pl-rv-spot,.pl-rv-tabs) {background:var(--nct-secondary);border-color:var(--nct-line);color:var(--nct-text)}
+#app .nct-ranges .pl-rv-count {color:var(--nct-muted)}
+#app .nct-matrix-heading {padding-bottom:14px;border-bottom:1px solid var(--nct-line);margin-bottom:14px}
+#app .nct-matrix-footer {border-top:1px solid var(--nct-line);padding-top:12px;margin-top:12px}
+#app .nct-solver-overview {display:flex;align-items:start;justify-content:space-between;gap:15px;margin-bottom:16px}
+#app .nct-solver-intro {min-width:0}
+#app .nct-solver-metric {text-align:right;display:grid;gap:3px;flex:none}
+#app .nct-solver-metric span {font-size:.68rem;color:var(--nct-muted)}
+#app .nct-solver-metric strong {font-size:1.45rem;color:var(--nct-gold);font-variant-numeric:tabular-nums}
+#app .nct-solver-strategy {border-block:1px solid var(--nct-line);padding:12px 0}
+#app .nct-solver-disclosure {padding-top:12px}
+#app .nct-frequency-list .pl-solve-frequency-row {padding-block:6px}
+#app .nct-frequency-list .pl-solve-frequency-fill {background:var(--nct-gold)!important}
+#app .nct-frequency-list [data-strategy-action^="fold"] .pl-solve-frequency-fill {background:var(--nct-fold)!important}
+#app .nct-frequency-list [data-strategy-action^="check"] .pl-solve-frequency-fill {background:var(--nct-check)!important}
+#app .nct-frequency-list [data-strategy-action^="call"] .pl-solve-frequency-fill {background:var(--nct-call)!important}
+#app .nct-frequency-list [data-strategy-action^="bet"] .pl-solve-frequency-fill {background:var(--nct-bet)!important}
+#app .nct-frequency-list [data-strategy-action^="raise"] .pl-solve-frequency-fill {background:var(--nct-raise)!important}
+#app .nct-frequency-list :is([data-strategy-action^="all-in"],[data-strategy-action^="allin"]) .pl-solve-frequency-fill {background:var(--nct-allin)!important}
+@media(max-width:900px) {
+  #app .pl-rv.nct-ranges {grid-template-columns:minmax(0,1fr);grid-template-areas:"controls" "matrix"}
+  #app .nct-range-controls .pl-rv-list {max-height:200px;overflow:auto}
+}
+@media(max-width:767px) {
+  #app .nct-main:has(#training.is-active #training-game:not(.hidden)) {padding-inline:6px}
+  #app .nct-table-mark {display:none}
+  #app .nct-solver-overview {flex-wrap:wrap}
+  #app .nct-solver-metric {text-align:left}
+}
