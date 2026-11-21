@@ -319,6 +319,56 @@ async function run() {
       return geometry;
     };
 
+    // Exercise every supported seat count with the real table renderer,
+    // using a presentation-only projection of the six-max engine state.
+    // Engine rules and private-card visibility remain unchanged.
+    const checkSeatCounts = async (width,height) => {
+      await page.setViewportSize({width,height});
+      const layouts = await page.evaluate(() => {
+        const api = window.PokerLabTable;
+        const original = window.PokerLabTraining.getGameState();
+        const mount = document.getElementById("training-table");
+        const bounds = element => {
+          const r = element.getBoundingClientRect();
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};
+        };
+        const results=[];
+        try {
+          for(let count=2;count<=6;count++){
+            api.render(mount,{...original,players:original.players.slice(0,count),handComplete:false,result:null});
+            const seats=[...mount.querySelectorAll(".pl-seat")];
+            results.push({count,seatCount:seats.length,heroCount:seats.filter(s=>s.classList.contains("pl-seat-hero")).length,
+              frame:bounds(mount.querySelector(".nct-table")),
+              capsules:seats.map(s=>bounds(s.querySelector(".pl-player-info"))),
+              cards:seats.flatMap(s=>[...s.querySelectorAll(".pl-player-cards > *")].map(bounds)),
+              overlap:document.documentElement.scrollWidth-innerWidth});
+          }
+        } finally {api.render(mount,original);}
+        return results;
+      });
+      const overlaps=(a,b)=>a.left<b.right-2 && a.right>b.left+2 && a.top<b.bottom-2 && a.bottom>b.top+2;
+      for(const layout of layouts){
+        assert.equal(layout.seatCount,layout.count);
+        assert.equal(layout.heroCount,1);
+        assert.equal(layout.cards.length,layout.count*2);
+        assert.ok(layout.overlap<=1, "No page overflow for "+layout.count+" seats at "+width);
+        for(const capsule of layout.capsules)
+          assert.ok(capsule.left>=layout.frame.left-2 && capsule.right<=layout.frame.right+2,
+            "Every seat must remain inside the stage");
+        for(let i=0;i<layout.capsules.length;i++)
+          for(let j=i+1;j<layout.capsules.length;j++)
+            assert.equal(overlaps(layout.capsules[i],layout.capsules[j]),false,
+              "Seat identities must not overlap at "+width+" for "+layout.count+" players");
+      }
+    };
+    await checkSeatCounts(1920,1080);
+    await checkSeatCounts(1366,768);
+    await checkSeatCounts(1024,768);
+    await checkSeatCounts(768,1024);
+    await checkSeatCounts(390,844);
+    await checkSeatCounts(375,667);
+    await page.setViewportSize({width:1365,height:768});
+
     const desktopGeometry = await verifyTableGeometry(false);
     assert.ok(desktopGeometry.handText.length>0,"Hand strength label must be present");
 
