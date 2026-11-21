@@ -430,3 +430,57 @@
   #app #training-game #training-table .pl-table-flow-steps {gap:9px;}
   #app #training-game #training-table .pl-table-flow-status {text-align:center;}
 }
+
+
+/* Desktop playing workspace: the action cockpit now lives beside the table.
+ * This is a layout change rather than a new theme; same buttons and bet rules. */
+@media(min-width:1281px) {
+  #app #training-game:not(.hidden) {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(268px,318px);
+    grid-template-areas:"heading heading" "felt actions";
+    align-items:start;
+    gap:14px 22px;
+    margin-top:0!important;
+  }
+  #app #training-game:not(.hidden) > .pl-training-game-heading {
+    grid-area:heading;
+    margin:0!important;
+  }
+  #app #training-game:not(.hidden) > .pl-live-table-stage {
+    grid-area:felt;
+    width:100%;
+    min-width:0;
+    max-width:none;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel {
+    grid-area:actions;
+    position:relative;
+    top:auto;bottom:auto;
+    width:100%;
+    min-width:0;
+    margin:0!important;
+    padding:20px!important;
+    border:1px solid rgba(203,164,107,.20)!important;
+    border-radius:17px!important;
+    background:linear-gradient(150deg,#29262E,#1B1A20)!important;
+    box-shadow:none!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-buttons {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-buttons button {
+    width:100%;min-width:0;min-height:48px;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-action-bet-controls {
+    margin-top:18px;padding-top:17px;
+    padding-left:0;border-left:0!important;
+    border-top:1px solid rgba(232,214,192,.15);
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-bet-presets {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+  }
+  #app #training-game:not(.hidden) > #training-actions .pl-bet-presets button {
+    min-height:42px;
+  }
+}
