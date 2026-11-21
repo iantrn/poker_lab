@@ -538,3 +538,44 @@
 #app .pl-review-history-rail .pl-review-history-item button {
   min-height:40px;
 }
+
+
+/* QA regression fix: the legacy action panel was still forcing a two-column
+ * INTERNAL grid inside a narrow sidebar, squeezing preset buttons to 20px.
+ * Give the existing real controls their own full-width rows instead. */
+@media(min-width:1281px) {
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel {
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:14px!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-action-buttons {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    width:100%!important;
+    gap:9px!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-action-bet-controls {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 78px!important;
+    grid-template-areas:"label label" "presets presets" "slider amount"!important;
+    width:100%!important;
+    margin:0!important;
+    padding:15px 0 0!important;
+    border-left:0!important;
+    border-top:1px solid rgba(232,214,192,.15)!important;
+    box-sizing:border-box;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-bet-presets {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    width:100%!important;
+  }
+  #app #training-game:not(.hidden) > #training-actions.pl-action-panel .pl-bet-presets button {
+    min-height:43px!important;
+    padding:8px 9px!important;
+  }
+}
