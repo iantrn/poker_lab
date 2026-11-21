@@ -469,12 +469,15 @@ function createTable() {
         const head = document.createElementNS(ns, "circle");
         head.setAttribute("cx", "24");
         head.setAttribute("cy", "17");
-        head.setAttribute("r", "8");
+        head.setAttribute("r", "7");
         head.setAttribute("fill", "currentColor");
         const torso = document.createElementNS(ns, "path");
-        torso.setAttribute("d", "M8 39c.8-9.3 6.5-14 16-14s15.2 4.7 16 14c-9.2 4.2-22.8 4.2-32 0Z");
+        torso.setAttribute("d", "M10 38c2-8 7-12 14-12s12 4 14 12l-14 4Z");
         torso.setAttribute("fill", "currentColor");
-        graphic.append(head, torso);
+        const detail = document.createElementNS(ns, "path");
+        detail.setAttribute("d", "M24 28l4 4-4 5-4-5Z");
+        detail.setAttribute("fill", "var(--nct-secondary, #111B24)");
+        graphic.append(head, torso, detail);
         avatar.appendChild(graphic);
         return avatar;
     }
