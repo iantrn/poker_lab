@@ -2,7 +2,7 @@
    Positions follow the actual clockwise logical order; all values are BB. */
 #app #training-game {display:grid;gap:12px;min-width:0;align-items:start}
 #app #training-table,#app .pl-live-table-stage{width:100%;min-width:0;position:relative}
-#app .nct-table{--felt-top:178px;--felt-bottom:112px;--seat-w:clamp(94px,15%,145px);--seat-h:48px;--hole-w:clamp(39px,5.5vw,48px);--hole-h:calc(var(--hole-w) * 1.44);position:relative;isolation:isolate;width:100%;height:clamp(505px,43vw,620px);min-width:0;overflow:visible;border:1px solid var(--nct-line);border-radius:13px}
+#app .nct-table{--felt-top:186px;--felt-bottom:112px;--seat-w:clamp(94px,15%,145px);--seat-h:48px;--hole-w:clamp(39px,5.5vw,48px);--hole-h:calc(var(--hole-w) * 1.44);position:relative;isolation:isolate;width:100%;height:clamp(505px,43vw,620px);min-width:0;overflow:visible;border:1px solid var(--nct-line);border-radius:13px}
 #app .nct-table > .pl-felt{position:absolute;inset:var(--felt-top) 7% var(--felt-bottom);border:2px solid var(--nct-gold);border-radius:120px}
 #app .pl-table-center{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px}
 #app .pl-table-header{position:absolute;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:.71rem;font-weight:650;letter-spacing:.05em}
@@ -117,7 +117,17 @@
 @media(prefers-reduced-motion:reduce){#app .pl-card-deal,#app .pl-card-showdown-reveal{animation:none!important}}
 
 #app .pl-seat.is-folded{opacity:1}
-#app .pl-seat.is-folded .pl-player-info{opacity:.6}
+#app .pl-seat.is-folded .pl-player-info{opacity:.38!important}
 #app .pl-seat.is-folded .pl-player-badges{opacity:1}
 #app .pl-player-info .pl-player-name {min-width:0}
 #app .pl-seat.is-allin .pl-player-info {border-color:var(--nct-error)!important}
+
+#app #training-game #training-table .pl-seat.is-folded .pl-player-info{opacity:.38!important}
+#app .pl-badge-folded{display:inline-flex;align-items:center;justify-content:center;min-height:23px;padding:4px 7px;font-size:.64rem;letter-spacing:.04em}
+#app .pl-card__back-symbol{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1px}
+#app .pl-card__back-symbol small{font:600 .45rem/1 system-ui,sans-serif;letter-spacing:.12em}
+#app .pl-card__corner--top{flex-direction:row;gap:2px}
+#app .pl-card__corner--bottom{flex-direction:row;gap:2px}
+#app .pl-card__center{opacity:.95}
+#app .pl-card--compact .pl-card__rank{font-size:.8rem}
+@media(max-width:767px){#app .pl-card__corner--top{flex-direction:column;gap:1px}#app .pl-card__center{transform:translateY(6px)}}
