@@ -37,9 +37,9 @@
 #app .pl-card--selected{outline:2px solid var(--nct-gold);outline-offset:2px}
 #app .pl-seats{position:absolute;inset:0;pointer-events:none}
 #app .pl-seat{position:absolute;width:var(--seat-w);height:var(--seat-h);transform:translateX(-50%);top:auto!important;pointer-events:auto}
-#app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - 5px)!important}
+#app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - 16px)!important}
 #app .pl-seat-hero{top:calc(100% - var(--felt-bottom) + 13px)!important}
-#app .pl-seat-side{top:calc(100% - var(--felt-bottom) - 37px)!important}
+#app .pl-seat-side{top:calc(100% - var(--felt-bottom) - var(--seat-h) - 23px)!important}
 #app .pl-player-info{width:100%;height:100%;display:flex;align-items:center;gap:7px;padding:5px 7px;border:1px solid var(--nct-line);border-radius:8px}
 #app .pl-player-avatar{flex:none;width:28px;height:28px;display:grid;place-items:center;color:var(--nct-muted);border:1px solid var(--nct-line);border-radius:50%}
 #app .pl-player-avatar svg{width:24px;height:24px}
@@ -95,13 +95,8 @@
 @media(max-width:767px){
  #app .nct-table{--felt-top:175px;--felt-bottom:100px;--seat-w:clamp(78px,26%,105px);--seat-h:40px;--hole-w:clamp(29px,8.5vw,34px);height:clamp(510px,132vw,590px)}
  #app .nct-table > .pl-felt{inset:var(--felt-top) 3% var(--felt-bottom)}
- #app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - 6px)!important}
- #app .pl-seat-side{top:calc(100% - var(--felt-bottom) - 30px)!important}
- #app .pl-seat-upper.pl-seat-2,#app .pl-seat-upper.pl-seat-3{left:18%!important}
- #app .pl-table-six-max .pl-seat-4.pl-seat-upper{left:50%!important}
- #app .pl-table-six-max .pl-seat-5.pl-seat-upper{left:82%!important}
- #app .pl-seat-side{left:17%!important}
- #app .pl-seat-side:last-child{left:83%!important}
+ #app .pl-seat-upper{top:calc(var(--felt-top) - var(--seat-h) - 16px)!important}
+ #app .pl-seat-side{top:calc(100% - var(--felt-bottom) - var(--seat-h) - 15px)!important}
  #app .pl-table-heads-up .pl-seat-upper{left:50%!important}
  #app .pl-player-avatar{display:none}
  #app .pl-player-info{padding:4px}
@@ -120,3 +115,9 @@
  #app .pl-table-settings{width:29px}
 }
 @media(prefers-reduced-motion:reduce){#app .pl-card-deal,#app .pl-card-showdown-reveal{animation:none!important}}
+
+#app .pl-seat.is-folded{opacity:1}
+#app .pl-seat.is-folded .pl-player-info{opacity:.6}
+#app .pl-seat.is-folded .pl-player-badges{opacity:1}
+#app .pl-player-info .pl-player-name {min-width:0}
+#app .pl-seat.is-allin .pl-player-info {border-color:var(--nct-error)!important}
