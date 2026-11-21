@@ -607,6 +607,29 @@ async function run() {
     });
     await captureGameElement("table-6max-complete-desktop", "#training-game .pl-table-container");
     await captureGameElement("table-6max-with-controls-desktop", "#training-game");
+
+    // A real desktop cockpit must fit the original controls without narrow,
+    // unreadable sizing pills. The older nested two-column action grid did not.
+    const desktopCockpit = await page.evaluate(() => {
+      const r = el => el.getBoundingClientRect();
+      const table = document.querySelector("#training-table .pl-table-container");
+      const actions = document.querySelector("#training-game > #training-actions");
+      const buttons = [...actions.querySelectorAll(".pl-action-buttons button")];
+      const presets = [...actions.querySelectorAll(".pl-bet-presets button")];
+      return {
+        table:r(table),actions:r(actions),
+        buttonMinWidth:Math.min(...buttons.map(el=>r(el).width)),
+        buttonMinHeight:Math.min(...buttons.map(el=>r(el).height)),
+        presetMinWidth:presets.length?Math.min(...presets.map(el=>r(el).width)):null
+      };
+    });
+    assert.ok(desktopCockpit.actions.left>=desktopCockpit.table.right+8,
+      "Desktop action cockpit must be beside the table");
+    assert.ok(desktopCockpit.buttonMinWidth>=95 && desktopCockpit.buttonMinHeight>=44,
+      "Desktop decision actions must remain wide enough to read and click");
+    assert.ok(desktopCockpit.presetMinWidth===null || desktopCockpit.presetMinWidth>=60,
+      "Desktop bet presets must never collapse into narrow columns");
+
     const desktopSeatAndSolver = await page.evaluate(() => {
       const stage = document.querySelector(".pl-live-table-stage").getBoundingClientRect();
       const solver = document.querySelector("#training-solver-dock > .pl-solve-button").getBoundingClientRect();
