@@ -217,21 +217,19 @@ test("Folded players preserve unmodified navy card backs and tiny phones fit sea
   assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "No card-back graphic changes");
 });
 
-test("UI rail clearance and wagers stay central without moving cards or the engine", () => {
-  const css = read("frontend/src/styles/poker-table.css");
+test("Minuit Cuivre table keeps logical seats, visible wagers and nonoverlapping cards", () => {
+  const css = read("frontend/src/styles/minuit-cuivre.css");
   const smoke = read("tests/v2-browser-smoke.mjs");
   const table = read("frontend/src/components/table.ts");
-  assert.match(css, /top: calc\(12% \+ 117px\) !important/);
-  assert.match(css, /height: calc\(76% - 189px\) !important/);
-  assert.match(css, /top: calc\(19% \+ 93px\) !important/);
-  assert.match(css, /height: calc\(69% - 130px\) !important/);
-  assert.match(css, /top: calc\(100% \+ 86px\)/);
-  assert.match(css, /bottom: calc\(100% \+ 105px\)/);
-  assert.match(css, /bottom: calc\(100% \+ 125px\)/);
-  assert.match(smoke, /Far-side opponents must remain at least 40px away/);
-  assert.match(smoke, /Every bet must be nearer the table's horizontal axis/);
+  assert.match(css, /\.pl-table-container > \.pl-felt/);
+  assert.match(css, /height: 45% !important/);
+  assert.match(css, /\.pl-seat-upper \.pl-player-cards/);
+  assert.match(css, /\.pl-seat-lower \.pl-player-cards/);
+  assert.match(smoke, /Seats must remain in their intended positions/);
+  assert.match(smoke, /Seat capsules must never overlap/);
+  assert.match(smoke, /Private cards belonging to different players must not overlap|Private cards must remain separate from player labels/);
   assert.match(table, /if \(player\.streetBet > 0\)/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "The existing card design must remain untouched");
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Cards retain their original logic and artwork");
 });
 
 test("Showdown modal uses real engine distributions, native dialog and one next-hand action", () => {
@@ -296,61 +294,48 @@ test("Flop, turn and river animate only newly dealt cards without card redesign"
     "Keep the approved playing card graphics intact");
 });
 
-test("Jouer table is taller with the hand and Solver kept inside a clear upper lane", () => {
-  const css=read("frontend/src/styles/poker-table.css");
+test("Minuit Cuivre bounds the table height while preserving the hand and solver lane", () => {
+  const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/height: clamp\(720px, calc\(54vw \+ 220px\), 845px\) !important/);
-  assert.match(css,/height: clamp\(740px, calc\(147vw \+ 200px\), 850px\) !important/);
-  assert.match(css,/top: 4px !important/);
-  assert.match(css,/\.pl-table-solver-dock \{\s*position: absolute;[\s\S]*?top: 14px;/);
-  assert.match(css,/top: 36px !important/);
-  assert.match(css,/top: calc\(var\(--seat-y\) \+ 45px\) !important/);
-  assert.match(css,/top: calc\(19% \+ 25px\) !important/);
-  assert.match(browser,/Neither the hand summary nor Solver may overflow past the top frame/);
-  assert.match(browser,/The hand summary must not cover any top-header badge/);
-  assert.match(browser,/clearance above Bot 3/);
+  assert.match(css,/height: clamp\(505px,44vw,620px\) !important/);
+  assert.match(css,/\.pl-table-container > \.pl-hand-strength/);
+  assert.match(css,/\.pl-table-solver-dock/);
+  assert.match(browser,/Hand strength must not cover the middle upper player/);
+  assert.match(browser,/Solver must not escape the game stage/);
+  assert.match(browser,/Minuit Cuivre table height must stay bounded/);
 });
 
-test("Jouer pill gains 20px in height while all community streets share one animation",()=>{
-  const css=read("frontend/src/styles/poker-table.css");
+test("Minuit Cuivre preserves hand summary and actual flop-turn-river animations",()=>{
+  const css=read("frontend/src/styles/minuit-cuivre.css");
+  const old=read("frontend/src/styles/poker-table.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/height: 54px;\s*min-height: 54px;/);
-  assert.match(css,/\.pl-table-solver-dock \{\s*top: 46px;/);
-  assert.match(smoke,/Hand summary should be exactly 20px taller/);
-  assert.match(smoke,/Solver must be vertically centred beside the taller hand summary/);
+  assert.match(css,/height: 57px !important/);
+  assert.match(css,/\.pl-table-solver-dock/);
+  assert.match(old,/@keyframes pl-board-deal-flop/);
   assert.match(smoke,/Turn must use exactly the flop's 520ms duration/);
   assert.match(smoke,/River must use exactly the flop's 520ms duration/);
-  assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "Leave card illustrations unchanged");
 });
 
-test("Landscape tablet can show six-max table and decisions together, without scrolling",()=>{
-  const css=read("frontend/src/styles/poker-table.css");
+test("Minuit Cuivre checks six-max landscape tablet decisions without scrolling",()=>{
+  const css=read("frontend/src/styles/minuit-cuivre.css");
   const browser=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/@media \(min-width: 1000px\) and \(max-width: 1280px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
-  assert.match(css,/grid-template-areas:\s*"heading heading"\s*"felt actions"/);
-  assert.match(css,/height: clamp\(500px, calc\(100dvh - 165px\), 710px\) !important/);
-  assert.match(css,/\.pl-action-buttons \{\s*grid-template-columns: repeat\(2/);
-  assert.match(css,/\.pl-bet-presets \{\s*grid-template-columns: repeat\(2/);
+  assert.match(css,/@media \(min-width: 768px\) and \(max-height: 900px\) and \(orientation: landscape\)/);
+  assert.match(css,/grid-template-areas: none !important/);
+  assert.match(css,/height: clamp\(400px,calc\(100dvh - 310px\),520px\) !important/);
   for (const size of ["1024,768","1080,810","1180,820"])
     assert.ok(browser.includes("verifyTabletLandscapeControls("+size+")"));
-  assert.match(browser,/All tablet landscape game actions must fit inside the visible viewport/);
-  assert.match(browser,/Entire tablet landscape table must fit inside the visible viewport/);
-  assert.doesNotMatch(css,/\.pl-card--back\b|\.pl-card__/, "No redesign of the cards");
+  assert.match(browser,/All decision controls should fit on a tablet landscape screen/);
+  assert.match(browser,/Touch decisions should follow the table without overlap/);
 });
 
-test("Tablet landscape private cards straddle the rail halfway like desktop",()=>{
-  const css=read("frontend/src/styles/poker-table.css");
+test("Minuit Cuivre retains straddling cards without collisions on landscape tablets",()=>{
+  const css=read("frontend/src/styles/minuit-cuivre.css");
   const smoke=read("tests/v2-browser-smoke.mjs");
-  assert.match(css,/\.pl-seat-upper \.pl-player-cards \{\s*top: calc\(100% \+ 15px\)/);
-  assert.match(css,/\.pl-seat-lower \.pl-player-cards \{\s*bottom: calc\(100% \+ 15px\)/);
-  assert.match(css,/\.pl-player-bet \{\s*top: calc\(100% \+ 112px\)/);
-  assert.match(css,/\.pl-seat-lower \.pl-player-bet \{\s*top: auto;\s*bottom: calc\(100% \+ 129px\)/);
-  assert.match(smoke,/The red felt needs enough depth for private cards/);
-  assert.match(smoke,/Every hole card must sit about half inside and half outside the gold rail/);
-  assert.match(smoke,/Hole cards must stay separate from their player's capsule/);
-  assert.match(smoke,/No private card should overlap another player's cards/);
-  assert.match(smoke,/Player hole cards must never overlap community-card slots/);
-  assert.match(smoke,/Bet chips must not overlap the community-card row/);
+  assert.match(css,/\.pl-seat-upper \.pl-player-cards/);
+  assert.match(css,/\.pl-seat-lower \.pl-player-cards/);
+  assert.match(smoke,/Private cards should straddle the felt edge/);
+  assert.match(smoke,/Private cards must remain separate from player labels/);
+  assert.match(smoke,/Private cards belonging to different players must not overlap/);
 });
 
 test("Reject the organic SVG table while keeping the rest of the modern UI", () => {
@@ -369,21 +354,18 @@ test("Reject the organic SVG table while keeping the rest of the modern UI", () 
 });
 
 
-test("Compact Jouer table and clearly readable folded opponents", () => {
-  const css = read("frontend/src/styles/poker-table-immersive.css");
+test("Minuit Cuivre explicitly marks folded opponents and shortens the game stage", () => {
+  const css = read("frontend/src/styles/minuit-cuivre.css");
   const table = read("frontend/src/components/table.ts");
   const smoke = read("tests/v2-browser-smoke.mjs");
-  assert.match(css, /height: clamp\(620px, calc\(54vw \+ 120px\), 745px\) !important/);
-  assert.match(css, /height: clamp\(640px, calc\(147vw \+ 100px\), 750px\) !important/);
-  assert.match(css, /#training-game:not\(\.hidden\) #training-table \.pl-table-container/);
-  assert.match(css, /#a62736 !important/);
+  assert.match(css, /height: clamp\(505px,44vw,620px\) !important/);
   assert.match(css, /\.pl-seat\.is-folded:not\(\.pl-seat-hero\) \.pl-badge-folded/);
+  assert.match(css, /background: #49313A !important/);
   assert.match(table, /"pl-badge pl-badge-folded",\s*"FOLD"/);
   assert.match(smoke, /Fold label must be readable/);
-  assert.match(smoke, /The table must no longer be excessively tall/);
-  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Original card art remains unchanged");
+  assert.match(smoke, /Minuit Cuivre table height must stay bounded/);
+  assert.doesNotMatch(css, /\.pl-card--back\b|\.pl-card__/, "Native card artwork is not changed");
 });
-
 
 test("Minuit Cuivre applies a single late-loading presentation layer across all original features", () => {
   const main = read("frontend/src/main.tsx");
