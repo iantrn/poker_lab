@@ -245,10 +245,12 @@ export function installPostflopSolverUI(): void {
         const metric = element("div", "nct-solver-metric");
         metric.append(element("span", "", "Équité estimée"), element("strong", "",
             (result.equity * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"));
-        overview.append(intro, metric);
+        overview.append(intro);
         const strategyPanel = element("section", "nct-solver-strategy");
         strategyPanel.setAttribute("aria-label", "Fréquences des actions");
-        strategyPanel.append(frequencies);
+        const results = element("div", "solver-results");
+        results.append(frequencies, metric);
+        strategyPanel.append(results);
         const disclosure = element("footer", "nct-solver-disclosure");
         disclosure.append(certification, detailsButton, details);
         container.append(overview, strategyPanel, disclosure);

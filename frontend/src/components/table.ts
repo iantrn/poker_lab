@@ -603,13 +603,10 @@ function createTable() {
                 "pl-player-details"
             );
 
-            playerDetails.append(
-                name,
-                position
-            );
 
             const caption = createElement("div", "pl-player-caption");
-            caption.append(playerDetails, stack);
+            caption.append(name, playerDetails);
+            playerDetails.append(position, stack);
             info.append(renderPlayerAvatar(), caption);
 
             // Cartes.
@@ -1034,10 +1031,7 @@ function createTable() {
             }
         }
 
-        center.append(pot, board);
-        const tableMark = createElement("span", "nct-table-mark", "POKERLAB");
-        tableMark.setAttribute("aria-hidden", "true");
-        felt.appendChild(tableMark);
+        center.append(board, pot);
 
         felt.appendChild(center);
 
@@ -1095,6 +1089,7 @@ function createTable() {
             if (index === activePhase) marker.classList.add("is-current");
             if (index < activePhase) marker.classList.add("is-complete");
             if (gameState.handComplete && index === activePhase) marker.classList.add("is-complete");
+            if (index === activePhase) marker.setAttribute("aria-current", "step");
             timeline.appendChild(marker);
         });
         const activePlayer = players.find(player => player.id === gameState.currentPlayerId);
@@ -1105,7 +1100,8 @@ function createTable() {
                 ? (activePlayer.isHuman ? "À vous de jouer" : "Au tour de " + activePlayer.name)
                 : "En attente du prochain tour"
         );
-        flow.append(timeline, status);
+        flow.append(timeline);
+        header.insertBefore(status, settings);
 
         table.append(header, felt, seats, flow);
 

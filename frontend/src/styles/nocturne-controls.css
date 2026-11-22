@@ -151,7 +151,7 @@ button,a,input,select{ -webkit-tap-highlight-color:transparent }
 }
 
 #app .nct-hand-cell{isolation:isolate;background:#25383F;overflow:hidden}
-#app .nct-hand-cell-progress{position:absolute;inset:auto 0 0;height:var(--fill);background:#167D65;z-index:-1;pointer-events:none}
+#app .matrix-frequency{position:absolute;inset:auto auto 0 0;height:4px;width:var(--fill);background:var(--nct-gold)}
 #app .nct-hand-cell-label{display:grid;gap:2px;place-items:center}
 #app .nct-hand-cell .pl-range-cell-frequency{display:block;font-size:.5rem;font-weight:500;line-height:1.1}
 #app .pl-range-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}

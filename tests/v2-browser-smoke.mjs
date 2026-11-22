@@ -113,7 +113,7 @@ async function run() {
     await captureUi("home-desktop");
     // The desktop navigation rail is a real topology change above 1380px.
     await page.setViewportSize({width:1600,height:900});
-    await captureUi("home-sidebar-wide-desktop");
+    await captureUi("home-wide-desktop");
     await page.setViewportSize({width:1365,height:768});
 
     // V2-owned React contract: assert stable ids, page anchors, and hooks
@@ -142,10 +142,10 @@ async function run() {
     assert.equal(await page.locator("#home").isVisible(), true);
     // Home is now React-owned. Duplicate legacy markup or missing card
     // navigation would invalidate the incremental component migration.
-    assert.equal(await page.locator("#home > .nct-home").count(), 1);
-    assert.equal(await page.locator("#home .pl-home-card").count(), 5);
+    assert.equal(await page.locator("#home > .lobby").count(), 1);
+    assert.equal(await page.locator("#home .practice-paths a").count(), 3);
     assert.equal(await page.locator("#home .pl-home-primary-link").count(), 1);
-    assert.match(await page.locator("#home h1").textContent(), /Maîtrise.*décision/);
+    assert.match(await page.locator("#home h1").textContent(), /La salle de poker/);
 
     await page.locator('#home .pl-home-primary-link').click();
     assert.equal(await page.locator("#training").isVisible(), true);

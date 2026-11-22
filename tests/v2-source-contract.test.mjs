@@ -62,7 +62,7 @@ test("UI phase 1 uses scoped palette aliases and protects card rendering", () =>
     assert.ok(shell.includes('data-module="' + section + '"'), "Missing module hook: " + section);
   assert.match(shell, /pl-mobile-nav/);
   assert.match(shell, /page: "review", label: "Analyse"/);
-  assert.match(home, /pl-home-card-title/);
+  assert.match(home, /practice-paths/);
   assert.match(mark, /viewBox="0 0 64 64"/);
   assert.doesNotMatch(shell, /[🎯📚⚙]/u);
 });
@@ -70,7 +70,7 @@ test("UI phase 1 uses scoped palette aliases and protects card rendering", () =>
 test("Phase 2 page primitives preserve dynamic runtime mounts and game-card isolation", () => {
   const primitives = read("frontend/src/ui/PagePrimitives.tsx");
   assert.match(primitives, /pl-page-panel/);
-  assert.match(primitives, /className="bg-surface/);
+  assert.match(primitives, /page-lead/);
   for (const page of ["TrainingPage", "TacticsPage", "LessonsPage", "ReviewPage", "SettingsPage"]) {
     const source = read("frontend/src/ui/" + page + ".tsx");
     assert.match(source, /<PagePanel\b/, page + " must use the shared shell");
@@ -315,24 +315,24 @@ test("Nocturne replaces the application composition while preserving runtime mou
   const css=read("frontend/src/styles/nocturne.css");
   const main=read("frontend/src/main.tsx");
   assert.match(main,/styles\/nocturne\.css/);
-  assert.match(shell,/nct-rail/);
-  assert.match(shell,/nct-workspace/);
-  assert.match(shell,/nct-mobile/);
-  assert.match(home,/nct-hero-art/);
-  assert.match(home,/nct-module-list/);
-  assert.match(training,/nct-setup-fields/);
-  assert.match(training,/nct-game-header/);
-  assert.match(tactics,/nct-filterbar/);
-  assert.match(tactics,/nct-stage/);
-  assert.match(lessons,/nct-reading-catalog/);
-  assert.match(lessons,/nct-range-section/);
-  assert.match(review,/nct-review-detail/);
-  assert.match(review,/nct-review-history/);
-  assert.match(settings,/nct-settings-row/);
+  assert.match(shell,/masthead/);
+  assert.match(shell,/studio-main/);
+  assert.match(shell,/pocket-routes/);
+  assert.match(home,/practice-feature/);
+  assert.match(home,/practice-paths/);
+  assert.match(training,/ticket-fields/);
+  assert.match(training,/session-toolbar/);
+  assert.match(tactics,/exercise-controls/);
+  assert.match(tactics,/exercise-sheet/);
+  assert.match(lessons,/course-index/);
+  assert.match(lessons,/range-library/);
+  assert.match(review,/hand-record/);
+  assert.match(review,/hand-index/);
+  assert.match(settings,/environment/);
   assert.match(read("frontend/src/ranges/viewer.ts"),/nct-range-controls/);
   assert.match(read("frontend/src/ui/postflop-solver.ts"),/nct-solver-overview/);
   assert.match(read("frontend/src/components/table.ts"),/nct-board-stage/);
-  assert.match(css,/grid-template-columns:216px minmax\(0,1fr\)/);
+  assert.match(css,/\.desktop-routes/);
   assert.match(css,/@media\(max-width:767px\)/);
   for(const token of ["#0B1016","#111B24","#1B2A32","#0D6256","#D7B56D","#F1CF88","#F3F5F2","#AAB8BB","#2D4147","#C39A4D","#53616A","#43B38D","#EF6672"]) {
     assert.ok(css.includes(token),"Missing approved Nocturne token: "+token);

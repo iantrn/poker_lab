@@ -3,7 +3,7 @@
 #app #training-game {display:grid;gap:12px;min-width:0;align-items:start}
 #app #training-table,#app .pl-live-table-stage{width:100%;min-width:0;position:relative}
 #app .nct-table{--felt-top:205px;--felt-bottom:128px;--seat-w:clamp(94px,15%,145px);--seat-h:48px;--hole-w:clamp(39px,5.5vw,48px);--hole-h:calc(var(--hole-w) * 1.44);position:relative;isolation:isolate;width:100%;height:clamp(505px,43vw,620px);min-width:0;overflow:visible;border:1px solid var(--nct-line);border-radius:13px}
-#app .nct-table > .pl-felt{position:absolute;inset:var(--felt-top) 7% var(--felt-bottom);border:2px solid var(--nct-gold);border-radius:120px}
+#app .nct-table > .pl-felt{position:absolute;inset:var(--felt-top) 6% var(--felt-bottom);border:3px solid #29453f;border-radius:clamp(56px,8vw,130px);box-shadow:0 0 0 1px #968155, inset 0 0 0 4px #194e44}
 #app .pl-table-center{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px}
 #app .pl-table-header{position:absolute;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:.71rem;font-weight:650;letter-spacing:.05em}
 #app .pl-table-settings{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;color:var(--nct-gold)}
@@ -61,7 +61,7 @@
 #app .pl-seat-upper .pl-player-bet{top:calc(100% + var(--hole-h) + 4px)}
 #app .pl-seat-hero .pl-player-bet{bottom:calc(100% + var(--hole-h) + 4px)}
 #app .pl-seat-side .pl-player-bet{bottom:calc(100% + 5px)}
-#app .pl-table-flow{position:absolute;bottom:8px;left:12px;right:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.68rem;color:var(--nct-muted)}
+#app .pl-table-flow{position:absolute;bottom:8px;left:12px;right:12px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:.68rem;color:var(--nct-muted)}
 #app .pl-table-flow-steps{display:flex;gap:10px}
 #app .pl-table-flow-step.is-current{font-weight:750}
 #app .pl-table-flow-step.is-complete{color:var(--nct-success)}
@@ -88,7 +88,7 @@
  #app #training-actions{grid-area:actions}
 }
 @media(min-width:1024px) and (max-height:900px) and (orientation:landscape){
- #app .nct-table{height:clamp(505px,calc(100dvh - 160px),710px)}
+ #app .nct-table{height:clamp(505px,calc(100dvh - 172px),620px)}
  #app #training:has(#training-game:not(.hidden)) .nct-page-intro{display:none}
  #app .nct-main:has(#training.is-active #training-game:not(.hidden)){padding-top:8px}
 }
@@ -138,3 +138,11 @@
 @media(min-width:768px) and (max-width:1023px){#app .nct-table{height:560px}}
 
 #app .pl-bet-slider{min-height:44px;height:44px;margin:0;touch-action:pan-x}
+
+#app .pl-table-flow-steps {gap:2px}
+#app .pl-table-flow-step {padding:3px 8px;border-top:2px solid var(--nct-line)}
+#app .pl-table-flow-step.is-current {border-color:var(--nct-gold)}
+#app .pl-table-flow-status {margin-left:auto;letter-spacing:0;color:var(--nct-text)}
+#app .pl-table-settings {margin-left:0}
+#app .pl-player-details {display:flex;align-items:baseline;gap:5px}
+@media(max-width:600px){#app .pl-table-flow-status {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}#app .pl-table-settings {margin-left:auto}}

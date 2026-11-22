@@ -37,7 +37,7 @@ export const RangeMatrix = memo(function RangeMatrix({ range, options, onToggle 
             aria-pressed={pressed} disabled={!options.interactive}
             style={{ "--fill": `${frequency}%` } as CSSProperties}
             onClick={() => onToggle(hand)}>
-            <span className="nct-hand-cell-progress" aria-hidden="true"/>
+            <span className="matrix-frequency" aria-hidden="true"/>
             <span className="nct-hand-cell-label">
               <span className="pl-range-cell-hand">{hand}</span>
               {options.showFrequencies && <span className="pl-range-cell-frequency">{Math.round(frequency)}%</span>}

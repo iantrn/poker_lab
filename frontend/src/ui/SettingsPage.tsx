@@ -1,13 +1,13 @@
 import { PagePanel } from "./PagePrimitives";
-export function SettingsPage(){
-  return <PagePanel title="Paramètres" eyebrow="05 / PRÉFÉRENCES" description="Retrouve les informations et les options de ton espace de travail.">
-    <div className="nct-settings-list">
-      <section className="nct-settings-row">
-        <h3>Environnement</h3><p>PokerLab — Nocturne. Entraînement, leçons et historique des mains accessibles depuis la navigation.</p>
-      </section>
-      <section id="settings-content" className="nct-settings-row">
-        <h3>Personnalisation</h3><p>Les options de personnalisation seront développées ici.</p>
-      </section>
-    </div>
+
+export function SettingsPage() {
+  return <PagePanel title="Paramètres" description="Consulte les informations de ton environnement de jeu.">
+    <section id="settings-content" className="environment">
+      <h3>Application</h3>
+      <dl><div><dt>Interface</dt><dd>PokerLab · Nocturne</dd></div>
+        <div><dt>Format de jeu</dt><dd>No-Limit Hold’em</dd></div>
+        <div><dt>Historique des mains</dt><dd>Enregistré sur cet appareil</dd></div></dl>
+      <a className="nct-button" href="#training" data-page="training">Configurer une session</a>
+    </section>
   </PagePanel>;
 }

@@ -1,42 +1,23 @@
 import { PokerLabIcon, type PokerLabIconName } from "./PokerLabIcon";
-import type { MouseEvent } from "react";
 
-const modules: ReadonlyArray<{page:string;title:string;detail:string;icon:PokerLabIconName}>=[
-  {page:"training",title:"Jouer",detail:"Affronte des bots et teste tes décisions.",icon:"play"},
-  {page:"tactics",title:"Tactiques",detail:"Travaille des situations concrètes.",icon:"tactics"},
-  {page:"lessons",title:"Apprentissage",detail:"Explore les cours et les ranges.",icon:"learn"},
-  {page:"review",title:"Game Review",detail:"Analyse les mains de tes sessions.",icon:"review"},
-  {page:"settings",title:"Paramètres",detail:"Retrouve ton environnement de travail.",icon:"settings"}
+const activities: { page: string; title: string; detail: string; icon: PokerLabIconName }[] = [
+  { page: "lessons", title: "Étudier", detail: "Leçons et ranges préflop", icon: "learn" },
+  { page: "tactics", title: "S’exercer", detail: "Décisions préflop et postflop", icon: "tactics" },
+  { page: "review", title: "Revoir une main", detail: "Historique de tes sessions", icon: "review" }
 ];
-function navigate(event:MouseEvent<HTMLAnchorElement>,page:string){
-  if(event.defaultPrevented)return;
-  const navigation=(window as Window&{PokerLabNavigation?:{navigateTo(page:string):boolean}}).PokerLabNavigation;
-  if(navigation){event.preventDefault();navigation.navigateTo(page);}
-}
-export function HomePage(){
-  return <div className="nct-home">
-    <section className="nct-welcome">
-      <div className="nct-welcome-copy">
-        <p className="nct-kicker">POKERLAB / NOCTURNE</p>
-        <h1>Maîtrise<br/>la prochaine<br/><em>décision.</em></h1>
-        <p>Un espace pour étudier le No-Limit Hold'em, jouer sans argent réel et analyser tes mains.</p>
-        <a href="#training" data-page="training" onClick={event=>navigate(event,"training")} className="pl-home-primary-link nct-primary">Entrer à la table <PokerLabIcon name="arrow-right" size={19}/></a>
-      </div>
-      <div className="pl-home-visual nct-hero-art" aria-hidden="true">
-        <div className="nct-hero-orbit"><div className="nct-hero-suit">♠</div><span>NLH</span></div>
-        <div className="nct-hero-cards"><span>A<small>♠</small></span><span>K<small>♥</small></span></div>
-        <span className="nct-hero-caption">L'ART DE LA DÉCISION</span>
+
+export function HomePage() {
+  return <div className="lobby">
+    <header className="lobby-title"><h1>La salle de poker</h1><span>No-Limit Hold’em</span></header>
+    <section className="practice-feature" aria-labelledby="practice-title">
+      <div className="table-illustration" aria-hidden="true"><div className="illustrated-felt"><i>♠</i></div></div>
+      <div className="practice-copy"><p>Partie contre les bots</p><h2 id="practice-title">Prends place<br />à la table.</h2>
+        <a className="pl-home-primary-link studio-cta" href="#training" data-page="training">Configurer ma partie <PokerLabIcon name="arrow-right" /></a>
       </div>
     </section>
-    <section className="nct-module-list" aria-labelledby="nct-module-title">
-      <div className="nct-list-heading"><p className="nct-kicker">TON ESPACE</p><h2 id="nct-module-title">Choisis ton activité</h2></div>
-      {modules.map((m,index)=><a key={m.page} href={"#"+m.page} data-page={m.page}
-        onClick={event=>navigate(event,m.page)} className={"pl-home-card nct-module-row nct-module-"+m.page}>
-        <span className="nct-module-index">{String(index+1).padStart(2,"0")}</span>
-        <PokerLabIcon name={m.icon} size={23}/>
-        <span><strong className="pl-home-card-title">{m.title}</strong><small>{m.detail}</small></span>
-        <PokerLabIcon name="arrow-right" size={18}/>
-      </a>)}
-    </section>
+    <nav className="practice-paths" aria-label="Étude et analyse">{activities.map(activity =>
+      <a key={activity.page} href={"#" + activity.page} data-page={activity.page}>
+        <PokerLabIcon name={activity.icon} size={25} /><span><strong>{activity.title}</strong><small>{activity.detail}</small></span><PokerLabIcon name="arrow-right" size={18}/>
+      </a>)}</nav>
   </div>;
 }

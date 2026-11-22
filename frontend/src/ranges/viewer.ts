@@ -357,12 +357,13 @@ export function installRangesViewer(): RangesViewerApi {
         const matrixHeader = el("header", "nct-matrix-heading");
         matrixHeader.append(ui.title, ui.summary);
         const matrixFooter = el("footer", "nct-matrix-footer");
-        matrixFooter.append(legend, ui.detail, ui.error);
+        matrixHeader.append(ui.detail);
+        matrixFooter.append(legend, ui.error);
         panel.append(matrixHeader, ui.matrix, matrixFooter);
         const controls = el("aside", "nct-range-controls");
         controls.setAttribute("aria-label", "Sélection du spot");
         controls.append(ui.positions, filters, ui.count, ui.list);
-        root!.append(panel, controls);
+        root!.append(controls, panel);
     }
 
 

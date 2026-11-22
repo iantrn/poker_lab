@@ -1,9 +1,9 @@
 import { PagePanel } from "./PagePrimitives";
 import { PokerLabIcon } from "./PokerLabIcon";
 export function TacticsPage(){
-  return <PagePanel title="Tactiques" eyebrow="02 / ENTRAÎNEMENT"
+  return <PagePanel title="Tactiques"
     description="Entraîne tes décisions préflop, postflop et ton raisonnement mathématique.">
-    <div className="nct-filterbar nct-form">
+    <div className="exercise-desk"><aside className="exercise-controls"><h3>Choisir un exercice</h3>
       <label>Catégorie
         <select data-puzzle-category className="pl-field-control" aria-label="Filtrer les tactiques par catégorie">
           <option value="">Toutes les catégories</option>
@@ -17,11 +17,11 @@ export function TacticsPage(){
         </select>
       </label>
       <button type="button" data-puzzle-action="start" className="nct-button nct-button--gold"><PokerLabIcon name="play" size={18}/> Commencer un exercice</button>
-    </div>
-    <section className="nct-stage" aria-label="Exercice interactif">
-      <header className="nct-stage-head"><p className="nct-kicker">DÉCISION STRATÉGIQUE</p><span>NLH</span></header>
+      <p data-puzzle-stats className="pl-session-stats" aria-live="polite" />
+    </aside>
+    <section className="exercise-sheet" aria-label="Exercice interactif">
       <div data-puzzles-container aria-live="polite"><p>Chargement des exercices…</p></div>
     </section>
-    <p data-puzzle-stats className="pl-session-stats" aria-live="polite">Les statistiques de cette session apparaîtront ici.</p>
+    </div>
   </PagePanel>;
 }
