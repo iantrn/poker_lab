@@ -966,16 +966,20 @@ function renderGame(state: GameState | null = null): void {
         slider.value = amountInput.value;
         slider.setAttribute("aria-label", "Ajuster le montant de la mise ou de la relance");
 
+        const committed = state.players.find(player => player.id === state.currentPlayerId)?.streetBet ?? 0;
+        const describeSize = (total: number): string => actionType === "raise"
+            ? `${formatChips(total)} BB · +${formatChips(total - committed)} BB`
+            : `${formatChips(total)} BB`;
         const amountValue = createElement(
             "strong",
             "pl-bet-current-value",
-            `${formatChips(Number(amountInput.value))} BB`
+            describeSize(Number(amountInput.value))
         );
 
         const label = createElement(
             "span",
             "pl-bet-label",
-            actionType === "bet" ? "Montant de la mise" : "Montant de la relance"
+            actionType === "bet" ? "Montant de la mise" : "Relancer à (total)"
         );
 
         const normalizeAmount = (value: unknown): number | null => {
@@ -1000,7 +1004,7 @@ function renderGame(state: GameState | null = null): void {
 
             amountInput.value = String(normalized);
             slider.value = String(normalized);
-            amountValue.textContent = `${formatChips(normalized)} BB`;
+            amountValue.textContent = describeSize(normalized);
             presets.querySelectorAll<HTMLButtonElement>("button").forEach(button => {
                 button.setAttribute("aria-pressed", String(button === selectedPreset));
             });

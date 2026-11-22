@@ -919,7 +919,7 @@ function createLessons() {
             );
 
             const title = createElement(
-                "h3",
+                "span",
                 "pl-lesson-card-title",
                 lesson.title
             );
@@ -977,7 +977,9 @@ function createLessons() {
 
             });
 
-            card.appendChild(button);
+            button.replaceChildren(title);
+            button.setAttribute("aria-label", "Ouvrir la leçon : " + lesson.title);
+            summary.prepend(button);
 
             catalog.appendChild(card);
 

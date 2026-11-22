@@ -750,7 +750,7 @@ function createPuzzles() {
 
             optionsContainer.className = "pl-puzzle-options";
 
-            puzzle.options.forEach((option, index) => {
+            puzzle.options.forEach((option) => {
 
                 const button = document.createElement("button");
 
@@ -765,13 +765,7 @@ function createPuzzles() {
                     ? option
                     : option.label || option.action;
 
-                const number = document.createElement("span");
-                number.className = "nct-option-index";
-                number.setAttribute("aria-hidden", "true");
-                number.textContent = String(index + 1).padStart(2, "0");
-                const caption = document.createElement("span");
-                caption.textContent = label;
-                button.append(number, caption);
+                button.textContent = label;
 
                 button.disabled = answered;
 

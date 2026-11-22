@@ -750,7 +750,7 @@ function createReview() {
 
         });
 
-        container.appendChild(playersSection);
+
 
         // Cartes communes.
 
@@ -827,6 +827,9 @@ function createReview() {
         });
 
         container.appendChild(actionsSection);
+        const roster = createElement("details", "record-players");
+        roster.append(createElement("summary", "", "Joueurs et stacks"), playersSection);
+        container.appendChild(roster);
 
         // Résultat.
 

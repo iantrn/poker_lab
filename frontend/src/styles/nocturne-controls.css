@@ -163,3 +163,9 @@ button,a,input,select{ -webkit-tap-highlight-color:transparent }
 #app .pl-range-legend-swatch.pl-range-cell--very-high{background:#43B38D}
 
 #app .nct-review-community{display:flex;flex-wrap:wrap;gap:5px}
+
+#app .course-index .pl-lesson-card {display:grid;grid-template-columns:1fr;background:transparent;border:0;border-bottom:1px solid var(--nct-line);padding:12px 0}
+#app .course-index .pl-lesson-open {justify-content:flex-start;text-align:left;padding:6px 0;background:transparent;border:0;color:var(--nct-text)}
+#app .exercise-sheet .pl-puzzle-options {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(12rem,100%),1fr));gap:8px}
+#app .exercise-sheet .pl-puzzle-option {display:block;text-align:left;padding:14px 16px}
+.record-players summary {cursor:pointer;padding:12px 0;color:var(--nct-accent)}

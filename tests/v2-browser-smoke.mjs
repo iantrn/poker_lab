@@ -401,7 +401,7 @@ async function run() {
         return {
           viewport:{width:innerWidth,height:innerHeight},
           table:r(table),actions:r(actions),felt,board,pairs,
-          headerVisible:getComputedStyle(document.querySelector("#training .pl-page-header")).display,
+          headerVisible:getComputedStyle(document.querySelector("#training .page-lead")).display,
           buttonCount:buttons.length,
           buttonMinimum:buttons.length?Math.min(...buttons.map(el=>r(el).height)):0,
           presetMinimum:presets.length?Math.min(...presets.map(el=>r(el).height)):0,
