@@ -94,6 +94,20 @@ jobs:
           test ! -d dist/data/ranges/preflop/matrix/bb
           test -s dist/assets/icons/icon-192.png
           test -s dist/assets/icons/pokerlab-mark.svg
+      - name: Compare production interfaces and check the installed PWA upgrade
+        if: github.head_ref == 'feature/pokerlab-reconstruction-integrale'
+        run: |
+          set -eu
+          for entry in 'main 23a1dbfbf6ca82abe022662ca557b44d1d7a90d9' 'nocturne 288fdd378fc865c83a355b49a9cb99b150e3b46e'; do
+            read -r name revision <<< "$entry"
+            git fetch --depth=1 origin "$revision"
+            target="$RUNNER_TEMP/pokerlab-$name"
+            git worktree add --detach "$target" "$revision"
+            cp -r engine/pkg "$target/engine/pkg"
+            npm ci --prefix "$target/frontend" --no-audit --no-fund
+            npm run build --prefix "$target/frontend"
+          done
+          node tests/v2-interface-comparison.mjs "$RUNNER_TEMP/pokerlab-main/dist" "$RUNNER_TEMP/pokerlab-nocturne/dist" dist
       - name: Browser smoke test (React, Matrix, WASM Worker, PWA offline)
         env:
           POKERLAB_CAPTURE_UI: "1"
