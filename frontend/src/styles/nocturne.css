@@ -131,7 +131,7 @@ html,body {background:var(--nct-bg);color:var(--nct-text)}
 #app .pl-solve-dialog {background:var(--nct-secondary)!important}
 #app .pl-review-history-item {background:var(--nct-secondary)!important}
 #app #training-table .nct-table .pl-seat.is-folded .pl-player-info{filter:saturate(.3)}
-#app .pl-rv.nct-ranges {display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.52fr);grid-template-areas:"matrix controls";align-items:start;gap:20px;color:var(--nct-text)}
+#app .pl-rv.nct-ranges {display:grid;grid-template-columns:minmax(190px,28%) minmax(0,1fr);grid-template-areas:"controls matrix";align-items:start;gap:20px;color:var(--nct-text)}
 #app .nct-ranges .pl-rv-panel {grid-area:matrix;min-width:0;box-shadow:none;border:0;border-radius:8px;background:var(--nct-secondary);padding:16px}
 #app .nct-range-controls {grid-area:controls;display:grid;gap:12px;min-width:0}
 #app .nct-ranges :is(.pl-rv-tabs,.pl-rv-filters,.pl-rv-count,.pl-rv-list) {grid-area:auto;min-width:0}
@@ -158,7 +158,7 @@ html,body {background:var(--nct-bg);color:var(--nct-text)}
   #app .pl-rv.nct-ranges {grid-template-columns:minmax(0,1fr);grid-template-areas:"controls" "matrix"}
   #app .nct-range-controls .pl-rv-list {max-height:200px;overflow:auto}
 }
-#app .pl-rv.nct-ranges {grid-template-columns:minmax(190px,28%) minmax(0,1fr);grid-template-areas:"controls matrix"}
+
 #app .solver-results {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start}
 #app .solver-results .nct-solver-metric {padding:12px;background:var(--nct-surface);border-radius:5px}
 @media(max-width:900px) {
@@ -190,3 +190,9 @@ html,body {background:var(--nct-bg);color:var(--nct-text)}
 @media(prefers-reduced-motion:reduce) {
   #app *,#app *::before,#app *::after {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+.motion-setting {display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:58px;cursor:pointer}
+.motion-setting small {display:block;margin-top:4px;color:var(--nct-muted)}
+.motion-setting input {width:24px;height:24px;accent-color:var(--nct-gold)}
+.setting-status {color:var(--nct-muted);min-height:1.5em;font-size:.85rem}
+html[data-reduce-motion] #app *,html[data-reduce-motion] #app *::before,html[data-reduce-motion] #app *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}

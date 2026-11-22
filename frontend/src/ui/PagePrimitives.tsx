@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { PokerLabIcon, type PokerLabIconName } from "./PokerLabIcon";
-interface PagePanelProps {title:string;description:string;eyebrow?:string;children:ReactNode;}
+interface PagePanelProps {title:string;description:string;children:ReactNode;}
 export function PagePanel({title,description,children}:PagePanelProps){
   return <article className="pl-page-panel studio-page">
     <header className="page-lead"><h2>{title}</h2><p>{description}</p></header>

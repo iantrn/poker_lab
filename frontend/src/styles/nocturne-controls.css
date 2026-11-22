@@ -128,9 +128,6 @@ button,a,input,select{ -webkit-tap-highlight-color:transparent }
 #app .nct-lesson-footer{padding-top:18px;border-top:1px solid var(--nct-line);margin-top:18px;display:flex;justify-content:flex-end}
 #app .nct-puzzle-introduction{margin-bottom:15px}
 #app .nct-puzzle-decision{padding:0;max-width:780px}
-#app .nct-option-index{display:grid;place-items:center;width:30px;height:30px;flex:none;border:1px solid var(--nct-line);border-radius:5px;color:var(--nct-gold);font-size:.73rem;font-weight:750}
-#app .pl-puzzle-option{display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;text-align:left}
-#app .pl-puzzle-option:hover:not(:disabled) .nct-option-index{background:var(--nct-gold);color:var(--nct-bg)}
 #app .pl-review-action{display:grid;grid-template-columns:24px minmax(55px,.35fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:baseline;font-size:.82rem;overflow-wrap:anywhere}
 #app .nct-review-ordinal{color:var(--nct-muted);font-size:.7rem}
 #app .nct-review-street{color:var(--nct-gold);font-size:.69rem;font-weight:750}

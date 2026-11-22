@@ -23,6 +23,7 @@ await new Promise(resolve => server.listen(0,"127.0.0.1",resolve));
 const url = "http://127.0.0.1:"+server.address().port+"/poker_lab/";
 const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || "/usr/bin/google-chrome",args:["--no-sandbox"]});
 const screens = [];
+const referenceSpots = new Map();
 const sizes = [[1366,768],[1080,810],[390,844]];
 async function ready(page) {
   await page.goto(url);
@@ -30,6 +31,16 @@ async function ready(page) {
   await page.locator("#home").waitFor();
 }
 async function capture(page, name) {
+  if (name==="table-6max" || name==="solveur-postflop") {
+    const spot = await page.evaluate(()=>{
+      const game=window.PokerLabTraining.getGameState();
+      return {street:game.street, pot:game.pot, board:game.board, seats:game.players.map(p=>({
+        position:p.position,stack:p.stack,bet:p.streetBet,folded:p.folded,hand:p.isHuman?p.holeCards:undefined
+      }))};
+    });
+    if (active===0) referenceSpots.set(name,spot);
+    else assert.deepEqual(spot,referenceSpots.get(name),"Les trois versions doivent afficher le même spot : "+name);
+  }
   for (const [width,height] of sizes) {
     await page.setViewportSize({width,height});
     await page.evaluate(() => window.scrollTo(0,0));
@@ -45,6 +56,17 @@ try {
     const page = await context.newPage();
     await ready(page);
     await capture(page,"accueil");
+    if (active===2) {
+      for (const [width,height] of [[1920,1080],[1366,768],[1080,810],[1024,768],[768,1024],[390,844],[375,667],[320,640]]) {
+        await page.setViewportSize({width,height});
+        for (const route of ["home","training","tactics","lessons","review","settings"]) {
+          await page.evaluate(destination=>window.PokerLabNavigation.navigateTo(destination),route);
+          const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+          assert.ok(overflow<=1,route+" déborde de "+overflow+" px à "+width+" × "+height);
+        }
+      }
+      await page.setViewportSize({width:1366,height:768});
+    }
     await page.evaluate(() => window.PokerLabNavigation.navigateTo("tactics"));
     await page.waitForFunction(() => window.PokerLabPuzzles.selectPuzzle("pf-btn-aqs-open").success);
     await page.evaluate(() => window.PokerLabPuzzles.renderPuzzle(document.querySelector("[data-puzzles-container]")));
@@ -56,6 +78,14 @@ try {
     await page.evaluate(() => {
       let seed=1945;
       Math.random=()=>((seed=(Math.imul(1664525,seed)+1013904223)>>>0)/4294967296);
+      // Only this browser fixture fixes the deck shuffle. Production uses Web Crypto.
+      let shuffle=1001;
+      const nativeRandom=crypto.getRandomValues.bind(crypto);
+      crypto.getRandomValues=array=>{
+        if (!(array instanceof Uint32Array)) return nativeRandom(array);
+        for(let i=0;i<array.length;i++) array[i]=shuffle=(Math.imul(1664525,shuffle)+1013904223)>>>0;
+        return array;
+      };
     });
     await page.locator('[data-training-action="start"]').click();
     await page.locator(".pl-action-btn-fold").waitFor();
@@ -101,9 +131,12 @@ try {
       if (!String(error).includes("context was destroyed")) throw error;
     });
     await page.waitForFunction(()=>!!document.querySelector(".masthead"),null,{timeout:45000});
+    await page.evaluate(()=>window.PokerLabNavigation.navigateTo("settings"));
+    await page.getByRole("checkbox",{name:/Réduire les animations/}).check();
     await context.setOffline(true);
     await page.reload();
     await page.locator(".masthead").waitFor();
+    assert.ok(await page.getByRole("checkbox",{name:/Réduire les animations/}).isChecked());
     await context.close();
     console.log("Mise à jour puis rechargement hors ligne réussis depuis",versions[baseline]);
   }
