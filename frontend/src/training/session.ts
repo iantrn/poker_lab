@@ -889,7 +889,7 @@ function renderGame(state: GameState | null = null): void {
         if (actionOptions.canCall) {
             buttonsContainer.appendChild(
                 createActionButton(
-                    `Suivre (${formatChips(actionOptions.callAmount)})`,
+                    `Suivre (${formatChips(actionOptions.callAmount)} BB)`,
                     () => executePlayerAction("call"),
                     { className: "pl-action-btn pl-action-btn-call" }
                 )

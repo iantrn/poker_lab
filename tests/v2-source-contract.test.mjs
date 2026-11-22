@@ -172,7 +172,7 @@ test("Approved table design retains native playing cards and solver outputs", ()
   assert.match(table, /function renderPlayerAvatar\(\)/);
   assert.match(table, /document\.createElementNS\(ns, "svg"\)/);
   assert.match(table, /info\.append\(renderPlayerAvatar\(\), caption\)/);
-  assert.match(table, /seat\.classList\.add\(y < 50/);
+  assert.match(table, /anchor\.rail === "far"/);
   assert.match(page, /id="training-solver-dock"/);
   assert.match(solver, /document\.getElementById\("training-solver-dock"\) \?\? actions/);
   assert.match(solver, /host\.append\(button, dialog\)/);
@@ -185,7 +185,7 @@ test("Approved table design retains native playing cards and solver outputs", ()
 test("Circular table layout preserves numeric ranks, centred hand and Solver", () => {
   const table = read("frontend/src/components/table.ts");
   const css = read("frontend/src/styles/nocturne-table.css");
-  assert.match(table, /6: \[\[50, 88\], \[15, 66\], \[18, 12\], \[50, 12\], \[82, 12\], \[85, 66\]\]/);
+  assert.match(table, /seatAnchor\(index, count\)/);
   assert.match(table, /numericRanks\(label: string\)/);
   assert.match(table, /Hauteur \$\{getRank\(high\)\}/);
   assert.doesNotMatch(table, /pl-hand-strength-detail",/);

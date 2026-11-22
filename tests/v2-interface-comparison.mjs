@@ -60,6 +60,18 @@ try {
     await page.locator('[data-training-action="start"]').click();
     await page.locator(".pl-action-btn-fold").waitFor();
     await capture(page,"table-6max");
+    const options=page.locator(".table-menu-trigger");
+    if (await options.count()) {
+      await options.click();
+      await capture(page,"options-table");
+      await options.press("Escape");
+      assert.equal(await options.evaluate(node=>node.parentElement.open),false);
+    } else {
+      await page.locator('.pl-table-settings').click();
+      await page.locator('#settings').waitFor();
+      await capture(page,"options-table");
+      await page.evaluate(()=>window.PokerLabNavigation.navigateTo("training"));
+    }
     // Play through normal buttons until the solver is available on a human turn.
     for (let decision=0;decision<40;decision++) {
       const action = await page.waitForFunction(() => {
@@ -95,6 +107,22 @@ try {
     await context.close();
     console.log("Mise à jour puis rechargement hors ligne réussis depuis",versions[baseline]);
   }
+  // A compact contact sheet in the QA log allows visual inspection even
+  // when the artifact ZIP is opened from another machine.
+  const sheet = await browser.newPage({ viewport:{width:1152,height:260},deviceScaleFactor:1 });
+  for (const key of ["accueil-1366x768","table-6max-1080x810","exercice-AQs-390x844","solveur-postflop-1366x768"]) {
+    const columns = await Promise.all(versions.map(async version => {
+      const bytes = await readFile(path.join(out,version+"-"+key+".png"));
+      return '<figure><figcaption>'+version+'</figcaption><img src="data:image/png;base64,'+bytes.toString("base64")+'"></figure>';
+    }));
+    await sheet.setContent('<style>*{box-sizing:border-box}body{margin:0;background:#101820;color:white;display:flex;font:14px system-ui}figure{margin:0;width:33.333%;padding:4px}img{display:block;width:100%;height:230px;object-fit:contain;object-position:top}figcaption{padding:2px}</style>'+columns.join(""));
+    await sheet.locator("img").evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
+    const bytes = await sheet.screenshot({type:"jpeg",quality:60});
+    await writeFile(path.join(out,key+"-contact.jpg"),bytes);
+    const encoded=bytes.toString("base64");
+    for(let start=0;start<encoded.length;start+=2048) console.log("CONTACT",key,start,encoded.slice(start,start+2048));
+  }
+  await sheet.close();
   const rows=screens.map(key=>'<section><h2>'+key+'</h2><div>'+versions.map(v=>'<figure><figcaption>'+v+'</figcaption><a href="'+v+'-'+key+'.png"><img loading="lazy" src="'+v+'-'+key+'.png" alt="'+v+' '+key+'"></a></figure>').join("")+'</div></section>').join("");
   await writeFile(path.join(out,"index.html"),'<!doctype html><html lang="fr"><meta charset="utf-8"><title>PokerLab · comparaison</title><style>body{background:#111b24;color:white;font:16px system-ui;padding:2vw}section div{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}figure{margin:0}img{width:100%}body:has(:checked) img{filter:grayscale(1)}</style><h1>Comparaison des interfaces</h1><label><input type="checkbox"> Niveaux de gris</label>'+rows+'</html>');
 } finally {

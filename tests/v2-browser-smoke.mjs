@@ -840,7 +840,7 @@ async function run() {
     assert.equal(await page.evaluate(() => window.PokerLabTraining.stopSession()), true);
 
     await page.locator('a[data-page="lessons"]').first().click();
-    assert.equal(await page.locator('#lessons > .bg-surface').count(),1,
+    assert.equal(await page.locator('#lessons > .studio-page').count(),1,
       "React lessons shell must mount exactly once");
     assert.equal(await page.locator('#lessons [data-lessons-catalog]').count(),1);
     assert.equal(await page.locator('#lessons [data-lesson-content]').count(),1);
