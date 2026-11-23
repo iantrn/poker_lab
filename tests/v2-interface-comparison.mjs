@@ -45,6 +45,8 @@ async function capture(page, name) {
     await page.setViewportSize({width,height});
     await page.evaluate(() => window.scrollTo(0,0));
     if (name==="exercice-AQs") await page.locator(".pl-puzzle-result").scrollIntoViewIfNeeded();
+    if (name==="lecture") await page.locator("[data-lesson-content] .pl-lesson-title").scrollIntoViewIfNeeded();
+    if (name==="ranges-AA") await page.locator(".pl-range-matrix").scrollIntoViewIfNeeded();
     const key = name+"-"+width+"x"+height;
     await page.screenshot({path:path.join(out,versions[active]+"-"+key+".png"),animations:"disabled"});
     if (!screens.includes(key)) screens.push(key);
@@ -118,6 +120,30 @@ try {
     await capture(page,"solveur-postflop");
     await page.locator(".pl-solve-details-toggle").click();
     await capture(page,"solveur-details");
+    await page.locator(".pl-solve-dialog-close").click();
+    await capture(page,"decision-postflop");
+    for (let decision=0;decision<16;decision++) {
+      const next=await page.waitForFunction(()=>{
+        if(document.querySelector("dialog.pl-result-dialog[open]")) return "complete";
+        return [".pl-action-btn-check",".pl-action-btn-call"].find(selector=>document.querySelector(selector+":enabled"));
+      });
+      const selector=await next.jsonValue();
+      if(selector==="complete") break;
+      await page.locator(selector).click();
+    }
+    await page.locator("dialog.pl-result-dialog[open]").waitFor();
+    await capture(page,"resultat-main");
+    await page.locator('[data-training-action="end-session"]').click();
+    await page.evaluate(()=>window.PokerLabNavigation.navigateTo("review"));
+    await page.locator(".pl-review-history-item button").first().click();
+    await capture(page,"historique");
+    await page.evaluate(()=>window.PokerLabNavigation.navigateTo("lessons"));
+    await page.locator(".pl-lesson-open").first().click();
+    await capture(page,"lecture");
+    await page.locator('.pl-range-cell[data-hand="AA"]').click();
+    await capture(page,"ranges-AA");
+    await page.evaluate(()=>window.PokerLabNavigation.navigateTo("settings"));
+    await capture(page,"parametres");
     console.log("Captures terminées",versions[active]);
     await context.close();
   }

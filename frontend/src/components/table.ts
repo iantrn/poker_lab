@@ -564,7 +564,7 @@ function createTable() {
                 player.name
             );
 
-            const isEliminated = Number(player.stack) <= 0;
+            const isEliminated = Number(player.stack) <= 0 && (handComplete || !isAllIn);
             const positionLabel = isEliminated
                 ? "OUT"
                 : (player.position || (isDealer ? "BTN" : ""));
