@@ -114,10 +114,11 @@ export function installPostflopSolverUI(): void {
             "GTO intégral non certifié : les fréquences reposent sur un jeu abstrait et un échantillonnage de mains, pas sur une preuve d’équilibre du No-Limit Hold’em.");
         certification.setAttribute("role","status");
 
-        const frequencies = element("div", "pl-solve-frequencies");
+        const frequencies = element("div", "pl-solve-frequencies nct-frequency-list");
         if (strategy && Array.isArray(strategy.actions) && strategy.actions.length) {
             strategy.actions.forEach(item => {
                 const row = element("div", "pl-solve-frequency-row");
+                row.dataset.strategyAction = item.action.toLowerCase();
                 const action = element("span", "pl-solve-frequency-action", item.action);
                 const value = element("strong", "pl-solve-frequency-value",
                     (item.frequency * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %");
@@ -238,7 +239,21 @@ export function installPostflopSolverUI(): void {
             detailsButton.setAttribute("aria-expanded", String(expanded));
         });
 
-        container.append(heading, summary, certification, frequencies, detailsButton, details);
+        const overview = element("header", "nct-solver-overview");
+        const intro = element("div", "nct-solver-intro");
+        intro.append(heading, summary);
+        const metric = element("div", "nct-solver-metric");
+        metric.append(element("span", "", "Équité estimée"), element("strong", "",
+            (result.equity * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"));
+        overview.append(intro);
+        const strategyPanel = element("section", "nct-solver-strategy");
+        strategyPanel.setAttribute("aria-label", "Fréquences des actions");
+        const results = element("div", "solver-results");
+        results.append(frequencies, metric);
+        strategyPanel.append(results);
+        const disclosure = element("footer", "nct-solver-disclosure");
+        disclosure.append(certification, detailsButton, details);
+        container.append(overview, strategyPanel, disclosure);
     }
 
     function renderProgress(panel:HTMLElement,snapshot:PrecomputeSnapshot):void {
@@ -393,7 +408,7 @@ export function installPostflopSolverUI(): void {
         dialog.setAttribute("aria-labelledby", "pl-solve-dialog-title");
 
         const header = element("header", "pl-solve-dialog-header");
-        const title = element("h3", "pl-solve-dialog-title", "Analyse SOLVE");
+        const title = element("h3", "pl-solve-dialog-title", "Analyse de la décision");
         title.id = "pl-solve-dialog-title";
 
         const closeButton = element("button", "pl-solve-dialog-close", "Fermer");

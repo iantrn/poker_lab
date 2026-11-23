@@ -1,0 +1,198 @@
+/* Nocturne — application architecture and design tokens.
+   Runtime-generated poker controls retain their documented DOM contracts. */
+:root {
+  color-scheme:dark;
+  --nct-bg:#0B1016;
+  --nct-secondary:#111B24;
+  --nct-surface:#1B2A32;
+  --nct-felt:#0D6256;
+  --nct-gold:#D7B56D;
+  --nct-accent:#F1CF88;
+  --nct-text:#F3F5F2;
+  --nct-muted:#AAB8BB;
+  --nct-line:#2D4147;
+  --nct-active:#C39A4D;
+  --nct-disabled:#53616A;
+  --nct-success:#43B38D;
+  --nct-error:#EF6672;
+  --nct-fold:#55636C;
+  --nct-check:#285D59;
+  --nct-call:#2D739C;
+  --nct-bet:#C29E5B;
+  --nct-raise:#D8AD62;
+  --nct-allin:#CA5968;
+  --bg-dark:var(--nct-bg);
+  --bg-table:var(--nct-secondary);
+  --bg-surface:var(--nct-surface);
+  --bg-surface-light:#25383F;
+  --text-primary:var(--nct-text);
+  --text-secondary:var(--nct-muted);
+  --text-muted:var(--nct-muted);
+  --accent-red:var(--nct-gold);
+  --accent-red-hover:var(--nct-accent);
+  --accent-green:var(--nct-felt);
+  --accent-green-light:var(--nct-success);
+  --accent-gold:var(--nct-gold);
+  --felt-green:var(--nct-felt);
+  --felt-green-dark:#08453D;
+  --felt-border:var(--nct-gold);
+  --border-subtle:rgba(170,184,187,.15);
+  --border-medium:rgba(170,184,187,.28);
+}
+html,body {background:var(--nct-bg);color:var(--nct-text)}
+#app.studio {
+  --pl-color-background:var(--nct-bg);--pl-color-surface:var(--nct-surface);
+  --pl-color-surface-raised:#25383F;--pl-color-text:var(--nct-text);
+  --pl-color-text-secondary:var(--nct-muted);--pl-color-muted:var(--nct-muted);
+  --pl-color-accent:var(--nct-gold);--pl-color-accent-hover:var(--nct-accent);
+  --pl-color-selection:var(--nct-accent);--pl-color-border:var(--nct-line);
+  --pl-color-border-strong:#53616A;
+  min-height:100dvh; font-family:"Segoe UI",system-ui,sans-serif; color:var(--nct-text);
+}
+#app [hidden], #app .hidden { display:none!important }
+#app :focus-visible { outline:2px solid var(--nct-accent); outline-offset:3px }
+#app a { color:inherit; text-decoration:none }
+#app h1,#app h2,#app h3,#app p { margin-top:0 }
+.masthead { display:flex; align-items:center; gap:24px; min-height:66px; padding:0 max(4vw,16px); border-bottom:1px solid var(--nct-line); background:var(--nct-secondary) }
+.wordmark { display:flex; align-items:center; gap:9px; font-weight:750; font-size:1.3rem; letter-spacing:-.055em }
+.desktop-routes { display:flex; align-self:stretch; margin:auto; gap:8px }
+.studio-route,.settings-link { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:0 14px; color:var(--nct-muted)!important }
+.studio-route[aria-current],.settings-link[aria-current] { color:var(--nct-accent)!important; box-shadow:inset 0 -2px var(--nct-gold) }
+.studio-route:hover,.settings-link:hover { background:var(--nct-surface) }
+#app .pocket-routes { display:none }
+.studio-main { max-width:1440px; margin:auto; padding:clamp(18px,4vw,60px) clamp(16px,5vw,72px) }
+.lobby-title { display:flex; gap:16px; align-items:baseline; justify-content:space-between; margin-bottom:22px }
+.lobby-title h1,.page-lead h2 { font-size:clamp(2rem,4vw,3.5rem); font-weight:550; line-height:1.12; letter-spacing:-.055em; margin:0 }
+.lobby-title span,.page-lead p,.practice-paths small,.ticket-rules,.environment dt {color:var(--nct-muted)}
+.practice-feature { min-height:clamp(260px,28vw,390px); display:grid; align-items:center; position:relative; overflow:hidden; isolation:isolate; background:#103d38; border-radius:12px }
+.practice-copy {padding:clamp(24px,5vw,72px);position:relative;justify-self:start}
+.practice-copy p {font-weight:650;color:#c5d9cb}
+.practice-copy h2 {font:normal clamp(2.8rem,5.7vw,5.8rem)/.98 Georgia,serif;letter-spacing:-.065em;margin:0 0 24px}
+.table-illustration {position:absolute;inset:0 0 0 42%;overflow:hidden;pointer-events:none}
+.illustrated-felt {position:absolute;inset:15% -15% -30% 9%;border-radius:44%;transform:rotate(-22deg);background:repeating-linear-gradient(35deg,#0d6256 0 2px,#105f53 2px 4px);box-shadow:0 0 0 7px #1b2a32,0 0 0 9px #af945b,0 0 0 21px #111b24,0 12px 28px 20px #08171477;display:grid;place-items:center}
+.illustrated-felt i {font:clamp(5rem,10vw,12rem)/1 Georgia,serif;color:#d7b56d99}
+#app .studio-cta,#app .nct-button {display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:10px 18px;font-weight:650;border-radius:5px;border:1px solid var(--nct-line);background:var(--nct-secondary);color:var(--nct-text)}
+#app .studio-cta,#app .nct-button--gold {color:var(--nct-bg);background:var(--nct-gold);border-color:transparent}
+#app .studio-cta:hover,#app .nct-button--gold:hover {background:var(--nct-accent)}
+.practice-paths {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:28px}
+.practice-paths a {border-block-start:1px solid var(--nct-line);padding:22px 0;display:flex;align-items:center;gap:14px}
+.practice-paths a>svg {color:var(--nct-gold);flex:none}
+.practice-paths a>svg:last-child {margin-left:auto}
+.practice-paths strong,.practice-paths small {display:block}
+.practice-paths strong {font-size:1.15rem}
+.page-lead {margin-bottom:30px}
+.page-lead p {max-width:66ch;margin:.7rem 0 0;line-height:1.55}
+.studio-page,.studio-main section,.course-reader,.hand-record,.exercise-sheet {min-width:0}
+.studio-page h3 {font-weight:650;letter-spacing:-.025em}
+.nct-section-heading {display:flex;align-items:center;gap:8px}
+.game-ticket {display:flex;flex-direction:column;gap:28px}
+.ticket-fields {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding-block:24px;border-block:1px solid var(--nct-line)}
+.ticket-fields label,.exercise-controls label {display:grid;gap:9px;align-content:start;font-weight:600}
+.ticket-actions,.course-tools,.session-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ticket-actions {margin-top:18px;justify-content:flex-start}
+.ticket-rules {display:flex;align-items:baseline;gap:24px;font-size:.85rem}
+.ticket-rules h3 {white-space:nowrap}
+.ticket-rules strong {display:block;color:var(--nct-text)}
+.exercise-desk,.course-desk,.history-desk {display:grid;grid-template-columns:minmax(185px,26%) minmax(0,1fr);gap:clamp(20px,4vw,64px);align-items:start}
+.exercise-controls,.course-index,.hand-index {min-width:0;border-top:2px solid var(--nct-gold);padding-top:16px}
+.exercise-controls {display:grid;gap:16px}
+.exercise-controls h3,.session-toolbar h3 {margin:0}
+.exercise-sheet,.course-reader,.hand-record {padding:clamp(16px,2.4vw,36px);background:var(--nct-secondary);border-radius:8px}
+.course-tools {margin:0 0 20px}
+.range-library {margin-top:52px;scroll-margin-top:12px}
+.environment {max-width:750px}
+.environment dl {margin-bottom:28px}
+.environment dl div {display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--nct-line)}
+.environment dd {margin:0;text-align:right}
+.studio-main:has(#training.is-active #training-game:not(.hidden)) {padding:10px clamp(8px,2vw,30px)}
+#training:has(#training-game:not(.hidden)) .page-lead {display:none}
+.session-toolbar {min-height:44px}
+#app #training-game .pl-training-game-heading {margin:0 0 8px}
+#app #training-game .pl-live-table-stage {border-radius:12px;background:var(--nct-secondary)}
+#app #training-game #training-table .pl-table-container {background:radial-gradient(ellipse at center,#18322F,var(--nct-secondary) 74%)!important;border-color:var(--nct-line)!important;box-shadow:none!important}
+#app #training-game #training-table .pl-table-container > .pl-felt {background:radial-gradient(ellipse at 50% 43%,#0D6256,#08453D 76%)!important;border-color:var(--nct-gold)!important;box-shadow:0 0 0 5px #111B24,0 12px 24px #0005!important}
+#app #training-game #training-table .pl-player-info {background:#111B24!important;border-color:#2D4147!important;color:var(--nct-text)!important}
+#app #training-game #training-table .pl-seat.is-active .pl-player-info {border-color:var(--nct-gold)!important;box-shadow:0 0 0 2px rgba(215,181,109,.3)!important}
+#app #training-game #training-table .pl-seat.is-folded .pl-player-info {opacity:.60!important;filter:saturate(.3)}
+#app #training-game #training-table .pl-seat .pl-badge-folded {background:#49313A!important;color:#FFE9E3!important}
+#app #training-game #training-table :is(.pl-player-name,.pl-player-stack,.pl-pot-amount,.pl-table-flow-status) {color:var(--nct-text)!important}
+#app #training-game #training-table :is(.pl-pot-label,.pl-table-flow-step.is-current) {color:var(--nct-gold)!important}
+#app #training-game #training-table .pl-pot-display {background:rgba(11,16,22,.65)!important;border-color:rgba(215,181,109,.4)!important}
+#app #training-game #training-table .pl-table-header {color:var(--nct-muted)!important;background:transparent!important}
+#app #training-game #training-table .pl-hand-strength,#app #training-game .pl-table-solver-dock .pl-solve-button {background:var(--nct-secondary)!important;border-color:var(--nct-line)!important;color:var(--nct-text)!important}
+#app #training-game #training-actions {background:var(--nct-secondary)!important;border-color:var(--nct-line)!important}
+#app #training-game .pl-action-btn-fold {background:var(--nct-fold)!important;color:var(--nct-text)!important}
+#app #training-game .pl-action-btn-check {background:var(--nct-check)!important;color:var(--nct-text)!important}
+#app #training-game .pl-action-btn-call {background:var(--nct-call)!important;color:#fff!important}
+#app #training-game .pl-action-btn-bet {background:var(--nct-bet)!important;color:var(--nct-bg)!important}
+#app #training-game .pl-action-btn-raise {background:var(--nct-raise)!important;color:var(--nct-bg)!important}
+#app #training-game :is(.pl-action-btn-allin,.pl-action-btn-all-in) {background:var(--nct-allin)!important;color:var(--nct-bg)!important}
+#app :is(.pl-solve-dialog,.pl-rv-matrix,.pl-lesson-detail,.pl-review-history-item) {border-color:var(--nct-line)!important;color:var(--nct-text)}
+#app .pl-solve-dialog {background:var(--nct-secondary)!important}
+#app .pl-review-history-item {background:var(--nct-secondary)!important}
+#app #training-table .nct-table .pl-seat.is-folded .pl-player-info{filter:saturate(.3)}
+#app .pl-rv.nct-ranges {display:grid;grid-template-columns:minmax(190px,28%) minmax(0,1fr);grid-template-areas:"controls matrix";align-items:start;gap:20px;color:var(--nct-text)}
+#app .nct-ranges .pl-rv-panel {grid-area:matrix;min-width:0;box-shadow:none;border:0;border-radius:8px;background:var(--nct-secondary);padding:16px}
+#app .nct-range-controls {grid-area:controls;display:grid;gap:12px;min-width:0}
+#app .nct-ranges :is(.pl-rv-tabs,.pl-rv-filters,.pl-rv-count,.pl-rv-list) {grid-area:auto;min-width:0}
+#app .nct-ranges :is(.pl-rv-input,.pl-rv-spot,.pl-rv-tabs) {background:var(--nct-secondary);border-color:var(--nct-line);color:var(--nct-text)}
+#app .nct-ranges .pl-rv-count {color:var(--nct-muted)}
+#app .nct-matrix-heading {padding-bottom:14px;border-bottom:1px solid var(--nct-line);margin-bottom:14px}
+#app .nct-matrix-footer {border-top:1px solid var(--nct-line);padding-top:12px;margin-top:12px}
+#app .nct-solver-overview {display:flex;align-items:start;justify-content:space-between;gap:15px;margin-bottom:16px}
+#app .nct-solver-intro {min-width:0}
+#app .nct-solver-metric {text-align:right;display:grid;gap:3px;flex:none}
+#app .nct-solver-metric span {font-size:.68rem;color:var(--nct-muted)}
+#app .nct-solver-metric strong {font-size:1.45rem;color:var(--nct-gold);font-variant-numeric:tabular-nums}
+#app .nct-solver-strategy {border-block:1px solid var(--nct-line);padding:12px 0}
+#app .nct-solver-disclosure {padding-top:12px}
+#app .nct-frequency-list .pl-solve-frequency-row {padding-block:6px}
+#app .nct-frequency-list .pl-solve-frequency-fill {background:var(--nct-gold)!important}
+#app .nct-frequency-list [data-strategy-action^="fold"] .pl-solve-frequency-fill {background:var(--nct-fold)!important}
+#app .nct-frequency-list [data-strategy-action^="check"] .pl-solve-frequency-fill {background:var(--nct-check)!important}
+#app .nct-frequency-list [data-strategy-action^="call"] .pl-solve-frequency-fill {background:var(--nct-call)!important}
+#app .nct-frequency-list [data-strategy-action^="bet"] .pl-solve-frequency-fill {background:var(--nct-bet)!important}
+#app .nct-frequency-list [data-strategy-action^="raise"] .pl-solve-frequency-fill {background:var(--nct-raise)!important}
+#app .nct-frequency-list :is([data-strategy-action^="all-in"],[data-strategy-action^="allin"]) .pl-solve-frequency-fill {background:var(--nct-allin)!important}
+@media(max-width:900px) {
+  #app .pl-rv.nct-ranges {grid-template-columns:minmax(0,1fr);grid-template-areas:"controls" "matrix"}
+  #app .nct-range-controls .pl-rv-list {max-height:200px;overflow:auto}
+}
+
+#app .solver-results {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start}
+#app .solver-results .nct-solver-metric {padding:12px;background:var(--nct-surface);border-radius:5px}
+@media(max-width:900px) {
+  .desktop-routes {gap:0}
+  .studio-route {padding:0 8px}
+  .ticket-fields {grid-template-columns:repeat(2,minmax(0,1fr))}
+  #app .pl-rv.nct-ranges {grid-template-columns:minmax(0,1fr);grid-template-areas:"controls" "matrix"}
+}
+@media(max-width:767px) {
+  .masthead {min-height:48px;justify-content:space-between}
+  .desktop-routes {display:none}
+  #app .pocket-routes {position:fixed;z-index:20;inset:auto 0 0;background:var(--nct-secondary);border-top:1px solid var(--nct-line);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:env(safe-area-inset-bottom)}
+  .pocket-routes .studio-route {padding:5px 0;gap:2px;flex-direction:column;font-size:.7rem}
+  .studio {padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+  .lobby-title {align-items:start;flex-direction:column;gap:4px}
+  .practice-paths,.course-desk,.exercise-desk,.history-desk {grid-template-columns:minmax(0,1fr);gap:12px}
+  .practice-paths a {padding:15px 0}
+  .practice-copy {max-width:74%}
+  .table-illustration {left:58%}
+  .ticket-rules {display:grid;gap:8px}
+  .exercise-controls {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .exercise-controls h3,.exercise-controls button,.exercise-controls p {grid-column:1/-1}
+  .course-index [data-lessons-catalog],.hand-index [data-review-history] {max-height:16rem;overflow:auto}
+}
+@media(max-width:420px) {
+  .ticket-fields,.exercise-controls {grid-template-columns:minmax(0,1fr)}
+  .studio-main {padding-inline:12px}
+}
+@media(prefers-reduced-motion:reduce) {
+  #app *,#app *::before,#app *::after {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
+.motion-setting {display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:58px;cursor:pointer}
+.motion-setting small {display:block;margin-top:4px;color:var(--nct-muted)}
+.motion-setting input {width:24px;height:24px;accent-color:var(--nct-gold)}
+.setting-status {color:var(--nct-muted);min-height:1.5em;font-size:.85rem}
+html[data-reduce-motion] #app *,html[data-reduce-motion] #app *::before,html[data-reduce-motion] #app *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}

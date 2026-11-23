@@ -110,25 +110,17 @@ function createTable() {
     }
 
 
-    function getPlayerSlot(index: number, count: number): readonly [number,number] {
-
-        // Presentation-only elliptical seating, not two horizontal nameplate rails.
-        // Six-max: three opponents beyond the far edge, two at the near sides
-        // and the hero anchored centrally. Coordinates are percentages.
-        const layouts: Record<number, Array<readonly [number, number]>> = {
-
-            2: [[50, 88], [50, 12]],
-            3: [[50, 88], [24, 14], [76, 14]],
-            4: [[50, 88], [15, 66], [50, 12], [85, 66]],
-            5: [[50, 88], [15, 66], [29, 12], [71, 12], [85, 66]],
-            6: [[50, 88], [15, 66], [18, 12], [50, 12], [82, 12], [85, 66]]
-
-        };
-
-        const layout = layouts[count] || layouts[6]!;
-
-        return layout[index] || [50, 50];
-
+    // Walk clockwise from the player at the near rail. The two flanks
+    // are reserved for tables with at least four seats.
+    function seatAnchor(index: number, count: number): { rail: "hero" | "far" | "side"; x: number } {
+        if (index === 0) return { rail: "hero", x: 50 };
+        const flanks = count >= 4;
+        if (flanks && index === 1) return { rail: "side", x: 15 };
+        if (flanks && index === count - 1) return { rail: "side", x: 85 };
+        const farCount = count - (flanks ? 3 : 1);
+        const column = index - (flanks ? 2 : 1);
+        const spacing = farCount === 3 ? 32 : 47;
+        return { rail: "far", x: 50 + (column - (farCount - 1) / 2) * spacing };
     }
 
 
@@ -469,12 +461,15 @@ function createTable() {
         const head = document.createElementNS(ns, "circle");
         head.setAttribute("cx", "24");
         head.setAttribute("cy", "17");
-        head.setAttribute("r", "8");
+        head.setAttribute("r", "7");
         head.setAttribute("fill", "currentColor");
         const torso = document.createElementNS(ns, "path");
-        torso.setAttribute("d", "M8 39c.8-9.3 6.5-14 16-14s15.2 4.7 16 14c-9.2 4.2-22.8 4.2-32 0Z");
+        torso.setAttribute("d", "M10 38c2-8 7-12 14-12s12 4 14 12l-14 4Z");
         torso.setAttribute("fill", "currentColor");
-        graphic.append(head, torso);
+        const detail = document.createElementNS(ns, "path");
+        detail.setAttribute("d", "M24 28l4 4-4 5-4-5Z");
+        detail.setAttribute("fill", "var(--nct-secondary, #111B24)");
+        graphic.append(head, torso, detail);
         avatar.appendChild(graphic);
         return avatar;
     }
@@ -501,7 +496,7 @@ function createTable() {
         ];
         visualPlayers.forEach((player, index) => {
 
-            const [x, y] = getPlayerSlot(index, count);
+            const anchor = seatAnchor(index, count);
 
             const isDealer = players.indexOf(player) === dealerIndex;
 
@@ -521,8 +516,10 @@ function createTable() {
 
             const seat = createElement(
                 "div",
-                "pl-seat"
+                "pl-seat nct-seat"
             );
+            seat.setAttribute("role", "group");
+            seat.setAttribute("aria-label", player.name + (isFolded ? " — couché" : isAllIn ? " — all-in" : isActive ? " — à jouer" : ""));
 
             seat.classList.add(
                 `pl-seat-${index + 1}`
@@ -531,10 +528,10 @@ function createTable() {
             if (isHuman) {
                 seat.classList.add("pl-seat-hero");
             }
-            seat.classList.add(y < 50 ? "pl-seat-upper" : "pl-seat-lower");
+            seat.classList.add(anchor.rail === "far" ? "pl-seat-upper" : "pl-seat-lower");
             // A side-seat has its cards toward the near edge of the felt,
             // leaving the board and the central hero cards unobstructed.
-            if (!isHuman && y >= 50 && y < 80) {
+            if (anchor.rail === "side") {
                 seat.classList.add("pl-seat-side");
             }
 
@@ -552,10 +549,7 @@ function createTable() {
 
             seat.dataset.playerId = player.id;
 
-            seat.style.setProperty("--seat-x", `${x}%`);
-            seat.style.setProperty("--seat-y", `${y}%`);
-            seat.style.left = `${x}%`;
-            seat.style.top = `${y}%`;
+            seat.style.setProperty("--seat-x", `${anchor.x}%`);
 
             // Informations du joueur.
 
@@ -570,7 +564,7 @@ function createTable() {
                 player.name
             );
 
-            const isEliminated = Number(player.stack) <= 0;
+            const isEliminated = Number(player.stack) <= 0 && (handComplete || !isAllIn);
             const positionLabel = isEliminated
                 ? "OUT"
                 : (player.position || (isDealer ? "BTN" : ""));
@@ -598,13 +592,10 @@ function createTable() {
                 "pl-player-details"
             );
 
-            playerDetails.append(
-                name,
-                position
-            );
 
             const caption = createElement("div", "pl-player-caption");
-            caption.append(playerDetails, stack);
+            caption.append(name, playerDetails);
+            playerDetails.append(position, stack);
             info.append(renderPlayerAvatar(), caption);
 
             // Cartes.
@@ -915,14 +906,14 @@ function createTable() {
         const isHeadsUp = players.length === 2;
 
         const table = createElement(
-            "div",
-            `pl-table-container ${isHeadsUp ? "pl-table-heads-up" : "pl-table-six-max"}`
+            "section",
+            `nct-table pl-table-container ${isHeadsUp ? "pl-table-heads-up" : "pl-table-six-max"}`
         );
 
-        // En-tête.
+        table.setAttribute("aria-label", "Table de No-Limit Hold'em");
 
         const header = createElement(
-            "div",
+            "header",
             "pl-table-header"
         );
 
@@ -947,13 +938,27 @@ function createTable() {
         );
 
         // Existing settings route, not a new game-mode control.
-        const settings = createElement("a", "pl-table-settings");
+        const tableMenu = createElement("details", "table-menu");
+        const trigger = createElement("summary", "table-menu-trigger");
+        trigger.setAttribute("aria-label", "Options de la table");
+        trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></svg>';
+        const menuItems = createElement("div", "table-menu-items");
+        const settings = createElement("a", "pl-table-settings", "Paramètres");
         settings.href = "#settings";
-        settings.dataset.page = "settings";
-        settings.setAttribute("aria-label", "Paramètres");
-        settings.setAttribute("title", "Paramètres");
-        settings.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></svg>';
-        header.append(handNumber, format, blinds, settings);
+        const review = createElement("a", "", "Historique des mains");
+        review.href = "#review";
+        menuItems.append(settings, review);
+        tableMenu.append(trigger, menuItems);
+        tableMenu.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                tableMenu.open = false;
+                trigger.focus();
+            }
+        });
+        tableMenu.addEventListener("focusout", event => {
+            if (!tableMenu.contains(event.relatedTarget as Node | null)) tableMenu.open = false;
+        });
+        header.append(handNumber, format, blinds, tableMenu);
 
         // Tapis.
 
@@ -963,9 +968,10 @@ function createTable() {
         );
 
         const center = createElement(
-            "div",
-            "pl-table-center"
+            "section",
+            "pl-table-center nct-board-stage"
         );
+        center.setAttribute("aria-label", "Cartes communes et pot");
 
         const pot = createElement(
             "div",
@@ -1028,10 +1034,7 @@ function createTable() {
             }
         }
 
-        center.append(
-            pot,
-            board
-        );
+        center.append(board, pot);
 
         felt.appendChild(center);
 
@@ -1046,6 +1049,14 @@ function createTable() {
         );
 
         // Indicateur de main.
+
+        // Animate hole cards only on the initial render of a new hand.
+        if (!sameHand || !container.firstElementChild) {
+            seats.querySelectorAll<HTMLElement>(".pl-player-cards > *").forEach((card, index) => {
+                card.classList.add("nct-hole-deal");
+                card.style.animationDelay = `${Math.floor(index / 2) * 55 + (index % 2) * 75}ms`;
+            });
+        }
 
         const handStrength = renderHandStrength(
             hero,
@@ -1081,6 +1092,7 @@ function createTable() {
             if (index === activePhase) marker.classList.add("is-current");
             if (index < activePhase) marker.classList.add("is-complete");
             if (gameState.handComplete && index === activePhase) marker.classList.add("is-complete");
+            if (index === activePhase) marker.setAttribute("aria-current", "step");
             timeline.appendChild(marker);
         });
         const activePlayer = players.find(player => player.id === gameState.currentPlayerId);
@@ -1091,7 +1103,8 @@ function createTable() {
                 ? (activePlayer.isHuman ? "À vous de jouer" : "Au tour de " + activePlayer.name)
                 : "En attente du prochain tour"
         );
-        flow.append(timeline, status);
+        flow.append(timeline);
+        header.insertBefore(status, tableMenu);
 
         table.append(header, felt, seats, flow);
 

@@ -5,22 +5,22 @@
    ========================================================= */
 
 /* Couleurs */
-.bg-background { background-color: #121212; }
-.bg-surface { background-color: #1E1E1E; }
-.bg-surfaceLight { background-color: #292929; }
-.bg-primary { background-color: #B71C35; }
+.bg-background { background-color: var(--nct-bg); }
+.bg-surface { background-color: var(--nct-secondary); }
+.bg-surfaceLight { background-color: var(--nct-surface); }
+.bg-primary { background-color: var(--nct-gold); }
 .bg-red-700 { background-color: #B91C1C; }
 .bg-yellow-600 { background-color: #CA8A04; }
 
-.text-textMain { color: #F5F5F5; }
-.text-textMuted { color: #A0A0A0; }
-.text-primary { color: #B71C35; }
-.text-primaryHover { color: #D32F4A; }
+.text-textMain { color: var(--nct-text); }
+.text-textMuted { color: var(--nct-muted); }
+.text-primary { color: var(--nct-gold); }
+.text-primaryHover { color: var(--nct-accent); }
 .text-white { color: #FFFFFF; }
-.text-red-400 { color: #F87171; }
-.text-yellow-400 { color: #FACC15; }
+.text-red-400 { color: var(--nct-error); }
+.text-yellow-400 { color: var(--nct-gold); }
 
-.border-primary { border-color: #B71C35; }
+.border-primary { border-color: var(--nct-gold); }
 
 /* Affichage */
 .block { display: block; }
@@ -167,14 +167,14 @@
 
 /* Interactions */
 .hover\:text-white:hover { color: #FFFFFF; }
-.hover\:text-primaryHover:hover { color: #D32F4A; }
+.hover\:text-primaryHover:hover { color: var(--nct-accent); }
 .hover\:bg-white\/5:hover { background-color: rgba(255,255,255,.05); }
 .hover\:bg-white\/10:hover { background-color: rgba(255,255,255,.1); }
-.hover\:bg-primaryHover:hover { background-color: #D32F4A; }
+.hover\:bg-primaryHover:hover { background-color: var(--nct-accent); }
 .hover\:bg-red-600:hover { background-color: #DC2626; }
 .hover\:bg-yellow-500:hover { background-color: #EAB308; }
 .hover\:border-white\/40:hover { border-color: rgba(255,255,255,.4); }
-.hover\:border-primary:hover { border-color: #B71C35; }
+.hover\:border-primary:hover { border-color: var(--nct-gold); }
 .hover\:-translate-y-0\.5:hover { transform: translateY(-2px); }
 .hover\:shadow-xl:hover { box-shadow: 0 20px 25px -5px rgba(0,0,0,.3); }
 

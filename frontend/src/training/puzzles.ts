@@ -679,7 +679,10 @@ function createPuzzles() {
         title.className = "pl-puzzle-title";
         title.textContent = puzzle.title;
 
-        container.appendChild(title);
+        const introduction = document.createElement("header");
+        introduction.className = "nct-puzzle-introduction";
+        introduction.appendChild(title);
+        container.appendChild(introduction);
 
         if (puzzle.description) {
 
@@ -688,7 +691,7 @@ function createPuzzles() {
             description.className = "pl-puzzle-description";
             description.textContent = puzzle.description;
 
-            container.appendChild(description);
+            introduction.appendChild(description);
 
         }
 
@@ -735,7 +738,11 @@ function createPuzzles() {
         question.className = "pl-puzzle-question";
         question.textContent = puzzle.question;
 
-        container.appendChild(question);
+        const decision = document.createElement("section");
+        decision.className = "nct-puzzle-decision";
+        decision.setAttribute("aria-label", "Choisir une réponse");
+        decision.appendChild(question);
+        container.appendChild(decision);
 
         if (Array.isArray(puzzle.options)) {
 
@@ -743,7 +750,7 @@ function createPuzzles() {
 
             optionsContainer.className = "pl-puzzle-options";
 
-            puzzle.options.forEach(option => {
+            puzzle.options.forEach((option) => {
 
                 const button = document.createElement("button");
 
@@ -776,7 +783,7 @@ function createPuzzles() {
 
             });
 
-            container.appendChild(optionsContainer);
+            decision.appendChild(optionsContainer);
 
         }
 
@@ -797,7 +804,8 @@ function createPuzzles() {
             existing.remove();
         }
 
-        const resultContainer = document.createElement("div");
+        const resultContainer = document.createElement("section");
+        resultContainer.setAttribute("role", "status");
 
         resultContainer.className = [
             "pl-puzzle-result",
@@ -852,7 +860,12 @@ function createPuzzles() {
         });
         resultContainer.appendChild(nextButton);
 
-        container.appendChild(resultContainer);
+        const introduction = container.querySelector(".nct-puzzle-introduction");
+        if (introduction) introduction.after(resultContainer);
+        else container.prepend(resultContainer);
+        resultContainer.tabIndex = -1;
+        resultContainer.focus({preventScroll:true});
+        resultContainer.scrollIntoView({block:"nearest"});
 
     }
 

@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="PokerLab">
-  <defs><linearGradient id="copper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E7BD82"/><stop offset="1" stop-color="#A57A4D"/></linearGradient></defs>
-  <rect width="64" height="64" rx="15" fill="#211E25"/>
-  <rect x="1.5" y="1.5" width="61" height="61" rx="13.5" stroke="#CBA46B" stroke-opacity=".48" fill="none"/>
-  <path d="M32 11.5C25 20.3 15 28.8 15 38c0 8 9.1 12.6 17 6.1 7.9 6.5 17 1.9 17-6.1 0-9.2-10-17.7-17-26.5Z" fill="url(#copper)"/>
-  <path d="m28 45-3 9h14l-3-9" fill="url(#copper)"/>
-  <path d="M32 19.5c-5.1 6.7-10.5 12.1-10.5 17.2 0 3.3 4.3 5.3 10.5.5 6.2 4.8 10.5 2.8 10.5-.5 0-5.1-5.4-10.5-10.5-17.2Z" fill="#211E25"/>
+  <rect width="64" height="64" rx="12" fill="#111B24"/>
+  <path d="M32 8 49 25a13 13 0 0 1-17 19 13 13 0 0 1-17-19Z" fill="#D7B56D"/>
+  <path d="M32 39 24 53h16Z" fill="#D7B56D"/>
+  <path d="m32 20 9 10-9 10-9-10Z" fill="#0B1016"/>
+  <circle cx="32" cy="30" r="2" fill="#F1CF88"/>
 </svg>

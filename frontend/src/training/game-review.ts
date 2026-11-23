@@ -686,7 +686,7 @@ function createReview() {
         }
 
         const header = createElement(
-            "div",
+            "header",
             "pl-review-header"
         );
 
@@ -750,7 +750,7 @@ function createReview() {
 
         });
 
-        container.appendChild(playersSection);
+
 
         // Cartes communes.
 
@@ -763,17 +763,16 @@ function createReview() {
             createElement("h3", "", "Cartes communes")
         );
 
-        boardSection.appendChild(
-            createElement(
-                "p",
-                "",
-                hand.board.length
-                    ? hand.board.map(card => {
-                        return `${card.value}${card.suit}`;
-                    }).join(" ")
-                    : "Aucune carte commune"
-            )
-        );
+        const cardRenderer = (window as Window & {PokerLabCards?: {create: (card: unknown, options?: {compact?: boolean}) => HTMLElement}}).PokerLabCards;
+        const community = createElement("div", "nct-review-community");
+        if (hand.board.length && cardRenderer) {
+            hand.board.forEach(card => community.appendChild(cardRenderer.create(card, {compact:true})));
+        } else {
+            community.appendChild(createElement("p", "", hand.board.length
+                ? hand.board.map(card => `${card.value}${card.suit}`).join(" ")
+                : "Aucune carte commune"));
+        }
+        boardSection.appendChild(community);
 
         container.appendChild(boardSection);
 
@@ -816,14 +815,21 @@ function createReview() {
                 );
             }
 
-            actionElement.textContent =
-                description.join(" — ");
+            const ordinal = createElement("span", "nct-review-ordinal", description[0]);
+            ordinal.setAttribute("aria-hidden", "true");
+            const street = createElement("span", "nct-review-street", description[1]);
+            const actor = createElement("strong", "nct-review-actor", description[2]);
+            const decision = createElement("span", "nct-review-action", description.slice(3).join(" — "));
+            actionElement.append(ordinal, street, actor, decision);
 
             actionsSection.appendChild(actionElement);
 
         });
 
         container.appendChild(actionsSection);
+        const roster = createElement("details", "record-players");
+        roster.append(createElement("summary", "", "Joueurs et stacks"), playersSection);
+        container.appendChild(roster);
 
         // Résultat.
 
@@ -955,9 +961,9 @@ function createReview() {
 
             });
 
-            item.appendChild(title);
-            item.appendChild(date);
-            item.appendChild(openButton);
+            const identity = createElement("div", "nct-history-identity");
+            identity.append(title, date);
+            item.append(identity, openButton);
 
             list.appendChild(item);
 

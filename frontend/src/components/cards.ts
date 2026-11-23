@@ -144,7 +144,7 @@ const PokerLabCards = (() => {
 
         const element = document.createElement("div");
 
-        element.classList.add("pl-card");
+        element.classList.add("pl-card", "nct-playing-card");
 
         if (compact) {
             element.classList.add("pl-card--compact");
@@ -170,10 +170,13 @@ const PokerLabCards = (() => {
             );
 
             const pattern = document.createElement("span");
-
             pattern.className = "pl-card__back-symbol";
-            pattern.textContent = "♠";
-
+            pattern.setAttribute("aria-hidden", "true");
+            const mark = document.createElement("span");
+            mark.textContent = "♠";
+            const edition = document.createElement("small");
+            edition.textContent = "PL";
+            pattern.append(mark, edition);
             element.appendChild(pattern);
 
             return element;
@@ -207,51 +210,25 @@ const PokerLabCards = (() => {
             getCardLabel(card)
         );
 
-        // Coin supérieur gauche.
-
-        const topCorner = document.createElement("div");
-
-        topCorner.className = "pl-card__corner pl-card__corner--top";
-
-        const topRank = document.createElement("span");
-        topRank.className = "pl-card__rank";
-        topRank.textContent = rank;
-
-        const topSuit = document.createElement("span");
-        topSuit.className = "pl-card__suit";
-        topSuit.textContent = suit.symbol;
-
-        topCorner.append(topRank, topSuit);
-
-        // Symbole central.
-
-        const center = document.createElement("div");
-
-        center.className = "pl-card__center";
-        center.textContent = suit.symbol;
-
-        // Coin inférieur droit.
-
-        const bottomCorner = document.createElement("div");
-
-        bottomCorner.className =
-            "pl-card__corner pl-card__corner--bottom";
-
-        const bottomRank = document.createElement("span");
-        bottomRank.className = "pl-card__rank";
-        bottomRank.textContent = rank;
-
-        const bottomSuit = document.createElement("span");
-        bottomSuit.className = "pl-card__suit";
-        bottomSuit.textContent = suit.symbol;
-
-        bottomCorner.append(bottomRank, bottomSuit);
-
-        element.append(
-            topCorner,
-            center,
-            bottomCorner
-        );
+        // Nocturne card face: prominent rank and suit, with a mirrored
+        // corner for recognition at both table and review sizes.
+        const corner = document.createElement("div");
+        corner.className = "pl-card__corner pl-card__corner--top";
+        const rankMark = document.createElement("span");
+        rankMark.className = "pl-card__rank";
+        rankMark.textContent = rank;
+        const suitMark = document.createElement("span");
+        suitMark.className = "pl-card__suit";
+        suitMark.textContent = suit.symbol;
+        corner.append(rankMark, suitMark);
+        const centerpiece = document.createElement("span");
+        centerpiece.className = "pl-card__center";
+        centerpiece.textContent = suit.symbol;
+        centerpiece.setAttribute("aria-hidden", "true");
+        const mirror = corner.cloneNode(true) as HTMLDivElement;
+        mirror.className = "pl-card__corner pl-card__corner--bottom";
+        mirror.setAttribute("aria-hidden", "true");
+        element.append(corner, centerpiece, mirror);
 
         return element;
 

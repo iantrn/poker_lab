@@ -821,6 +821,8 @@ function renderGame(state: GameState | null = null): void {
         );
 
         button.type = "button";
+        const caption = createElement("span", "nct-action-label", label);
+        button.replaceChildren(caption);
         button.addEventListener("click", action);
 
         return button;
@@ -871,6 +873,8 @@ function renderGame(state: GameState | null = null): void {
 
         // Les quatre actions sont regroupées sur une seule ligne.
         const buttonsContainer = createElement("div", "pl-action-buttons");
+        buttonsContainer.setAttribute("role", "group");
+        buttonsContainer.setAttribute("aria-label", "Actions possibles");
 
         if (actionOptions.canFold) {
             buttonsContainer.appendChild(
@@ -885,7 +889,7 @@ function renderGame(state: GameState | null = null): void {
         if (actionOptions.canCall) {
             buttonsContainer.appendChild(
                 createActionButton(
-                    `Suivre (${formatChips(actionOptions.callAmount)})`,
+                    `Suivre (${formatChips(actionOptions.callAmount)} BB)`,
                     () => executePlayerAction("call"),
                     { className: "pl-action-btn pl-action-btn-call" }
                 )
@@ -936,7 +940,8 @@ function renderGame(state: GameState | null = null): void {
 
     function renderBetControls(options: GameActionOptions, state: GameState): {element:HTMLElement;submit():void} {
 
-        const betContainer = createElement("div", "pl-action-bet-controls");
+        const betContainer = createElement("section", "pl-action-bet-controls");
+        betContainer.setAttribute("aria-label", "Taille de mise");
         const actionType = options.canBet ? "bet" : "raise";
         const minimum = options.canBet ? options.minimumBet : options.minimumRaiseTo;
         const maximum = options.canBet ? options.maximumBet : options.maximumRaiseTo;
@@ -961,16 +966,20 @@ function renderGame(state: GameState | null = null): void {
         slider.value = amountInput.value;
         slider.setAttribute("aria-label", "Ajuster le montant de la mise ou de la relance");
 
+        const committed = state.players.find(player => player.id === state.currentPlayerId)?.streetBet ?? 0;
+        const describeSize = (total: number): string => actionType === "raise"
+            ? `${formatChips(total)} BB · +${formatChips(total - committed)} BB`
+            : `${formatChips(total)} BB`;
         const amountValue = createElement(
             "strong",
             "pl-bet-current-value",
-            `${formatChips(Number(amountInput.value))} BB`
+            describeSize(Number(amountInput.value))
         );
 
         const label = createElement(
             "span",
             "pl-bet-label",
-            actionType === "bet" ? "Montant de la mise" : "Montant de la relance"
+            actionType === "bet" ? "Montant de la mise" : "Relancer à (total)"
         );
 
         const normalizeAmount = (value: unknown): number | null => {
@@ -995,7 +1004,7 @@ function renderGame(state: GameState | null = null): void {
 
             amountInput.value = String(normalized);
             slider.value = String(normalized);
-            amountValue.textContent = `${formatChips(normalized)} BB`;
+            amountValue.textContent = describeSize(normalized);
             presets.querySelectorAll<HTMLButtonElement>("button").forEach(button => {
                 button.setAttribute("aria-pressed", String(button === selectedPreset));
             });

@@ -1,22 +1,40 @@
+import { useEffect, useState } from "react";
 import { PagePanel } from "./PagePrimitives";
-import { PokerLabIcon } from "./PokerLabIcon";
 
-/** Honest empty state, not a decorative fake settings form. */
-export function SettingsPage(){
-  return <PagePanel title="Paramètres" eyebrow="05 / ENVIRONNEMENT"
-    description="Préférences et configuration de l'application.">
-    <div className="pl-settings-layout">
-      <aside className="pl-settings-information">
-        <span className="pl-layout-overline">POKERLAB</span>
-        <h3>Un environnement pensé pour progresser.</h3>
-        <p>L'entraînement, l'apprentissage, les exercices et l'historique des mains restent disponibles dans les autres sections.</p>
-        <PokerLabIcon name="settings" size={34}/>
-      </aside>
-      <div id="settings-content" className="pl-settings-content">
-        <span className="pl-layout-overline">PRÉFÉRENCES</span>
-        <h3>Personnalisation</h3>
-        <p className="pl-help-text">Les options de personnalisation seront développées ici.</p>
-      </div>
-    </div>
+const motionPreference = "pokerlab.display.reduce-motion";
+
+export function SettingsPage() {
+  const [reduceMotion, setReduceMotion] = useState(() => {
+    try { return localStorage.getItem(motionPreference) === "true"; }
+    catch { return false; }
+  });
+  const [saveMessage, setSaveMessage] = useState("");
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-reduce-motion", reduceMotion);
+  }, [reduceMotion]);
+
+  function updateMotion(value: boolean) {
+    setReduceMotion(value);
+    try {
+      localStorage.setItem(motionPreference, String(value));
+      setSaveMessage("Préférence enregistrée.");
+    } catch {
+      setSaveMessage("Préférence appliquée pour cette visite. Le stockage local est indisponible.");
+    }
+  }
+
+  return <PagePanel title="Paramètres" description="Consulte les informations de ton environnement de jeu.">
+    <section id="settings-content" className="environment">
+      <h3>Affichage</h3>
+      <label className="motion-setting"><span>Réduire les animations<small>Afficher immédiatement les cartes distribuées et les résultats.</small></span>
+        <input type="checkbox" checked={reduceMotion} onChange={event => updateMotion(event.currentTarget.checked)} />
+      </label>
+      <p role="status" className="setting-status">{saveMessage}</p>
+      <h3>Application</h3>
+      <dl><div><dt>Interface</dt><dd>PokerLab · Nocturne</dd></div>
+        <div><dt>Format de jeu</dt><dd>No-Limit Hold’em</dd></div>
+        <div><dt>Historique des mains</dt><dd>Enregistré sur cet appareil</dd></div></dl>
+      <a className="nct-button" href="#training" data-page="training">Configurer une session</a>
+    </section>
   </PagePanel>;
 }
