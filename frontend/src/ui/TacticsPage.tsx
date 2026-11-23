@@ -3,7 +3,7 @@ import { PokerLabIcon } from "./PokerLabIcon";
 export function TacticsPage(){
   return <PagePanel title="Tactiques"
     description="Entraîne tes décisions préflop, postflop et ton raisonnement mathématique.">
-    <div className="exercise-desk"><aside className="exercise-controls"><h3>Choisir un exercice</h3>
+    <div className="exercise-desk"><aside className="exercise-controls"><details className="exercise-filters" open><summary>Filtres des exercices</summary><div className="exercise-fields">
       <label>Catégorie
         <select data-puzzle-category className="pl-field-control" aria-label="Filtrer les tactiques par catégorie">
           <option value="">Toutes les catégories</option>
@@ -16,7 +16,11 @@ export function TacticsPage(){
           {["Débutant","Intermédiaire","Avancé"].map(value=><option value={value} key={value}>{value}</option>)}
         </select>
       </label>
-      <button type="button" data-puzzle-action="start" className="nct-button nct-button--gold"><PokerLabIcon name="play" size={18}/> Commencer un exercice</button>
+      </div></details>
+      <button type="button" onClick={event => {
+        if (window.matchMedia("(max-width:767px)").matches)
+          event.currentTarget.parentElement?.querySelector("details")?.removeAttribute("open");
+      }} data-puzzle-action="start" className="nct-button nct-button--gold"><PokerLabIcon name="play" size={18}/> Commencer un exercice</button>
       <p data-puzzle-stats className="pl-session-stats" aria-live="polite" />
     </aside>
     <section className="exercise-sheet" aria-label="Exercice interactif">

@@ -44,6 +44,7 @@ async function capture(page, name) {
   for (const [width,height] of sizes) {
     await page.setViewportSize({width,height});
     await page.evaluate(() => window.scrollTo(0,0));
+    if (name==="exercice-AQs") await page.locator(".pl-puzzle-result").scrollIntoViewIfNeeded();
     const key = name+"-"+width+"x"+height;
     await page.screenshot({path:path.join(out,versions[active]+"-"+key+".png"),animations:"disabled"});
     if (!screens.includes(key)) screens.push(key);

@@ -860,7 +860,12 @@ function createPuzzles() {
         });
         resultContainer.appendChild(nextButton);
 
-        container.appendChild(resultContainer);
+        const introduction = container.querySelector(".nct-puzzle-introduction");
+        if (introduction) introduction.after(resultContainer);
+        else container.prepend(resultContainer);
+        resultContainer.tabIndex = -1;
+        resultContainer.focus({preventScroll:true});
+        resultContainer.scrollIntoView({block:"nearest"});
 
     }
 

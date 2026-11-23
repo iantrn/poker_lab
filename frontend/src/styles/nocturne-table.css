@@ -169,3 +169,24 @@
 #app .table-menu-items {position:absolute;right:0;top:100%;width:max-content;max-width:80vw;padding:5px;background:var(--nct-secondary);border:1px solid var(--nct-line);border-radius:7px}
 #app .table-menu-items a {display:flex;width:100%;min-height:44px;height:auto;align-items:center;padding:8px 12px;font:500 .9rem system-ui;letter-spacing:0}
 #app .table-menu-items a:hover {background:var(--nct-surface)}
+
+#app #training-game .pl-live-table-stage,#app #training-game #training-table .pl-table-container {border:0;background:transparent!important}
+#app #training-game #training-table .pl-table-container > .pl-felt {border-radius:999px;background:radial-gradient(ellipse at 50% 35%,#17685c,#0b5149 78%)!important;border:5px solid #213833!important;box-shadow:0 0 0 1px #816f4c,inset 0 0 0 1px #82ae9770!important}
+#app .pl-felt::before {content:"";position:absolute;inset:9%;border:1px solid #c5d9cb35;border-radius:inherit;pointer-events:none}
+#app #training-game #training-table .pl-pot-display {background:transparent!important;border:0;flex-direction:column;gap:1px}
+#app .pl-pot-label {font-size:.62rem;letter-spacing:.12em}
+#app .pl-pot-amount {font-size:1.15rem;line-height:1}
+#app .pl-table-header {border-block:1px solid var(--nct-line)}
+@media(min-width:768px){
+  #app .pl-table-center {flex-direction:row;gap:14px}
+  #app .pl-pot-display {order:-1;padding:0 14px 0 0}
+  #app .pl-hand-strength {left:18px;transform:none;width:auto;max-width:55%;padding:0;border:0;background:transparent!important;gap:9px}
+  #app .pl-table-solver-dock {left:auto;right:16px;top:44px}
+  #app .pl-table-flow {bottom:0;justify-content:flex-start}
+}
+@media(max-width:767px){
+  #app .pl-hand-strength {left:3px;right:78px;transform:none;width:auto;gap:5px;white-space:normal}
+  #app .pl-hand-strength-label {flex:none}
+  #app .pl-hand-strength-value {min-width:0;line-height:1.15}
+  #app .pl-table-solver-dock {left:auto;right:3px}
+}

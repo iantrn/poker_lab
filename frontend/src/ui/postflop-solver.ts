@@ -408,7 +408,7 @@ export function installPostflopSolverUI(): void {
         dialog.setAttribute("aria-labelledby", "pl-solve-dialog-title");
 
         const header = element("header", "pl-solve-dialog-header");
-        const title = element("h3", "pl-solve-dialog-title", "Analyse SOLVE");
+        const title = element("h3", "pl-solve-dialog-title", "Analyse de la décision");
         title.id = "pl-solve-dialog-title";
 
         const closeButton = element("button", "pl-solve-dialog-close", "Fermer");

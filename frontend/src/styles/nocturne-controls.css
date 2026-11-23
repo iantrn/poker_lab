@@ -166,3 +166,24 @@ button,a,input,select{ -webkit-tap-highlight-color:transparent }
 #app .exercise-sheet .pl-puzzle-options {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(12rem,100%),1fr));gap:8px}
 #app .exercise-sheet .pl-puzzle-option {display:block;text-align:left;padding:14px 16px}
 .record-players summary {cursor:pointer;padding:12px 0;color:var(--nct-accent)}
+
+#app .exercise-filters {grid-column:1/-1}
+#app .exercise-filters summary {font-weight:650;min-height:44px;cursor:pointer;padding:10px 0}
+#app .exercise-fields {display:grid;gap:16px}
+#app .exercise-sheet .pl-puzzle-result {border-left:3px solid var(--nct-gold);padding:12px 16px;background:var(--nct-bg);margin-block:12px}
+#app .exercise-sheet .pl-puzzle-result.is-correct {border-color:var(--nct-success)}
+#app .pl-solve-dialog {inset:0 0 0 auto;margin:0;width:min(490px,95vw);height:100dvh;max-height:100dvh;border-radius:0;border-width:0 0 0 1px;padding:24px}
+#app .pl-solve-dialog::backdrop {background:rgba(5,14,19,.44)}
+#app .pl-solve-dialog-title {font-size:1.65rem;letter-spacing:-.04em}
+#app .solver-results {display:flex;flex-direction:column-reverse;align-items:stretch}
+#app .solver-results .nct-solver-metric {display:flex;align-items:baseline;justify-content:space-between;text-align:left;padding:12px 0;border-bottom:1px solid var(--nct-line);background:transparent}
+#app .solver-results .nct-solver-metric strong {font-size:2.2rem}
+#app .nct-frequency-list .pl-solve-frequency-row {grid-template-columns:minmax(5ch,.75fr) minmax(36px,2fr) minmax(5ch,auto);align-items:center;gap:10px}
+#app .nct-frequency-list .pl-solve-frequency-track {grid-column:2;grid-row:1}
+#app .nct-frequency-list .pl-solve-frequency-value {grid-column:3;grid-row:1;text-align:right}
+@media(max-width:767px){
+  #app .exercise-controls {display:flex;flex-direction:column;gap:6px}
+  #app .exercise-fields {grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:10px}
+  #app .exercise-fields select {width:100%;min-width:0}
+  #app .pl-solve-dialog {inset:auto 0 0;width:100%;height:auto;max-height:86dvh;border-width:1px 0 0;border-radius:16px 16px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom))}
+}
